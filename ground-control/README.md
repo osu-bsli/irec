@@ -8,4 +8,4 @@ Please do not push directly to this repo. Fork it, push your changes there, and 
 
 Ideally PRs should be reviewed by at least one other person before merging.
 
-If you are working on a new feature, please work on a separate branch for it (create one if none exists). Once the feature is complete, it can be merged into the `dev` branch.
+If you are working on a new feature, please work on the `dev` branch. Once the `dev` branch is stable, we can merge it into `main` as a release.
