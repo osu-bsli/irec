@@ -18,13 +18,15 @@ with serial.Serial(
     # timeout=3,
     # write_timeout=3,
 ) as port:
-    # x = port.write(bytes("Hello, world!\n", "utf-8"))
-    header = 1
-    data = 42.0
-    checksum = header + data
-
-    # payload = struct.pack('>hff', header, data, checksum)
-    payload = struct.pack('>hf', header, data)
-    port.write(bytes(payload))
+    payload = packet.create_packet(
+        packet.PACKET_TYPE_ALTITUDE + packet.PACKET_TYPE_COORDINATES,
+        (
+            1.1,
+            2.2,
+            3.3,
+        ),
+        0
+    )
+    port.write(payload)
 print('Sent')
 

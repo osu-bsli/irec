@@ -41,8 +41,42 @@ def create_packet(types: int, data: tuple, checksum: int) -> bytes:
     
     return header + body + footer
 
+def parse_packet(packet: bytes) -> tuple[int, dict[int], int]:
+    result: dict[int] = {}
 
+    header_bytes = packet[:2]
+    packet = packet[2:]
+    (header,) = struct.unpack('>h', header_bytes)
+
+    type_flags: list[int] = get_packet_types(header)
+    for type_flag in type_flags:
+
+        if type_flag == PACKET_TYPE_ALTITUDE:
+            result[PACKET_TYPE_ALTITUDE] = struct.unpack('>f', packet[:4])
+            packet = packet[4:]
+        
+        elif type_flag == PACKET_TYPE_COORDINATES:
+            result[PACKET_TYPE_COORDINATES] = struct.unpack('>ff', packet[:8])
+            packet = packet[8:]
+        
+        elif type_flag == PACKET_TYPE_C:
+            result[PACKET_TYPE_C] = struct.unpack('>i', packet[:4])
+            packet = packet[4:]
+        
+        elif type_flag == PACKET_TYPE_D:
+            result[PACKET_TYPE_D] = struct.unpack('>?', packet[:4])
+            packet = packet[4:]
+    
+    # There should only be 2 bytes left.
+    checksum = 0
+    (checksum,) = struct.unpack('>h', packet)
+
+    return (header, result, checksum)
 
 packet = create_packet(PACKET_TYPE_ALTITUDE + PACKET_TYPE_COORDINATES, (42.0, 42.0, 42.0), 0)
 print(packet.hex(sep=' '))
 print(f'{packet[:2]} {packet[2:6]} {packet[6:14]} {packet[14:]}')
+(header, result, checksum) = parse_packet(packet)
+print(header)
+print(result)
+print(checksum)

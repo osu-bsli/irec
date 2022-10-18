@@ -23,10 +23,10 @@ with serial.Serial(
 
     while not port.closed:
 
-        packet: dict[str] = {
-            'header': 0,
-            'data': 0,
-        }
+        # packet: dict[str] = {
+        #     'header': 0,
+        #     'data': 0,
+        # }
 
         packet_number += 1
         print(f'Packet {packet_number}:')
@@ -41,22 +41,29 @@ with serial.Serial(
 
         while port.in_waiting <= 0:
             pass
+        bytes = port.read_all()
+        print(len(bytes))
+        (header, data, checksum) = packet.parse_packet(bytes)
+        print(data)
 
-        header_bytes = port.read(2)
-        header = 0
-        (header,) = struct.unpack('>h', header_bytes)
-        packet['header'] = header
+        # while port.in_waiting <= 0:
+        #     pass
 
-        if packet['header'] == 1:
-            data_bytes = port.read(4)
-            data = 0.0
-            (data,) = struct.unpack('>f', data_bytes)
-            packet['data'] = data
-        else:
-            print(f'Invalid header {packet["header"]}')
+        # header_bytes = port.read(2)
+        # header = 0
+        # (header,) = struct.unpack('>h', header_bytes)
+        # packet['header'] = header
 
-        print(f'\theader: {packet["header"]}')
-        print(f'\tdata: {packet["data"]}')
+        # if packet['header'] == 1:
+        #     data_bytes = port.read(4)
+        #     data = 0.0
+        #     (data,) = struct.unpack('>f', data_bytes)
+        #     packet['data'] = data
+        # else:
+        #     print(f'Invalid header {packet["header"]}')
+
+        # print(f'\theader: {packet["header"]}')
+        # print(f'\tdata: {packet["data"]}')
 
 
 print('Received')
