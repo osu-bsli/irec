@@ -64,8 +64,8 @@ def parse_packet(packet: bytes) -> tuple[int, dict[int], int]:
             packet = packet[4:]
         
         elif type_flag == PACKET_TYPE_D:
-            result[PACKET_TYPE_D] = struct.unpack('>?', packet[:4])
-            packet = packet[4:]
+            result[PACKET_TYPE_D] = struct.unpack('>?', packet[:1])
+            packet = packet[1:]
     
     # There should only be 2 bytes left.
     checksum = 0
