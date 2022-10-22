@@ -10,15 +10,17 @@ class SerialDataController:
         self.port_parity = serial.PARITY_NONE
         self.port_bytesize = serial.EIGHTBITS
 
+    # Returns a dictionary with different config options.
     def get_config(self) -> dict[str]:
         return {
-            'port_name': self.port_name,
-            'port_baud_rate': self.port_baud_rate,
-            'port_stopbits': self.port_stopbits,
-            'port_parity': self.port_parity,
-            'port_bytesize': self.port_bytesize,
+            'port_name': self.port_name,                # string like 'COM1', 'tty0', etc.
+            'port_baud_rate': self.port_baud_rate,      # int, like 9600 (in ui, use standard values, may alow custom)
+            'port_stopbits': self.port_stopbits,        # int/float, one of [1, 1.5, 2]
+            'port_parity': self.port_parity,            # string, one of ['N', 'E', 'O', 'M', 'S']
+            'port_bytesize': self.port_bytesize,        # int, one of [5, 6, 7, 8]
         }
     
+    # Sets config options from the dictionary passed in.
     def set_config(self, config: dict[str]):
         if 'port_name' in config:
             if config['port_name'] is str:
@@ -39,3 +41,8 @@ class SerialDataController:
         if 'port_bytesize' in config:
             if config['port_bytesize'] in [serial.FIVEBITS, serial.SIXBITS, serial.SEVENBITS, serial.EIGHTBITS]:
                 self.port_bytesize = config['port_bytesize']
+    
+    def update():
+        
+        
+        pass

@@ -2,6 +2,7 @@ import serial
 import serial.tools.list_ports
 import struct
 import packet_util
+import crc
 
 def list_serial_ports():
     for device in serial.tools.list_ports.comports():
@@ -23,8 +24,7 @@ with serial.Serial(
         packet_util.PACKET_TYPE_ALTITUDE,
         (
             42.0,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -32,24 +32,21 @@ with serial.Serial(
         (
             -10.0,
             10.0,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
         packet_util.PACKET_TYPE_C,
         (
             32,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
         packet_util.PACKET_TYPE_D,
         (
             True,
-        ),
-        0
+        )
     ))
 
     port.write(packet_util.create_packet(
@@ -58,8 +55,7 @@ with serial.Serial(
             1.1,
             2.2,
             3.3,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -67,8 +63,7 @@ with serial.Serial(
         (
             1.1,
             100,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -76,8 +71,7 @@ with serial.Serial(
         (
             1.1,
             False,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -86,8 +80,7 @@ with serial.Serial(
             1.1,
             2.2,
             100,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -96,8 +89,7 @@ with serial.Serial(
             1.1,
             2.2,
             False,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -105,8 +97,7 @@ with serial.Serial(
         (
             365,
             True,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -116,8 +107,7 @@ with serial.Serial(
             2.2,
             3.3,
             100,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -127,8 +117,7 @@ with serial.Serial(
             2.2,
             3.3,
             False,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -137,8 +126,7 @@ with serial.Serial(
             1.1,
             100,
             False,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -148,8 +136,7 @@ with serial.Serial(
             2.2,
             100,
             True,
-        ),
-        0
+        )
     ))
     
     port.write(packet_util.create_packet(
@@ -160,13 +147,8 @@ with serial.Serial(
             3.3,
             400,
             False,
-        ),
-        0
+        )
     ))
-
-    
-    
-
 
 print('Sent')
 

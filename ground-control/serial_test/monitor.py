@@ -2,6 +2,7 @@ import serial
 import serial.tools.list_ports
 import struct
 import packet_util
+import crc
 
 def is_front(item, list: list) -> bool:
     if len(list) > 0 and list[0] == item:
@@ -13,6 +14,8 @@ def list_serial_ports():
         print(f'{device.name}\t{device.description}')
 
 list_serial_ports()
+
+crc_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
 
 with serial.Serial(
     port='COM2',
@@ -30,6 +33,7 @@ with serial.Serial(
     packet: dict[int] = {}
     packet_types: list[int] = [] # Queue of packet types for parsing each type's data sequentially.
     is_in_packet = False
+    checksum_target = bytearray()
 
     while not port.closed:
 
@@ -80,6 +84,9 @@ with serial.Serial(
             packet['type']: int = struct.unpack('>h', header_bytes)[0]
 
             packet_types = list(packet_util.get_packet_types(packet['type']))
+
+            checksum_target.clear()
+            checksum_target += bytearray(header_bytes)
             
         elif is_front(packet_util.PACKET_TYPE_ALTITUDE, packet_types) and len(stream) > 4:
             packet_types.pop(0)
@@ -87,29 +94,42 @@ with serial.Serial(
             stream = stream[4:]
             packet[packet_util.PACKET_TYPE_ALTITUDE] = struct.unpack('>f', data_bytes)
 
+            checksum_target += bytearray(data_bytes)
+
         elif is_front(packet_util.PACKET_TYPE_COORDINATES, packet_types) and len(stream) > 8:
             packet_types.pop(0)
             data_bytes = stream[:8]
             stream = stream[8:]
             packet[packet_util.PACKET_TYPE_COORDINATES] = struct.unpack('>ff', data_bytes)
+
+            checksum_target += bytearray(data_bytes)
         
         elif is_front(packet_util.PACKET_TYPE_C, packet_types) and len(stream) > 4:
             packet_types.pop(0)
             data_bytes = stream[:4]
             stream = stream[4:]
             packet[packet_util.PACKET_TYPE_C] = struct.unpack('>i', data_bytes)
+
+            checksum_target += bytearray(data_bytes)
         
         elif is_front(packet_util.PACKET_TYPE_D, packet_types) and len(stream) > 1:
             packet_types.pop(0)
             data_bytes = stream[:1]
             stream = stream[1:]
-            packet[packet_util.PACKET_TYPE_D] = struct.unpack('>?', data_bytes)        
+            packet[packet_util.PACKET_TYPE_D] = struct.unpack('>?', data_bytes)   
 
-        elif is_in_packet and len(packet_types) <= 0 and len(stream) >= 2:
-            footer_bytes = stream[:2]
-            stream = stream[2:]
-            packet['footer'] = struct.unpack('>h', footer_bytes)[0]
+            checksum_target += bytearray(data_bytes)     
 
+        elif is_in_packet and len(packet_types) <= 0 and len(stream) >= 4:
+            footer_bytes = stream[:4]
+            stream = stream[4:]
+            packet['footer'] = struct.unpack('>i', footer_bytes)[0]
+
+            if crc_calculator.verify_checksum(checksum_target, packet['footer']):
+                print('[CHECKSUM OK]', end=' ')
+            else:
+                print(f'[CHECKSUM BAD, EXPECTED {crc_calculator.calculate_checksum(checksum_target)}')
+            
             print(packet)
 
             stream = bytearray()
