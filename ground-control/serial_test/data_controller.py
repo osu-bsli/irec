@@ -1,8 +1,16 @@
 # Raise when we can't open().
 class DataControllerException(Exception):
+    """
+    Generic exception for DataController so people using it know what to catch.
+
+    This is usually raised when DataController.open() fails.
+    """
     pass
 
 class DataController:
+    """
+    Generic data controller class for reading/writing to a port/connection.
+    """
     def __init__(self) -> None:
         pass
 
