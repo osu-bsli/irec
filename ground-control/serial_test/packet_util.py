@@ -9,6 +9,20 @@ PACKET_TYPE_COORDINATES = 2
 PACKET_TYPE_C = 4
 PACKET_TYPE_D = 8
 
+PAYLOAD_SIZE = {
+    PACKET_TYPE_ALTITUDE: 4,
+    PACKET_TYPE_COORDINATES: 8,
+    PACKET_TYPE_C: 4,
+    PACKET_TYPE_D: 1,
+}
+
+PAYLOAD_FORMAT = {
+    PACKET_TYPE_ALTITUDE: '>f',
+    PACKET_TYPE_COORDINATES: '>ff',
+    PACKET_TYPE_C: '>i',
+    PACKET_TYPE_D: '>?'
+}
+
 # Splits a packet type bitflag into multiple packet types.
 # Code from <https://www.spatialtimes.com/2014/07/binary-flags-with-python/>
 def get_packet_types(n):
