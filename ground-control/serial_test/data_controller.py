@@ -1,17 +1,18 @@
-# Raise when we can't open().
-class DataControllerException(Exception):
-    """
-    Generic exception for DataController so people using it know what to catch.
-
-    This is usually raised when DataController.open() fails.
-    """
-    pass
 
 class DataController:
     """
     Generic data controller class for reading/writing to a port/connection.
     """
     def __init__(self) -> None:
+        pass
+    
+    # Raise when we can't open().
+    class DataControllerException(Exception):
+        """
+        Generic exception for DataController so people using it know what to catch.
+
+        This is usually raised when DataController.open() fails.
+        """
         pass
 
     # Returns a dictionary with different config options.
@@ -23,7 +24,7 @@ class DataController:
         pass
     
     def open(self) -> None:
-        raise DataControllerException('Generic data controller cannot be opened.')
+        raise DataController.DataControllerException('Generic data controller cannot be opened.')
     
     def is_open(self) -> bool:
         return False

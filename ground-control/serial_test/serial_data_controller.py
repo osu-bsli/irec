@@ -56,7 +56,7 @@ class SerialDataController(data_controller.DataController):
             )
         except serial.SerialException as e:
             error_message = f'Serial port \"{self.port_name}\" couldn\'t be opened.'
-            raise data_controller.DataControllerException(error_message) from e
+            raise self.DataControllerException(error_message) from e
     
     def is_open(self) -> bool:
         return self.port.is_open
@@ -65,7 +65,7 @@ class SerialDataController(data_controller.DataController):
         if self.port.is_open:
             self.port.close()
 
-    def update() -> None:
+    def update(self) -> None:
         pass
 
 # Test cases
@@ -101,6 +101,6 @@ if __name__ == '__main__':
         })
         test.open()
         test.close()
-    except data_controller.DataControllerException as e:
+    except SerialDataController.DataControllerException as e:
         was_exception = True
     assert was_exception == True
