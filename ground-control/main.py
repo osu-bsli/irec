@@ -1,9 +1,9 @@
 import serial
 import serial.tools.list_ports
 import struct
-import packet_util
+import utils.packet_util
 import crc
-from iliad_data_controller import IliadDataController
+from serial_test.iliad_data_controller import IliadDataController
 
 def list_serial_ports():
     for device in serial.tools.list_ports.comports():
