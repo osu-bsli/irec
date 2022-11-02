@@ -19,3 +19,4 @@ config = {
 }
 iliad.set_config(config)
 iliad.open()
+iliad.close()
