@@ -1,6 +1,6 @@
 import dearpygui.dearpygui as gui
 import serial
-from serial_test.iliad_data_controller import IliadDataController
+from data_controllers.iliad_data_controller import IliadDataController
 
 class App:
     def __init__(self) -> None:
