@@ -1,7 +1,7 @@
 import serial
 import serial.tools.list_ports
 import struct
-import utils.packet_util
+from utils import packet_util
 import crc
 
 def is_front(item, list: list) -> bool:
