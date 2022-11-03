@@ -14,7 +14,7 @@ Please work on a feature branch (create one if one doesn't exist) and only push 
 
 ### Format
 
-Packets consist of a 6-byte header, zero or more variable-length payloads, and a 2-byte footer. The header consists of a 2-byte (`short`) payload type indicator and a 4 byte (`float`) timestamp. The header signifies which kinds of payloads are present. Each payload type cannot be present more than once. The ordering of payload types is decided beforehand, by convention. Each payload type must have a known length. The footer is a 2-byte (`short`) CRC for error checking purposes.
+Packets consist of a 6-byte header, zero or more variable-length payloads, and a 2-byte footer. The header consists of a 2-byte (`short`) payload type indicator and a 4 byte (`float`) timestamp. The header type indicator signifies which kinds of payloads are present. Each payload type cannot be present more than once. The ordering of payload types is decided beforehand, by convention. Each payload type must have a known length. The footer is a 2-byte (`short`) CRC for error checking purposes.
 
 ### Type sizes
 
