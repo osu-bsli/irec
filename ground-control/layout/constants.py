@@ -1,0 +1,6 @@
+# layout constants
+WINDOW_HEIGHT=800
+WINDOW_WIDTH=1400
+VIEWPORT_XPOS=-20
+VIEWPORT_YPOS=1
+ICON_FILE='resources/BSLI_logo.ico'
