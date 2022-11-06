@@ -101,6 +101,11 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
                             packet_payload_bytes += payload_bytes
                             packet_payload[packet_type] = payload
+
+                            if packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
+                                self.arm_status_1_data.append(packet_timestamp, payload[0])
+                                self.arm_status_2_data.append(packet_timestamp, payload[1])
+                                self.arm_status_3_data.append(packet_timestamp, payload[2])
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
@@ -136,7 +141,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
 
 # Test cases
-if __name__ == '__main__':
+def test():
 
     # Test update()
     test = IliadDataController()
@@ -149,10 +154,32 @@ if __name__ == '__main__':
     }
     test.set_config(config)
     test.open()
-    # for i in range(1000):
-    try:
-        while True:
-            test.update()
-    finally:
-        test.close()
-        print("cleaned up")
+    for i in range(1000):
+        test.update()
+    test.close()
+
+    # Test packet parsing and data storage/retrieval:
+    test = IliadDataController()
+    test.set_config({
+        'port_name': 'COM2',
+        'port_baud_rate': 9600,
+        'port_stop_bits': serial.STOPBITS_ONE,
+        'port_parity': serial.PARITY_NONE,
+        'port_byte_size': serial.EIGHTBITS,
+    })
+    test.open()
+    # Construct a packet:
+    packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, 0.0, (True, True, True))
+    port = serial.Serial(
+        port='COM1',
+        baudrate=9600,
+        stopbits=serial.STOPBITS_ONE,
+        parity=serial.PARITY_NONE,
+        bytesize=serial.EIGHTBITS,
+    )
+    port.write(packet)
+    for i in range(1000):
+        test.update()
+    assert test.arm_status_1_data == [0.0, True]
+    assert test.arm_status_2_data == [0.0, True]
+    assert test.arm_status_3_data == [0.0, True]

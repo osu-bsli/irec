@@ -69,7 +69,7 @@ class SerialDataController(data_controller.DataController):
         pass
 
 # Test cases
-if __name__ == '__main__':
+def test():
 
     # Test set_config()
     test = SerialDataController()
