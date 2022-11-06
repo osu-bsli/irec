@@ -11,6 +11,39 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
+
+        self.arm_status_1_data: list[tuple[float, bool]] = []
+        self.arm_status_2_data: list[tuple[float, bool]] = []
+        self.arm_status_3_data: list[tuple[float, bool]] = []
+        self.altitude_1_data: list[tuple[float, float]] = []
+        self.altitude_2_data: list[tuple[float, float]] = []
+        self.acceleration_x_data: list[tuple[float, float]] = []
+        self.acceleration_y_data: list[tuple[float, float]] = []
+        self.acceleration_z_data: list[tuple[float, float]] = []
+        self.gps_latitude_data: list[tuple[float, float]] = []
+        self.gps_longitude_data: list[tuple[float, float]] = []
+        self.board_1_temperature_data: list[tuple[float, float]] = []
+        self.board_2_temperature_data: list[tuple[float, float]] = []
+        self.board_3_temperature_data: list[tuple[float, float]] = []
+        self.board_4_temperature_data: list[tuple[float, float]] = []
+        self.board_1_voltage_data: list[tuple[float, float]] = []
+        self.board_2_voltage_data: list[tuple[float, float]] = []
+        self.board_3_voltage_data: list[tuple[float, float]] = []
+        self.board_4_voltage_data: list[tuple[float, float]] = []
+        self.board_1_current_data: list[tuple[float, float]] = []
+        self.board_2_current_data: list[tuple[float, float]] = []
+        self.board_3_current_data: list[tuple[float, float]] = []
+        self.battery_1_voltage_data: list[tuple[float, float]] = []
+        self.battery_2_voltage_data: list[tuple[float, float]] = []
+        self.battery_3_voltage_data: list[tuple[float, float]] = []
+        self.magnetometer_data_1: list[tuple[float, float]] = []
+        self.magnetometer_data_2: list[tuple[float, float]] = []
+        self.magnetometer_data_3: list[tuple[float, float]] = []
+        self.gyroscope_x_data: list[tuple[float, float]] = []
+        self.gyroscope_y_data: list[tuple[float, float]] = []
+        self.gyroscope_z_data: list[tuple[float, float]] = []
+        self.gps_sattelites_data: list[tuple[float, int]] = []
+        self.gps_groud_speed_data: list[tuple[float, float]] = []
     
     def update(self) -> None:
         if self.is_open():
