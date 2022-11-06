@@ -3,6 +3,7 @@ import serial
 import struct
 from utils import packet_util
 import crc
+import math
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
@@ -101,11 +102,31 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
                             packet_payload_bytes += payload_bytes
                             packet_payload[packet_type] = payload
-
+                            
+                            def store_packet_data(fields: tuple[list], timestamp: float, payload: tuple) :
+                                """
+                                Takes a tuple of mutable field references, a timestamp, and a corresponding tuple of payload values. Assigns each value of the payload into the corresponding field. The tuples should be the same length.
+                                """
+                                for idx in range(len(fields)):
+                                    fields[idx].append((timestamp, payload[idx]))
+                                    
                             if packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
-                                self.arm_status_1_data.append((packet_timestamp, payload[0]))
-                                self.arm_status_2_data.append((packet_timestamp, payload[1]))
-                                self.arm_status_3_data.append((packet_timestamp, payload[2]))
+                                store_packet_data((
+                                        self.arm_status_1_data,
+                                        self.arm_status_2_data,
+                                        self.arm_status_3_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_ALTITUDE:
+                                store_packet_data((
+                                        self.altitude_1_data,
+                                        self.altitude_2_data,
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_ACCELERATION:
+                                store_packet_data((
+                                        self.acceleration_x_data,
+                                        self.acceleration_y_data,
+                                        self.acceleration_z_data,
+                                    ), packet_timestamp, payload)
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
@@ -118,12 +139,12 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 if self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
                     is_ok = True
                 
-                if is_ok:
-                    print(f'[OK] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
-                    print(f'\t{packet_types} {packet_payload} {packet_checksum}')
-                else:
-                    print(f'[BAD] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
-                    print(f'\tExpected {self.checksum_calculator.calculate_checksum(packet_types_bytes + packet_payload_bytes)}, got {packet_checksum}')
+                # if is_ok:
+                #     print(f'[OK] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
+                #     print(f'\t{packet_types} {packet_payload} {packet_checksum}')
+                # else:
+                #     print(f'[BAD] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
+                #     print(f'\tExpected {self.checksum_calculator.calculate_checksum(packet_types_bytes + packet_payload_bytes)}, got {packet_checksum}')
 
                 if is_ok:
                     self.data_buffer = self.data_buffer[self.idx_cursor:]
@@ -142,7 +163,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
 # Test cases
 def test():
-
     # Test update()
     test = IliadDataController()
     config = {
@@ -168,8 +188,6 @@ def test():
         'port_byte_size': serial.EIGHTBITS,
     })
     test.open()
-    # Construct a packet:
-    packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, 0.0, (True, True, True))
     port = serial.Serial(
         port='COM1',
         baudrate=9600,
@@ -177,9 +195,33 @@ def test():
         parity=serial.PARITY_NONE,
         bytesize=serial.EIGHTBITS,
     )
-    port.write(packet)
-    for i in range(1000):
+    # Test arm status packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, 0.0, (True, True, True)))
+    for i in range(100):
         test.update()
     assert test.arm_status_1_data == [(0.0, True)]
     assert test.arm_status_2_data == [(0.0, True)]
     assert test.arm_status_3_data == [(0.0, True)]
+    # Test altitude packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, 0.0, (1.234, 5.678)))
+    for i in range(100):
+        test.update()
+    assert len(test.altitude_1_data) == 1
+    assert len(test.altitude_2_data) == 1
+    assert test.altitude_1_data[0][0] == 0.0
+    assert test.altitude_2_data[0][0] == 0.0
+    assert math.isclose(test.altitude_1_data[0][1], 1.234, rel_tol=1e-6) # TODO: Figure out specific tolerances.
+    assert math.isclose(test.altitude_2_data[0][1], 5.678, rel_tol=1e-6)
+    # Test acceleration packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, 0.0, (1.234, 5.678, 9.012)))
+    for i in range(100):
+        test.update()
+    assert len(test.acceleration_x_data) == 1
+    assert len(test.acceleration_y_data) == 1
+    assert len(test.acceleration_z_data) == 1
+    assert test.acceleration_x_data[0][0] == 0.0
+    assert test.acceleration_y_data[0][0] == 0.0
+    assert test.acceleration_z_data[0][0] == 0.0
+    assert math.isclose(test.acceleration_x_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.acceleration_y_data[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.acceleration_z_data[0][1], 9.012, rel_tol=1e-6)
