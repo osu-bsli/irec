@@ -1,5 +1,5 @@
 import serial
-import data_controller
+from . import data_controller
 
 class SerialDataController(data_controller.DataController):
     def __init__(self) -> None:
