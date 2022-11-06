@@ -73,7 +73,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     (packet_types_raw,) = struct.unpack('>h', packet_types_bytes)
                     packet_types: list[int] = list(packet_util.get_packet_types(packet_types_raw))
                     self.idx_cursor += 2
-                    packet_timestamp_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 2)]
+                    packet_timestamp_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 4)]
                     (packet_timestamp,) = struct.unpack('>f', packet_timestamp_bytes)
                     self.idx_cursor += 4
                 
@@ -103,9 +103,9 @@ class IliadDataController(serial_data_controller.SerialDataController):
                             packet_payload[packet_type] = payload
 
                             if packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
-                                self.arm_status_1_data.append(packet_timestamp, payload[0])
-                                self.arm_status_2_data.append(packet_timestamp, payload[1])
-                                self.arm_status_3_data.append(packet_timestamp, payload[2])
+                                self.arm_status_1_data.append((packet_timestamp, payload[0]))
+                                self.arm_status_2_data.append((packet_timestamp, payload[1]))
+                                self.arm_status_3_data.append((packet_timestamp, payload[2]))
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
@@ -180,6 +180,6 @@ def test():
     port.write(packet)
     for i in range(1000):
         test.update()
-    assert test.arm_status_1_data == [0.0, True]
-    assert test.arm_status_2_data == [0.0, True]
-    assert test.arm_status_3_data == [0.0, True]
+    assert test.arm_status_1_data == [(0.0, True)]
+    assert test.arm_status_2_data == [(0.0, True)]
+    assert test.arm_status_3_data == [(0.0, True)]
