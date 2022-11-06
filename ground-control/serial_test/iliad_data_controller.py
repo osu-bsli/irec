@@ -27,23 +27,35 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
                 packet_types_bytes: bytes
                 packet_types: list[int] = []
+                packet_timestamp_bytes: bytes
+                packet_timestamp: float
                 packet_payload_bytes = bytearray()
                 packet_payload: dict[int] = {}
                 packet_checksum_bytes: bytes
                 packet_checksum: int
 
                 # Parse header:
-                if len(self.data_buffer) - self.idx_cursor >= 2:
+                if len(self.data_buffer) - self.idx_cursor >= 6:
                     packet_types_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 2)]
                     (packet_types_raw,) = struct.unpack('>h', packet_types_bytes)
                     packet_types: list[int] = list(packet_util.get_packet_types(packet_types_raw))
                     self.idx_cursor += 2
+                    packet_timestamp_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 2)]
+                    packet_timestamp = struct.unpack('>f', packet_timestamp_bytes)
                 
                 for packet_type in [ # TODO: Turn constants into an enum.
+                    packet_util.PACKET_TYPE_ARM_STATUS,
                     packet_util.PACKET_TYPE_ALTITUDE,
-                    packet_util.PACKET_TYPE_COORDINATES,
-                    packet_util.PACKET_TYPE_C,
-                    packet_util.PACKET_TYPE_D,
+                    packet_util.PACKET_TYPE_ACCELERATION,
+                    packet_util.PACKET_TYPE_GPS_COORDINATES,
+                    packet_util.PACKET_TYPE_BOARD_TEMPERATURE,
+                    packet_util.PACKET_TYPE_BOARD_VOLTAGE,
+                    packet_util.PACKET_TYPE_BOARD_CURRENT,
+                    packet_util.PACKET_TYPE_BATTERY_VOLTAGE,
+                    packet_util.PACKET_TYPE_MAGNETOMETER,
+                    packet_util.PACKET_TYPE_GYROSCOPE,
+                    packet_util.PACKET_TYPE_GPS_SATELLITES,
+                    packet_util.PACKET_TYPE_GPS_GROUND_SPEED
                 ]:
                     if packet_type in packet_types:
                         payload_size = packet_util.PAYLOAD_SIZE[packet_type]
@@ -64,7 +76,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 
                 # Check packet checksum:
                 is_ok = False
-                if self.checksum_calculator.verify_checksum(packet_types_bytes + packet_payload_bytes, packet_checksum):
+                if self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
                     is_ok = True
                 
                 if is_ok:
