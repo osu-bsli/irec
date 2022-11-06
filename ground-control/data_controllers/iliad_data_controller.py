@@ -127,6 +127,11 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                         self.acceleration_y_data,
                                         self.acceleration_z_data,
                                     ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GPS_COORDINATES:
+                                store_packet_data((
+                                        self.gps_latitude_data,
+                                        self.gps_longitude_data,
+                                    ), packet_timestamp, payload)
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
@@ -225,3 +230,13 @@ def test():
     assert math.isclose(test.acceleration_x_data[0][1], 1.234, rel_tol=1e-6)
     assert math.isclose(test.acceleration_y_data[0][1], 5.678, rel_tol=1e-6)
     assert math.isclose(test.acceleration_z_data[0][1], 9.012, rel_tol=1e-6)
+    # Test gps coordinates packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_COORDINATES, 0.0, (1.234, 5.678)))
+    for i in range(100):
+        test.update()
+    assert len(test.gps_latitude_data) == 1
+    assert len(test.gps_longitude_data) == 1
+    assert test.gps_latitude_data[0][0] == 0.0
+    assert test.gps_longitude_data[0][0] == 0.0
+    assert math.isclose(test.gps_latitude_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.gps_longitude_data[0][1], 5.678, rel_tol=1e-6)
