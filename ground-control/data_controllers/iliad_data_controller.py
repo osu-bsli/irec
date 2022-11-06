@@ -42,6 +42,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     self.idx_cursor += 2
                     packet_timestamp_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 2)]
                     packet_timestamp = struct.unpack('>f', packet_timestamp_bytes)
+                    self.idx_cursor += 4
                 
                 for packet_type in [ # TODO: Turn constants into an enum.
                     packet_util.PACKET_TYPE_ARM_STATUS,
