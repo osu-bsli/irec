@@ -43,7 +43,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.gyroscope_y_data: list[tuple[float, float]] = []
         self.gyroscope_z_data: list[tuple[float, float]] = []
         self.gps_sattelites_data: list[tuple[float, int]] = []
-        self.gps_groud_speed_data: list[tuple[float, float]] = []
+        self.gps_ground_speed_data: list[tuple[float, float]] = []
     
     def update(self) -> None:
         if self.is_open():
