@@ -132,6 +132,20 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                         self.gps_latitude_data,
                                         self.gps_longitude_data,
                                     ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
+                                store_packet_data((
+                                    self.board_1_temperature_data,
+                                    self.board_2_temperature_data,
+                                    self.board_3_temperature_data,
+                                    self.board_4_temperature_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_BOARD_VOLTAGE:
+                                store_packet_data((
+                                    self.board_1_voltage_data,
+                                    self.board_2_voltage_data,
+                                    self.board_3_voltage_data,
+                                    self.board_4_voltage_data
+                                    ), packet_timestamp, payload)
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
@@ -240,3 +254,19 @@ def test():
     assert test.gps_longitude_data[0][0] == 0.0
     assert math.isclose(test.gps_latitude_data[0][1], 1.234, rel_tol=1e-6)
     assert math.isclose(test.gps_longitude_data[0][1], 5.678, rel_tol=1e-6)
+    # Test board temperature packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_TEMPERATURE, 0.0, (1.234, 5.678, 9.012, 3.456)))
+    for i in range(100):
+        test.update()
+    assert len(test.board_1_temperature_data) == 1
+    assert len(test.board_2_temperature_data) == 1
+    assert len(test.board_3_temperature_data) == 1
+    assert len(test.board_4_temperature_data) == 1
+    assert test.board_1_temperature_data[0][0] == 0.0
+    assert test.board_2_temperature_data[0][0] == 0.0
+    assert test.board_3_temperature_data[0][0] == 0.0
+    assert test.board_4_temperature_data[0][0] == 0.0
+    assert math.isclose(test.board_1_temperature_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.board_2_temperature_data[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.board_3_temperature_data[0][1], 9.012, rel_tol=1e-6)
+    assert math.isclose(test.board_4_temperature_data[0][1], 3.456, rel_tol=1e-6)
