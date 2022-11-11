@@ -76,6 +76,8 @@ class SerialDataController(data_controller.DataController):
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
             gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
+        
+        rescan_ports()
 
     def open(self) -> None:
         try:
