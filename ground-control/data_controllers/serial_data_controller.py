@@ -1,7 +1,13 @@
 import serial
+import serial.tools.list_ports
+import dearpygui.dearpygui as gui
 from . import data_controller
 
 class SerialDataController(data_controller.DataController):
+
+    # Widget tags
+    TAG_CONFIG_MENU_PORT_COMBO = 'SDC.CONFIG_MENU.PORT_COMBO'
+
     def __init__(self) -> None:
         super().__init__()
         
@@ -17,7 +23,7 @@ class SerialDataController(data_controller.DataController):
     def get_config(self) -> dict[str]:
         return {
             'port_name': self.port_name,                # string like 'COM1', 'tty0', etc.
-            'port_baud_rate': self.port_baud_rate,      # int, like 9600 (in ui, use standard values, may alow custom)
+            'port_baud_rate': self.port_baud_rate,      # int, like 9600 (in ui, use standard values, may allow custom)
             'port_stop_bits': self.port_stop_bits,      # int/float, one of [1, 1.5, 2]
             'port_parity': self.port_parity,            # string, one of ['N', 'E', 'O', 'M', 'S']
             'port_byte_size': self.port_byte_size,      # int, one of [5, 6, 7, 8]
@@ -45,6 +51,32 @@ class SerialDataController(data_controller.DataController):
             if config['port_byte_size'] in [serial.FIVEBITS, serial.SIXBITS, serial.SEVENBITS, serial.EIGHTBITS]:
                 self.port_byte_size = config['port_byte_size']
     
+    def add_config_menu(self) -> None:
+        self.available_ports = []
+        def rescan_ports() -> None:
+            ports = serial.tools.list_ports.comports()
+            self.available_ports = []
+            for port, description, hardware_id in ports:
+                self.available_ports.append(port)
+            gui.configure_item(SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, items=self.available_ports)
+
+        with gui.group(horizontal=True):
+            gui.add_text('Port:')
+            gui.add_combo(items=self.available_ports, width=-1, tag=SerialDataController.TAG_CONFIG_MENU_PORT_COMBO)
+        gui.add_button(label='Rescan ports', callback=rescan_ports)
+        with gui.group(horizontal=True):
+            gui.add_text('Baud rate:')
+            gui.add_input_int(default_value=9600, width=-1)
+        with gui.group(horizontal=True):
+            gui.add_text('Stop bits:')
+            gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1)
+        with gui.group(horizontal=True):
+            gui.add_text('Parity:')
+            gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
+        with gui.group(horizontal=True):
+            gui.add_text('Byte size:')
+            gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
+
     def open(self) -> None:
         try:
             self.port = serial.Serial(
