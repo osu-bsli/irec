@@ -50,7 +50,6 @@ class App:
 
         with gui.viewport_menu_bar(tag=App.TAG_MAIN_MENU):
             with gui.menu(label='Options'):
-                gui.add_menu_item(label='untitled', callback=None)
                 gui.add_menu_item(label='Config', callback=lambda: gui.show_item(App.TAG_CONFIG_WINDOW))
             with gui.menu(label='Tools'):
                 gui.add_menu_item(label='Packet Inspector', callback=None)
