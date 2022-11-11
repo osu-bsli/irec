@@ -7,6 +7,7 @@ class App:
     # Widget tags
     TAG_MAIN_WINDOW = 'GCS.MAIN_WINDOW'
     TAG_MAIN_MENU = 'GCS.MAIN_MENU'
+    TAG_CONFIG_WINDOW = 'GCS.CONFIG_WINDOW'
 
     def __init__(self) -> None:
         # Start UI:
@@ -18,10 +19,15 @@ class App:
             primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16)
             gui.bind_font(primary_font)
 
-        with gui.viewport_menu_bar(tag=App.TAG_MAIN_MENU) as MAIN_MENU:
+        # Init config menu:
+        with gui.window(tag=App.TAG_CONFIG_WINDOW):
+            gui.add_text('Hello, world!')
+        gui.hide_item(App.TAG_CONFIG_WINDOW)
+
+        with gui.viewport_menu_bar(tag=App.TAG_MAIN_MENU):
             with gui.menu(label='Options'):
                 gui.add_menu_item(label='untitled', callback=None)
-                gui.add_menu_item(label='Preferences', callback=None)
+                gui.add_menu_item(label='Preferences', callback=lambda: gui.show_item(App.TAG_CONFIG_WINDOW))
             with gui.menu(label='Tools'):
                 gui.add_menu_item(label='Packet Inspector', callback=None)
                 gui.add_menu_item(label='GUI Demo', callback=gui.show_imgui_demo)
@@ -34,8 +40,8 @@ class App:
                 gui.add_menu_item(label='Docs', callback=None)
                 gui.add_menu_item(label='About', callback=None)
 
-        with gui.window(tag=App.TAG_MAIN_WINDOW) as MAIN_WINDOW:
-            gui.set_primary_window(MAIN_WINDOW, True)
+        with gui.window(tag=App.TAG_MAIN_WINDOW):
+            gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
 
         gui.show_viewport()
         gui.maximize_viewport()
