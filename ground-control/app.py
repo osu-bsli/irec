@@ -56,6 +56,7 @@ class App:
                 gui.add_menu_item(label='GUI Demo', callback=gui.show_imgui_demo)
                 gui.add_menu_item(label='Graphs Demo', callback=gui.show_implot_demo)
                 gui.add_menu_item(label='Font Manager', callback=gui.show_font_manager)
+                gui.add_menu_item(label='Style Editor', callback=gui.show_style_editor)
             with gui.menu(label='View'):
                 gui.add_menu_item(label='Save layout', callback=None)
                 gui.add_menu_item(label='Load layout', callback=None)
