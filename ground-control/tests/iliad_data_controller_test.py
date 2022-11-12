@@ -3,8 +3,9 @@ import utils.packet_util as packet_util
 import serial
 import math
 
-def test_all():
-    # Test update()
+# TODO: Don't hardcode port values. Maybe make virtual linked ports?
+
+def test_update():
     test = IliadDataController()
     config = {
         'port_name': 'COM2',
@@ -19,7 +20,15 @@ def test_all():
         test.update()
     test.close()
 
-    # Test packet parsing and data storage/retrieval:
+def setup_packet_test() -> tuple[IliadDataController, serial.Serial]:
+    """
+    Utility function for packet tests.
+    Starts and opens an IliadDataController instance.
+    Opens a serial port.
+
+    Both must be closed when finished.
+    """
+    # TODO: Rewrite as a context manager? The `with` syntax is perfect for opening/closing resources.
     test = IliadDataController()
     test.set_config({
         'port_name': 'COM2',
@@ -36,14 +45,21 @@ def test_all():
         parity=serial.PARITY_NONE,
         bytesize=serial.EIGHTBITS,
     )
-    # Test arm status packet
+    return (test, port)
+
+def test_arm_status_packet():
+    (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, 0.0, (True, True, True)))
     for i in range(100):
         test.update()
     assert test.arm_status_1_data == [(0.0, True)]
     assert test.arm_status_2_data == [(0.0, True)]
     assert test.arm_status_3_data == [(0.0, True)]
-    # Test altitude packet
+    test.close()
+    port.close()
+    
+def test_altitude_packet():
+    (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, 0.0, (1.234, 5.678)))
     for i in range(100):
         test.update()
@@ -53,7 +69,11 @@ def test_all():
     assert test.altitude_2_data[0][0] == 0.0
     assert math.isclose(test.altitude_1_data[0][1], 1.234, rel_tol=1e-6) # TODO: Figure out specific tolerances.
     assert math.isclose(test.altitude_2_data[0][1], 5.678, rel_tol=1e-6)
-    # Test acceleration packet
+    test.close()
+    port.close()
+
+def test_acceleration_packet():
+    (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, 0.0, (1.234, 5.678, 9.012)))
     for i in range(100):
         test.update()
@@ -66,7 +86,11 @@ def test_all():
     assert math.isclose(test.acceleration_x_data[0][1], 1.234, rel_tol=1e-6)
     assert math.isclose(test.acceleration_y_data[0][1], 5.678, rel_tol=1e-6)
     assert math.isclose(test.acceleration_z_data[0][1], 9.012, rel_tol=1e-6)
-    # Test gps coordinates packet
+    test.close()
+    port.close()
+
+def test_gps_coordinate_packet():
+    (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_COORDINATES, 0.0, (1.234, 5.678)))
     for i in range(100):
         test.update()
@@ -76,7 +100,11 @@ def test_all():
     assert test.gps_longitude_data[0][0] == 0.0
     assert math.isclose(test.gps_latitude_data[0][1], 1.234, rel_tol=1e-6)
     assert math.isclose(test.gps_longitude_data[0][1], 5.678, rel_tol=1e-6)
-    # Test board temperature packet
+    test.close()
+    port.close()
+
+def test_board_temperature_packet():
+    (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_TEMPERATURE, 0.0, (1.234, 5.678, 9.012, 3.456)))
     for i in range(100):
         test.update()
@@ -92,3 +120,5 @@ def test_all():
     assert math.isclose(test.board_2_temperature_data[0][1], 5.678, rel_tol=1e-6)
     assert math.isclose(test.board_3_temperature_data[0][1], 9.012, rel_tol=1e-6)
     assert math.isclose(test.board_4_temperature_data[0][1], 3.456, rel_tol=1e-6)
+    test.close()
+    port.close()

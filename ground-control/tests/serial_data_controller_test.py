@@ -1,8 +1,7 @@
 from data_controllers.serial_data_controller import SerialDataController
 import serial
 
-def test_all():
-    # Test set_config()
+def test_set_config():
     test = SerialDataController()
     config = {
         'port_name': 'COM1',
@@ -19,7 +18,7 @@ def test_all():
     assert test.port_parity == config['port_parity']
     assert test.port_byte_size == config['port_byte_size']
     
-    # Test exception on invalid open()
+def test_open_exception():
     was_exception = False
     try:
         test = SerialDataController()
