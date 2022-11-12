@@ -46,6 +46,15 @@ class App:
                 gui.add_text('No options available.')
             with gui.tree_node(label='Iliad Data Controller'):
                 self.iliad.add_config_menu()
+            
+            with gui.group(horizontal=True):
+
+                def on_apply_config():
+                    # self.grapher.apply_config()
+                    self.iliad.apply_config()
+
+                gui.add_button(label='Cancel', callback=lambda: gui.hide_item(App.TAG_CONFIG_WINDOW))
+                gui.add_button(label='Apply', callback=on_apply_config)
         gui.hide_item(App.TAG_CONFIG_WINDOW)
 
         with gui.viewport_menu_bar(tag=App.TAG_MAIN_MENU):

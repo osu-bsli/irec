@@ -5,9 +5,6 @@ from . import data_controller
 
 class SerialDataController(data_controller.DataController):
 
-    # Widget tags
-    TAG_CONFIG_MENU_PORT_COMBO = 'SDC.CONFIG_MENU.PORT_COMBO'
-
     def __init__(self) -> None:
         super().__init__()
         
@@ -18,6 +15,13 @@ class SerialDataController(data_controller.DataController):
         self.port_stop_bits = serial.STOPBITS_ONE
         self.port_parity = serial.PARITY_NONE
         self.port_byte_size = serial.EIGHTBITS
+
+        # Widget tags:
+        self.TAG_CONFIG_MENU_PORT_NAME_COMBO = ''
+        self.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT = ''
+        self.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO = ''
+        self.TAG_CONFIG_MENU_PORT_PARITY_COMBO = ''
+        self.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO = ''
 
     # Returns a dictionary with different config options.
     def get_config(self) -> dict[str]:
@@ -58,59 +62,71 @@ class SerialDataController(data_controller.DataController):
             self.available_ports = []
             for port, description, hardware_id in ports:
                 self.available_ports.append(port)
-            gui.configure_item(SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, items=self.available_ports)
-        
-        def set_port_name(sender, data) -> None:
-            self.port_name = data
-        def set_port_baud_rate(sender, data) -> None:
-            self.port_baud_rate = data
-        def set_port_stop_bits(sender, data) -> None:
-            if data == '1':
-                self.port_stop_bits = serial.STOPBITS_ONE
-            elif data == '1.5':
-                self.port_stop_bits = serial.STOPBITS_ONE_POINT_FIVE
-            elif data == '2':
-                self.port_stop_bits = serial.STOPBITS_TWO
-        def set_port_parity(sender, data) -> None:
-            if data == 'None':
-                self.port_parity = serial.PARITY_NONE
-            elif data == 'Even':
-                self.port_parity = serial.PARITY_EVEN
-            elif data == 'Odd':
-                self.port_parity = serial.PARITY_ODD
-            elif data == 'Mark':
-                self.port_parity = serial.PARITY_MARK
-            elif data == 'Space':
-                self.port_parity = serial.PARITY_SPACE
-        def set_port_byte_size(sender, data) -> None:
-            if data == '5 bits':
-                self.port_byte_size = serial.FIVEBITS
-            elif data == '6 bits':
-                self.port_byte_size = serial.SIXBITS
-            elif data == '7 bits':
-                self.port_byte_size = serial.SEVENBITS
-            elif data == '8 bits':
-                self.port_byte_size = serial.EIGHTBITS
+            gui.configure_item(self.TAG_CONFIG_MENU_PORT_NAME_COMBO, items=self.available_ports) # DANGER! Only called after tag is defined, but must be careful!
+            # TODO: Find a solution to this. Tags should be pre-defined strings. But, they must be unique to each instance of this class. Maybe pass in an identifier prefix in the constructor?
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            cbo = gui.add_combo(items=self.available_ports, width=128, tag=SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, callback=set_port_name)
+            self.TAG_CONFIG_MENU_PORT_NAME_COMBO = gui.add_combo(items=self.available_ports, width=128)
             btn = gui.add_button(label='Rescan ports', width=128, callback=rescan_ports)
-            gui.configure_item(cbo, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
+            gui.configure_item(self.TAG_CONFIG_MENU_PORT_NAME_COMBO, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
         with gui.group(horizontal=True):
-            gui.add_text('Baud rate:')
-            gui.add_input_int(default_value=9600, width=-1, callback=set_port_baud_rate)
+            self.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT = gui.add_text('Baud rate:')
+            gui.add_input_int(default_value=9600, width=-1)
         with gui.group(horizontal=True):
-            gui.add_text('Stop bits:')
-            gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1, callback=set_port_stop_bits)
+            self.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO = gui.add_text('Stop bits:')
+            gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1, callback=set_port_parity)
+            self.TAG_CONFIG_MENU_PORT_PARITY_COMBO = gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1, callback=set_port_byte_size)
+            self.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO = gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
         
         rescan_ports()
+    
+    def apply_config(self) -> None:
+
+        # Set port name
+        self.port_name = gui.get_value(self.TAG_CONFIG_MENU_PORT_NAME_COMBO)
+
+        # Set port baud rate
+        self.port_baud_rate = gui.get_value(self.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT)
+
+        # Set port stop bits
+        data = gui.get_value(self.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO)
+        if data == '1':
+            self.port_stop_bits = serial.STOPBITS_ONE
+        elif data == '1.5':
+            self.port_stop_bits = serial.STOPBITS_ONE_POINT_FIVE
+        elif data == '2':
+            self.port_stop_bits = serial.STOPBITS_TWO
+
+        # Set port parity
+        data = gui.get_value(self.TAG_CONFIG_MENU_PORT_PARITY_COMBO)
+        if data == 'None':
+            self.port_parity = serial.PARITY_NONE
+        elif data == 'Even':
+            self.port_parity = serial.PARITY_EVEN
+        elif data == 'Odd':
+            self.port_parity = serial.PARITY_ODD
+        elif data == 'Mark':
+            self.port_parity = serial.PARITY_MARK
+        elif data == 'Space':
+            self.port_parity = serial.PARITY_SPACE
+        
+        # Set port byte size
+        data=gui.get_value(self.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO)
+        if data == '5 bits':
+            self.port_byte_size = serial.FIVEBITS
+        elif data == '6 bits':
+            self.port_byte_size = serial.SIXBITS
+        elif data == '7 bits':
+            self.port_byte_size = serial.SEVENBITS
+        elif data == '8 bits':
+            self.port_byte_size = serial.EIGHTBITS
+        
+        print(self.get_config())
 
     def open(self) -> None:
         try:
