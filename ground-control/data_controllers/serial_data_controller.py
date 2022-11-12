@@ -150,7 +150,7 @@ class SerialDataController(data_controller.DataController):
         pass
 
 # Test cases
-if __name__ == '__main__':
+def test():
 
     # Test set_config()
     test = SerialDataController()
@@ -185,3 +185,36 @@ if __name__ == '__main__':
     except SerialDataController.DataControllerException as e:
         was_exception = True
     assert was_exception == True
+
+    # Test config ui
+    test = SerialDataController()
+    test.set_config({
+        'port_name': 'COM1',
+        'port_baud_rate': 9600,
+        'port_stop_bits': serial.STOPBITS_ONE,
+        'port_parity': serial.PARITY_NONE,
+        'port_byte_size': serial.EIGHTBITS,
+    })
+    gui.create_context()
+    gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
+    gui.setup_dearpygui()
+    with gui.window():
+        test.add_config_menu()
+    gui.set_value(test.TAG_CONFIG_MENU_PORT_NAME_COMBO, 'COM2')
+    gui.set_value(test.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT, 0)
+    gui.set_value(test.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO, '1.5')
+    gui.set_value(test.TAG_CONFIG_MENU_PORT_PARITY_COMBO, 'Even')
+    gui.set_value(test.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO, '5 bits')
+    for i in range(1000):
+        test.update()
+        gui.render_dearpygui_frame()
+    test.apply_config()
+    assert test.get_config == {
+        'port_name': 'COM2',
+        'port_baud_rate': 0,
+        'port_stop_bits': serial.STOPBITS_ONE_POINT_FIVE,
+        'port_parity': serial.PARITY_EVEN,
+        'port_byte_size': serial.FIVEBITS,
+    }
+    test.close()
+    gui.destroy_context()
