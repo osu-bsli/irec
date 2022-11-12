@@ -34,6 +34,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.board_1_current_data: list[tuple[float, float]] = []
         self.board_2_current_data: list[tuple[float, float]] = []
         self.board_3_current_data: list[tuple[float, float]] = []
+        self.board_4_current_data: list[tuple[float, float]] = []
         self.battery_1_voltage_data: list[tuple[float, float]] = []
         self.battery_2_voltage_data: list[tuple[float, float]] = []
         self.battery_3_voltage_data: list[tuple[float, float]] = []
@@ -145,6 +146,39 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                     self.board_2_voltage_data,
                                     self.board_3_voltage_data,
                                     self.board_4_voltage_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_BOARD_CURRENT:
+                                store_packet_data((
+                                    self.board_1_current_data,
+                                    self.board_2_current_data,
+                                    self.board_3_current_data,
+                                    self.board_4_current_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
+                                store_packet_data((
+                                    self.battery_1_voltage_data,
+                                    self.battery_2_voltage_data,
+                                    self.battery_3_voltage_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_MAGNETOMETER:
+                                store_packet_data((
+                                    self.magnetometer_data_1,
+                                    self.magnetometer_data_2,
+                                    self.magnetometer_data_3
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GYROSCOPE:
+                                store_packet_data((
+                                    self.gyroscope_x_data,
+                                    self.gyroscope_y_data,
+                                    self.gyroscope_z_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GPS_SATELLITES:
+                                store_packet_data((
+                                    self.gps_sattelites_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
+                                store_packet_data((
+                                    self.gps_ground_speed_data
                                     ), packet_timestamp, payload)
                 
                 # Parse footer:
@@ -270,3 +304,88 @@ def test():
     assert math.isclose(test.board_2_temperature_data[0][1], 5.678, rel_tol=1e-6)
     assert math.isclose(test.board_3_temperature_data[0][1], 9.012, rel_tol=1e-6)
     assert math.isclose(test.board_4_temperature_data[0][1], 3.456, rel_tol=1e-6)
+    # Test board voltage packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_VOLTAGE, 0.0, (1.234, 5.678, 9.012, 3.456)))
+    for i in range(100):
+        test.update()
+    assert len(test.board_1_voltage_data) == 1
+    assert len(test.board_2_voltage_data) == 1
+    assert len(test.board_3_voltage_data) == 1
+    assert len(test.board_4_voltage_data) == 1
+    assert test.board_1_voltage_data[0][0] == 0.0
+    assert test.board_2_voltage_data[0][0] == 0.0
+    assert test.board_3_voltage_data[0][0] == 0.0
+    assert test.board_4_voltage_data[0][0] == 0.0
+    assert math.isclose(test.board_1_voltage_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.board_2_voltage_data[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.board_3_voltage_data[0][1], 9.012, rel_tol=1e-6)
+    assert math.isclose(test.board_4_voltage_data[0][1], 3.456, rel_tol=1e-6)
+    # Test board current packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_CURRENT, 0.0, (1.234, 5.678, 9.012, 3.456)))
+    for i in range(100):
+        test.update()
+    assert len(test.board_1_current_data) == 1
+    assert len(test.board_2_current_data) == 1
+    assert len(test.board_3_current_data) == 1
+    assert len(test.board_4_current_data) == 1
+    assert test.board_1_current_data[0][0] == 0.0
+    assert test.board_2_current_data[0][0] == 0.0
+    assert test.board_3_current_data[0][0] == 0.0
+    assert test.board_4_current_data[0][0] == 0.0
+    assert math.isclose(test.board_1_current_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.board_2_current_data[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.board_3_current_data[0][1], 9.012, rel_tol=1e-6)
+    assert math.isclose(test.board_4_current_data[0][1], 3.456, rel_tol=1e-6) 
+    # Test battery voltage packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BATTERY_VOLTAGE, 0.0, (1.234, 5.678, 9.012)))
+    for i in range(100):
+        test.update()
+    assert len(test.battery_1_voltage_data) == 1
+    assert len(test.battery_2_voltage_data) == 1
+    assert len(test.battery_3_voltage_data) == 1
+    assert test.battery_1_voltage_data[0][0] == 0.0
+    assert test.battery_2_voltage_data[0][0] == 0.0
+    assert test.battery_3_voltage_data[0][0] == 0.0
+    assert math.isclose(test.battery_1_voltage_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.battery_2_voltage_data[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.battery_3_voltage_data[0][1], 9.012, rel_tol=1e-6)
+    # Test magnetometer packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_MAGNETOMETER, 0.0, (1.234, 5.678, 9.012)))
+    for i in range(100):
+        test.update()
+    assert len(test.magnetometer_data_1) == 1
+    assert len(test.magnetometer_data_2) == 1
+    assert len(test.magnetometer_data_3) == 1
+    assert test.magnetometer_data_1[0][0] == 0.0
+    assert test.magnetometer_data_2[0][0] == 0.0
+    assert test.magnetometer_data_3[0][0] == 0.0
+    assert math.isclose(test.magnetometer_data_1[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.magnetometer_data_2[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.magnetometer_data_3[0][1], 9.012, rel_tol=1e-6)
+    # Test gyroscope packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GYROSCOPE, 0.0, (1.234, 5.678, 9.012)))
+    for i in range(100):
+        test.update()
+    assert len(test.gyroscope_x_data) == 1
+    assert len(test.gyroscope_y_data) == 1
+    assert len(test.gyroscope_z_data) == 1
+    assert test.gyroscope_x_data[0][0] == 0.0
+    assert test.gyroscope_y_data[0][0] == 0.0
+    assert test.gyroscope_z_data[0][0] == 0.0
+    assert math.isclose(test.gyroscope_x_data[0][1], 1.234, rel_tol=1e-6)
+    assert math.isclose(test.gyroscope_y_data[0][1], 5.678, rel_tol=1e-6)
+    assert math.isclose(test.gyroscope_z_data[0][1], 9.012, rel_tol=1e-6)
+    # Test gps satellites packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_SATELLITES, 0.0, (5)))
+    for i in range(100):
+        test.update()
+    print(*test.gps_ground_speed_data)
+    assert test.gps_sattelites_data == [(0.0, 5)]
+    # Test gps ground speed packet
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (1.234)))
+    for i in range(100):
+        test.update()
+    assert len(test.gps_ground_speed_data) == 1
+    assert test.gps_ground_speed_data[0][0] == 0.0
+    assert math.isclose(test.gps_ground_speed_data[0][1], 1.234, rel_tol=1e-6)
+
