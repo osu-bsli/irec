@@ -59,23 +59,55 @@ class SerialDataController(data_controller.DataController):
             for port, description, hardware_id in ports:
                 self.available_ports.append(port)
             gui.configure_item(SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, items=self.available_ports)
+        
+        def set_port_name(sender, data) -> None:
+            self.port_name = data
+        def set_port_baud_rate(sender, data) -> None:
+            self.port_baud_rate = data
+        def set_port_stop_bits(sender, data) -> None:
+            if data == '1':
+                self.port_stop_bits = serial.STOPBITS_ONE
+            elif data == '1.5':
+                self.port_stop_bits = serial.STOPBITS_ONE_POINT_FIVE
+            elif data == '2':
+                self.port_stop_bits = serial.STOPBITS_TWO
+        def set_port_parity(sender, data) -> None:
+            if data == 'None':
+                self.port_parity = serial.PARITY_NONE
+            elif data == 'Even':
+                self.port_parity = serial.PARITY_EVEN
+            elif data == 'Odd':
+                self.port_parity = serial.PARITY_ODD
+            elif data == 'Mark':
+                self.port_parity = serial.PARITY_MARK
+            elif data == 'Space':
+                self.port_parity = serial.PARITY_SPACE
+        def set_port_byte_size(sender, data) -> None:
+            if data == '5 bits':
+                self.port_byte_size = serial.FIVEBITS
+            elif data == '6 bits':
+                self.port_byte_size = serial.SIXBITS
+            elif data == '7 bits':
+                self.port_byte_size = serial.SEVENBITS
+            elif data == '8 bits':
+                self.port_byte_size = serial.EIGHTBITS
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            gui.add_combo(items=self.available_ports, width=-1, tag=SerialDataController.TAG_CONFIG_MENU_PORT_COMBO)
+            gui.add_combo(items=self.available_ports, width=-1, tag=SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, callback=set_port_name)
         gui.add_button(label='Rescan ports', callback=rescan_ports)
         with gui.group(horizontal=True):
             gui.add_text('Baud rate:')
-            gui.add_input_int(default_value=9600, width=-1)
+            gui.add_input_int(default_value=9600, width=-1, callback=set_port_baud_rate)
         with gui.group(horizontal=True):
             gui.add_text('Stop bits:')
-            gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1)
+            gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1, callback=set_port_stop_bits)
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
+            gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1, callback=set_port_parity)
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
+            gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1, callback=set_port_byte_size)
         
         rescan_ports()
 
