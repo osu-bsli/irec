@@ -13,15 +13,6 @@ class App:
 
         # Start serial ports and stuff:
         self.iliad = IliadDataController()
-        # self.config = {
-        #     'port_name': 'COM2',
-        #     'port_baud_rate': 9600,
-        #     'port_stop_bits': serial.STOPBITS_ONE,
-        #     'port_parity': serial.PARITY_NONE,
-        #     'port_byte_size': serial.EIGHTBITS,
-        # }
-        # self.iliad.set_config(self.config)
-        # self.iliad.open()
 
         # Start UI:
         gui.create_context()
@@ -80,9 +71,17 @@ class App:
         gui.maximize_viewport()
 
     def update(self) -> None:
+        """
+        Called every frame.
+
+        Calls `update()` on all components.
+        """
         self.iliad.update()
 
     def run(self) -> None:
+        """
+        Starts the main event loop.
+        """
         while gui.is_dearpygui_running():
             self.update()
             gui.render_dearpygui_frame()

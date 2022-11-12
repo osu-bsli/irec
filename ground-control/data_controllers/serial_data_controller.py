@@ -125,8 +125,6 @@ class SerialDataController(data_controller.DataController):
             self.port_byte_size = serial.SEVENBITS
         elif data == '8 bits':
             self.port_byte_size = serial.EIGHTBITS
-        
-        print(self.get_config())
 
     def open(self) -> None:
         try:
