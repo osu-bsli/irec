@@ -94,8 +94,9 @@ class SerialDataController(data_controller.DataController):
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            gui.add_combo(items=self.available_ports, width=-1, tag=SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, callback=set_port_name)
-        gui.add_button(label='Rescan ports', callback=rescan_ports)
+            cbo = gui.add_combo(items=self.available_ports, width=128, tag=SerialDataController.TAG_CONFIG_MENU_PORT_COMBO, callback=set_port_name)
+            btn = gui.add_button(label='Rescan ports', width=128, callback=rescan_ports)
+            gui.configure_item(cbo, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
         with gui.group(horizontal=True):
             gui.add_text('Baud rate:')
             gui.add_input_int(default_value=9600, width=-1, callback=set_port_baud_rate)
