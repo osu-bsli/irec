@@ -1,7 +1,7 @@
-from . import serial_data_controller
+import data_controllers.serial_data_controller as serial_data_controller
 import serial
 import struct
-from utils import packet_util
+import utils.packet_util as packet_util
 import crc
 import math
 

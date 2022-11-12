@@ -1,7 +1,7 @@
 import serial
 import serial.tools.list_ports
 import dearpygui.dearpygui as gui
-from . import data_controller
+import data_controllers.data_controller as data_controller
 
 class SerialDataController(data_controller.DataController):
 
