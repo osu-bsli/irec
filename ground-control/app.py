@@ -5,9 +5,9 @@ from data_controllers.iliad_data_controller import IliadDataController
 class App:
 
     # Widget tags
-    TAG_MAIN_WINDOW = 'GCS.MAIN_WINDOW'
-    TAG_MAIN_MENU = 'GCS.MAIN_MENU'
-    TAG_CONFIG_WINDOW = 'GCS.CONFIG_WINDOW'
+    TAG_MAIN_WINDOW = 'app.main_window'
+    TAG_MAIN_MENU = 'app.main_menu'
+    TAG_CONFIG_WINDOW = 'app.config_window'
 
     def __init__(self) -> None:
 

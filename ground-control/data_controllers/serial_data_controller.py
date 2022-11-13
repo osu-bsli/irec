@@ -26,6 +26,7 @@ class SerialDataController(data_controller.DataController):
         self.CONFIG_MENU_PORT_BYTE_SIZE = f'{self.identifier}.config_menu.byte_size'
 
         # Load config
+        # TODO: Move config loading/saving logic into parent class.
         config = config_util.get_config('config.toml')
         if self.identifier in config: # Configs are instance-specific.
             self.set_config(config[self.identifier])
@@ -126,7 +127,7 @@ class SerialDataController(data_controller.DataController):
                 default_value=SerialDataController.PORT_PARITY_DISPLAY_VALUES[self.port_parity],
                 width=-1
             )
-            
+
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
             gui.add_combo(
