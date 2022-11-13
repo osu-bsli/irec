@@ -404,3 +404,18 @@ def test_resync_on_corrupted_packet():
     assert len(test.gps_ground_speed_data) == 20
     test.close()
     port.close()
+
+def test_resync_speed():
+    # TODO: This test fails because the parsing algorithm / resync algorithm waits for the full packet, even if the type is corrupted. We need to add a second checksum just for the header.
+    (test, port) = setup_packet_test()
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    corrupted_packet = corrupted_packet[1:]
+    port.write(corrupted_packet)
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    for i in range(100):
+        test.update()
+    assert len(test.gps_ground_speed_data) == 3
+    test.close()
+    port.close()
