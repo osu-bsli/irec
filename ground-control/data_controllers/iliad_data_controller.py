@@ -105,22 +105,17 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
                 # Parse header:
                 if len(self.data_buffer) - self.idx_cursor >= 6:
-                    #print('parsing header')
                     packet_types_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 2)]
-                    #print('\tunpacking packet types')
                     (packet_types_raw,) = struct.unpack('>h', packet_types_bytes)
-                    #print(f'\tgetting packet types {packet_types_raw = }')
                     packet_types: list[int] = list(packet_util.get_packet_types(packet_types_raw))
                     self.idx_cursor += 2
                     packet_timestamp_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 4)]
-                    #print('\tunpacking timestamp')
                     (packet_timestamp,) = struct.unpack('>f', packet_timestamp_bytes)
                     self.idx_cursor += 4
 
                     self._current_packet_types = packet_types_raw
                 
                 # Parse body:
-                #print('parsing body')
                 for packet_type in [ # TODO: Turn constants into an enum.
                     packet_util.PACKET_TYPE_ARM_STATUS,
                     packet_util.PACKET_TYPE_ALTITUDE,
@@ -194,7 +189,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
-                    #print('parsing footer')
                     packet_checksum_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 4)]
                     (packet_checksum,) = struct.unpack('>i', packet_checksum_bytes)
                     self.idx_cursor += 4
@@ -205,12 +199,10 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     """
                     if not self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
                         # Packet is not ok.
-                        #print('[BAD]')
                         self.data_buffer = self.data_buffer[1:]
                         self.idx_cursor = 0
                     else:
                         # Packet is ok.
-                        #print('[OK]')
                         self.data_buffer = self.data_buffer[self.idx_cursor:]
                         self.idx_cursor = 0
 
