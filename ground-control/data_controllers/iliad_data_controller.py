@@ -116,7 +116,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     self._current_packet_types = packet_types_raw
                 
                 # Parse body:
-                for packet_type in [ # TODO: Turn constants into an enum.
+                for packet_type in [
                     packet_util.PACKET_TYPE_ARM_STATUS,
                     packet_util.PACKET_TYPE_ALTITUDE,
                     packet_util.PACKET_TYPE_ACCELERATION,
@@ -207,7 +207,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
                         self.idx_cursor = 0
 
                         # Save the packet's data.
-                        # TODO: Don't save everything...
                         for current_packet_type in packet_util.get_packet_types(self._current_packet_types):
                             if current_packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
                                 self.arm_status_1_data.append(self._current_arm_status_1_data)
