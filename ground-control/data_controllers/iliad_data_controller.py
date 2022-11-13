@@ -1,9 +1,7 @@
 import data_controllers.serial_data_controller as serial_data_controller
-import serial
 import struct
 import utils.packet_util as packet_util
 import crc
-import math
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
@@ -201,6 +199,10 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     (packet_checksum,) = struct.unpack('>i', packet_checksum_bytes)
                     self.idx_cursor += 4
 
+                    """
+                    The basic algorithm for recovery is:
+                    If crc doesn't match up, discard one byte at a time and try to parse again.
+                    """
                     if not self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
                         # Packet is not ok.
                         #print('[BAD]')
@@ -260,26 +262,4 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                 self.gps_satellites_data.append(self._current_gps_satellites_data)
                             elif current_packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
                                 self.gps_ground_speed_data.append(self._current_gps_ground_speed_data)
-                
-                # Check packet checksum:
-                # is_ok = False
-                # if self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
-                #     is_ok = True
-                
-                # if is_ok:
-                #     #print(f'[OK] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
-                #     #print(f'\t{packet_types} {packet_payload} {packet_checksum}')
-                # else:
-                #     #print(f'[BAD] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
-                #     #print(f'\tExpected {self.checksum_calculator.calculate_checksum(packet_types_bytes + packet_payload_bytes)}, got {packet_checksum}')
 
-                # if is_ok:
-                #     self.data_buffer = self.data_buffer[self.idx_cursor:]
-                #     self.idx_cursor = 0
-                # else:
-                #     self.data_buffer = self.data_buffer[1:]
-                #     self.idx_cursor = 0
-                    # TODO: Need to track if we are in "network recover" state.
-                
-                # The basic algorithm for recovery is:
-                # If crc doesn't match up, discard one byte at a time and try to parse again.
