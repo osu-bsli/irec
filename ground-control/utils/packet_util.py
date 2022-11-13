@@ -50,10 +50,11 @@ PAYLOAD_FORMAT = {
 # Splits a packet type bitflag into multiple packet types.
 # Code from <https://www.spatialtimes.com/2014/07/binary-flags-with-python/>
 def get_packet_types(n):
-    while n:
-        b = n & (~n+1)
-        yield b
-        n ^= b
+    if n > 0:
+        while n:
+            b = n & (~n+1)
+            yield b
+            n ^= b
 
 def create_packet(types: int, time: float, data: tuple) -> bytes:
     header = struct.pack('>hf', types, time)
