@@ -4,7 +4,8 @@ class DataController:
     """
     Generic data controller class for reading/writing to a port/connection.
     """
-    def __init__(self) -> None:
+    def __init__(self, identifier: str) -> None:
+        self.identifier = identifier
         pass
     
     # Raise when we can't open().

@@ -12,7 +12,7 @@ class App:
     def __init__(self) -> None:
 
         # Start serial ports and stuff:
-        self.iliad = IliadDataController()
+        self.iliad = IliadDataController('iliad')
 
         # Start UI:
         gui.create_context()

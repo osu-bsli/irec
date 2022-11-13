@@ -5,8 +5,8 @@ from . import data_controller
 
 class SerialDataController(data_controller.DataController):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, identifier: str) -> None:
+        super().__init__(identifier)
         
         # Set default port values
         self.port = serial.Serial()
@@ -17,11 +17,11 @@ class SerialDataController(data_controller.DataController):
         self.port_byte_size = serial.EIGHTBITS
 
         # Widget tags:
-        self.TAG_CONFIG_MENU_PORT_NAME_COMBO = ''
-        self.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT = ''
-        self.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO = ''
-        self.TAG_CONFIG_MENU_PORT_PARITY_COMBO = ''
-        self.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO = ''
+        self.CONFIG_MENU_PORT_NAME = f'{self.identifier}.config_menu.port_name'
+        self.CONFIG_MENU_PORT_BAUD_RATE = f'{self.identifier}.config_menu.port_baud_rate'
+        self.CONFIG_MENU_PORT_STOP_BITS = f'{self.identifier}.config_menu.stop_bits'
+        self.CONFIG_MENU_PORT_PARITY = f'{self.identifier}.config_menu.parity'
+        self.CONFIG_MENU_PORT_BYTE_SIZE = f'{self.identifier}.config_menu.byte_size'
 
     # Returns a dictionary with different config options.
     def get_config(self) -> dict[str]:
@@ -62,39 +62,39 @@ class SerialDataController(data_controller.DataController):
             self.available_ports = []
             for port, description, hardware_id in ports:
                 self.available_ports.append(port)
-            gui.configure_item(self.TAG_CONFIG_MENU_PORT_NAME_COMBO, items=self.available_ports) # DANGER! Only called after tag is defined, but must be careful!
+            gui.configure_item(self.CONFIG_MENU_PORT_NAME, items=self.available_ports) # DANGER! Only called after tag is defined, but must be careful!
             # TODO: Find a solution to this. Tags should be pre-defined strings. But, they must be unique to each instance of this class. Maybe pass in an identifier prefix in the constructor?
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            self.TAG_CONFIG_MENU_PORT_NAME_COMBO = gui.add_combo(items=self.available_ports, width=128)
+            self.CONFIG_MENU_PORT_NAME = gui.add_combo(items=self.available_ports, width=128)
             btn = gui.add_button(label='Rescan ports', width=128, callback=rescan_ports)
-            gui.configure_item(self.TAG_CONFIG_MENU_PORT_NAME_COMBO, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
+            gui.configure_item(self.CONFIG_MENU_PORT_NAME, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
         with gui.group(horizontal=True):
-            self.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT = gui.add_text('Baud rate:')
+            self.CONFIG_MENU_PORT_BAUD_RATE = gui.add_text('Baud rate:')
             gui.add_input_int(default_value=9600, width=-1)
         with gui.group(horizontal=True):
-            self.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO = gui.add_text('Stop bits:')
+            self.CONFIG_MENU_PORT_STOP_BITS = gui.add_text('Stop bits:')
             gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            self.TAG_CONFIG_MENU_PORT_PARITY_COMBO = gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
+            self.CONFIG_MENU_PORT_PARITY = gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            self.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO = gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
+            self.CONFIG_MENU_PORT_BYTE_SIZE = gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
         
         rescan_ports()
     
     def apply_config(self) -> None:
 
         # Set port name
-        self.port_name = gui.get_value(self.TAG_CONFIG_MENU_PORT_NAME_COMBO)
+        self.port_name = gui.get_value(self.CONFIG_MENU_PORT_NAME)
 
         # Set port baud rate
-        self.port_baud_rate = gui.get_value(self.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT)
+        self.port_baud_rate = gui.get_value(self.CONFIG_MENU_PORT_BAUD_RATE)
 
         # Set port stop bits
-        data = gui.get_value(self.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO)
+        data = gui.get_value(self.CONFIG_MENU_PORT_STOP_BITS)
         if data == '1':
             self.port_stop_bits = serial.STOPBITS_ONE
         elif data == '1.5':
@@ -103,7 +103,7 @@ class SerialDataController(data_controller.DataController):
             self.port_stop_bits = serial.STOPBITS_TWO
 
         # Set port parity
-        data = gui.get_value(self.TAG_CONFIG_MENU_PORT_PARITY_COMBO)
+        data = gui.get_value(self.CONFIG_MENU_PORT_PARITY)
         if data == 'None':
             self.port_parity = serial.PARITY_NONE
         elif data == 'Even':
@@ -116,7 +116,7 @@ class SerialDataController(data_controller.DataController):
             self.port_parity = serial.PARITY_SPACE
         
         # Set port byte size
-        data=gui.get_value(self.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO)
+        data=gui.get_value(self.CONFIG_MENU_PORT_BYTE_SIZE)
         if data == '5 bits':
             self.port_byte_size = serial.FIVEBITS
         elif data == '6 bits':
@@ -200,11 +200,11 @@ def test():
     gui.setup_dearpygui()
     with gui.window():
         test.add_config_menu()
-    gui.set_value(test.TAG_CONFIG_MENU_PORT_NAME_COMBO, 'COM2')
-    gui.set_value(test.TAG_CONFIG_MENU_PORT_BAUD_RATE_INPUT_INT, 0)
-    gui.set_value(test.TAG_CONFIG_MENU_PORT_STOP_BITS_COMBO, '1.5')
-    gui.set_value(test.TAG_CONFIG_MENU_PORT_PARITY_COMBO, 'Even')
-    gui.set_value(test.TAG_CONFIG_MENU_PORT_BYTE_SIZE_COMBO, '5 bits')
+    gui.set_value(test.CONFIG_MENU_PORT_NAME, 'COM2')
+    gui.set_value(test.CONFIG_MENU_PORT_BAUD_RATE, 0)
+    gui.set_value(test.CONFIG_MENU_PORT_STOP_BITS, '1.5')
+    gui.set_value(test.CONFIG_MENU_PORT_PARITY, 'Even')
+    gui.set_value(test.CONFIG_MENU_PORT_BYTE_SIZE, '5 bits')
     for i in range(1000):
         test.update()
         gui.render_dearpygui_frame()
