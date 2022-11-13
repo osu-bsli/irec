@@ -65,6 +65,7 @@ def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, sta
     assert len(test.arm_status_1_data) == 1
     assert len(test.arm_status_2_data) == 1
     assert len(test.arm_status_3_data) == 1
+    assert len(test.altitude_1_data) == 0
     assert math.isclose(test.arm_status_1_data[0][0], timestamp, rel_tol=1e-6) # TODO: Figure out specific tolerances.
     assert math.isclose(test.arm_status_2_data[0][0], timestamp, rel_tol=1e-6)
     assert math.isclose(test.arm_status_3_data[0][0], timestamp, rel_tol=1e-6)
@@ -336,5 +337,70 @@ def test_gps_ground_speed_packet(timestamp: float, speed: float):
     assert len(test.gps_ground_speed_data) == 1
     assert math.isclose(test.gps_ground_speed_data[0][0], timestamp, rel_tol=1e-6)
     assert math.isclose(test.gps_ground_speed_data[0][1], speed, rel_tol=1e-6)
+    test.close()
+    port.close()
+
+def test_multiple_packets():
+    (test, port) = setup_packet_test()
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (123.456,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (123.456,)))
+    for i in range(100):
+        test.update()
+    assert len(test.gps_ground_speed_data) == 3
+    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
+    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
+    assert math.isclose(test.gps_ground_speed_data[2][0], 0.2, rel_tol=1e-6)
+    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
+    assert math.isclose(test.gps_ground_speed_data[1][1], 123.456, rel_tol=1e-6)
+    assert math.isclose(test.gps_ground_speed_data[2][1], 123.456, rel_tol=1e-6)
+    test.close()
+    port.close()
+
+def test_mixed_packets():
+    (test, port) = setup_packet_test()
+    port.write(packet_util.create_packet(
+        packet_util.PACKET_TYPE_GPS_SATELLITES + packet_util.PACKET_TYPE_GPS_GROUND_SPEED,
+        0.0,
+        (0, 123.456)))
+    for i in range(100):
+        test.update()
+    assert len(test.gps_satellites_data) == 1
+    assert math.isclose(test.gps_satellites_data[0][0], 0.0, rel_tol=1e-6)
+    assert test.gps_satellites_data[0][1] == 0
+    assert len(test.gps_ground_speed_data) == 1
+    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
+    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
+    test.close()
+    port.close()
+
+def test_resync_on_corrupted_packet():
+    (test, port) = setup_packet_test()
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    corrupted_packet = corrupted_packet[1:]
+    port.write(corrupted_packet)
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    for i in range(100):
+        test.update()
+    assert len(test.gps_ground_speed_data) == 20
     test.close()
     port.close()
