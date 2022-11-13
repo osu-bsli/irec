@@ -46,6 +46,42 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.gyroscope_z_data: list[tuple[float, float]] = []
         self.gps_satellites_data: list[tuple[float, int]] = []
         self.gps_ground_speed_data: list[tuple[float, float]] = []
+
+        # Temporary variables to store data while we check the packet's checksum.
+        self._current_packet_types: int = None
+        self._current_arm_status_1_data: tuple[float, bool] = None
+        self._current_arm_status_2_data: tuple[float, bool] = None
+        self._current_arm_status_3_data: tuple[float, bool] = None
+        self._current_altitude_1_data: tuple[float, float] = None
+        self._current_altitude_2_data: tuple[float, float] = None
+        self._current_acceleration_x_data: tuple[float, float] = None
+        self._current_acceleration_y_data: tuple[float, float] = None
+        self._current_acceleration_z_data: tuple[float, float] = None
+        self._current_gps_latitude_data: tuple[float, float] = None
+        self._current_gps_longitude_data: tuple[float, float] = None
+        self._current_board_1_temperature_data: tuple[float, float] = None
+        self._current_board_2_temperature_data: tuple[float, float] = None
+        self._current_board_3_temperature_data: tuple[float, float] = None
+        self._current_board_4_temperature_data: tuple[float, float] = None
+        self._current_board_1_voltage_data: tuple[float, float] = None
+        self._current_board_2_voltage_data: tuple[float, float] = None
+        self._current_board_3_voltage_data: tuple[float, float] = None
+        self._current_board_4_voltage_data: tuple[float, float] = None
+        self._current_board_1_current_data: tuple[float, float] = None
+        self._current_board_2_current_data: tuple[float, float] = None
+        self._current_board_3_current_data: tuple[float, float] = None
+        self._current_board_4_current_data: tuple[float, float] = None
+        self._current_battery_1_voltage_data: tuple[float, float] = None
+        self._current_battery_2_voltage_data: tuple[float, float] = None
+        self._current_battery_3_voltage_data: tuple[float, float] = None
+        self._current_magnetometer_data_1: tuple[float, float] = None
+        self._current_magnetometer_data_2: tuple[float, float] = None
+        self._current_magnetometer_data_3: tuple[float, float] = None
+        self._current_gyroscope_x_data: tuple[float, float] = None
+        self._current_gyroscope_y_data: tuple[float, float] = None
+        self._current_gyroscope_z_data: tuple[float, float] = None
+        self._current_gps_satellites_data: tuple[float, int] = None
+        self._current_gps_ground_speed_data: tuple[float, float] = None
     
     def update(self) -> None:
         if self.is_open():
@@ -56,18 +92,18 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 self.data_buffer += bytearray(data)
             
             # If the buffer has enough data, try to parse some of it
-            if len(self.data_buffer) > 10:
+            if len(self.data_buffer) > 0:
                 
                 self.idx_cursor = 0 # Current index in data_buffer.
 
-                packet_types_bytes: bytes
+                packet_types_bytes: bytes = None
                 packet_types: list[int] = []
-                packet_timestamp_bytes: bytes
-                packet_timestamp: float
+                packet_timestamp_bytes: bytes = None
+                packet_timestamp: float = None
                 packet_payload_bytes = bytearray()
                 packet_payload: dict[int] = {}
-                packet_checksum_bytes: bytes
-                packet_checksum: int
+                packet_checksum_bytes: bytes = None
+                packet_checksum: int = None
 
                 # Parse header:
                 if len(self.data_buffer) - self.idx_cursor >= 6:
@@ -78,6 +114,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     packet_timestamp_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 4)]
                     (packet_timestamp,) = struct.unpack('>f', packet_timestamp_bytes)
                     self.idx_cursor += 4
+
+                    self._current_packet_types = packet_types_raw
                 
                 for packet_type in [ # TODO: Turn constants into an enum.
                     packet_util.PACKET_TYPE_ARM_STATUS,
@@ -103,94 +141,121 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
                             packet_payload_bytes += payload_bytes
                             packet_payload[packet_type] = payload
-                            
-                            def store_packet_data(fields: tuple[list], timestamp: float, payload: tuple) :
-                                """
-                                Takes a tuple of mutable field references, a timestamp, and a corresponding tuple of payload values. Assigns each value of the payload into the corresponding field. The tuples should be the same length.
-                                """
-                                for idx in range(len(fields)):
-                                    fields[idx].append((timestamp, payload[idx]))
                                     
                             if packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
-                                store_packet_data((
-                                        self.arm_status_1_data,
-                                        self.arm_status_2_data,
-                                        self.arm_status_3_data
-                                    ), packet_timestamp, payload)
+                                self._current_arm_status_1_data = (packet_timestamp, payload[0])
+                                self._current_arm_status_2_data = (packet_timestamp, payload[1])
+                                self._current_arm_status_3_data = (packet_timestamp, payload[2])
                             elif packet_type == packet_util.PACKET_TYPE_ALTITUDE:
-                                store_packet_data((
-                                        self.altitude_1_data,
-                                        self.altitude_2_data,
-                                    ), packet_timestamp, payload)
+                                self._current_altitude_1_data = (packet_timestamp, payload[0])
+                                self._current_altitude_2_data = (packet_timestamp, payload[1])
                             elif packet_type == packet_util.PACKET_TYPE_ACCELERATION:
-                                store_packet_data((
-                                        self.acceleration_x_data,
-                                        self.acceleration_y_data,
-                                        self.acceleration_z_data,
-                                    ), packet_timestamp, payload)
+                                self._current_acceleration_x_data = (packet_timestamp, payload[0])
+                                self._current_acceleration_y_data = (packet_timestamp, payload[1])
+                                self._current_acceleration_z_data = (packet_timestamp, payload[2])
                             elif packet_type == packet_util.PACKET_TYPE_GPS_COORDINATES:
-                                store_packet_data((
-                                        self.gps_latitude_data,
-                                        self.gps_longitude_data,
-                                    ), packet_timestamp, payload)
+                                self._current_gps_latitude_data = (packet_timestamp, payload[0])
+                                self._current_gps_longitude_data = (packet_timestamp, payload[1])
                             elif packet_type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
-                                store_packet_data((
-                                    self.board_1_temperature_data,
-                                    self.board_2_temperature_data,
-                                    self.board_3_temperature_data,
-                                    self.board_4_temperature_data
-                                    ), packet_timestamp, payload)
+                                self._current_board_1_temperature_data = (packet_timestamp, payload[0])
+                                self._current_board_2_temperature_data = (packet_timestamp, payload[1])
+                                self._current_board_3_temperature_data = (packet_timestamp, payload[2])
+                                self._current_board_4_temperature_data = (packet_timestamp, payload[3])
                             elif packet_type == packet_util.PACKET_TYPE_BOARD_VOLTAGE:
-                                store_packet_data((
-                                    self.board_1_voltage_data,
-                                    self.board_2_voltage_data,
-                                    self.board_3_voltage_data,
-                                    self.board_4_voltage_data
-                                    ), packet_timestamp, payload)
+                                self._current_board_1_voltage_data = (packet_timestamp, payload[0])
+                                self._current_board_2_voltage_data = (packet_timestamp, payload[1])
+                                self._current_board_3_voltage_data = (packet_timestamp, payload[2])
+                                self._current_board_4_voltage_data = (packet_timestamp, payload[3])
                             elif packet_type == packet_util.PACKET_TYPE_BOARD_CURRENT:
-                                store_packet_data((
-                                    self.board_1_current_data,
-                                    self.board_2_current_data,
-                                    self.board_3_current_data,
-                                    self.board_4_current_data
-                                    ), packet_timestamp, payload)
+                                self._current_board_1_current_data = (packet_timestamp, payload[0])
+                                self._current_board_2_current_data = (packet_timestamp, payload[1])
+                                self._current_board_3_current_data = (packet_timestamp, payload[2])
+                                self._current_board_4_current_data = (packet_timestamp, payload[3])
                             elif packet_type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
-                                store_packet_data((
-                                    self.battery_1_voltage_data,
-                                    self.battery_2_voltage_data,
-                                    self.battery_3_voltage_data
-                                    ), packet_timestamp, payload)
+                                self._current_battery_1_voltage_data = (packet_timestamp, payload[0])
+                                self._current_battery_2_voltage_data = (packet_timestamp, payload[1])
+                                self._current_battery_3_voltage_data = (packet_timestamp, payload[2])
                             elif packet_type == packet_util.PACKET_TYPE_MAGNETOMETER:
-                                store_packet_data((
-                                    self.magnetometer_data_1,
-                                    self.magnetometer_data_2,
-                                    self.magnetometer_data_3
-                                    ), packet_timestamp, payload)
+                                self._current_magnetometer_data_1 = (packet_timestamp, payload[0])
+                                self._current_magnetometer_data_2 = (packet_timestamp, payload[1])
+                                self._current_magnetometer_data_3 = (packet_timestamp, payload[2])
                             elif packet_type == packet_util.PACKET_TYPE_GYROSCOPE:
-                                store_packet_data((
-                                    self.gyroscope_x_data,
-                                    self.gyroscope_y_data,
-                                    self.gyroscope_z_data
-                                    ), packet_timestamp, payload)
+                                self._current_gyroscope_x_data = (packet_timestamp, payload[0])
+                                self._current_gyroscope_y_data = (packet_timestamp, payload[1])
+                                self._current_gyroscope_z_data = (packet_timestamp, payload[2])
                             elif packet_type == packet_util.PACKET_TYPE_GPS_SATELLITES:
-                                store_packet_data((
-                                    self.gps_satellites_data,
-                                    ), packet_timestamp, payload)
+                                self._current_gps_satellites_data = (packet_timestamp, payload[0])
                             elif packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
-                                store_packet_data((
-                                    self.gps_ground_speed_data,
-                                    ), packet_timestamp, payload)
+                                self._current_gps_ground_speed_data = (packet_timestamp, payload[0])
                 
                 # Parse footer:
                 if len(self.data_buffer) - self.idx_cursor >= 4:
                     packet_checksum_bytes = self.data_buffer[self.idx_cursor:(self.idx_cursor + 4)]
                     (packet_checksum,) = struct.unpack('>i', packet_checksum_bytes)
                     self.idx_cursor += 4
+
+                    if not self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
+                        # Packet is not ok.
+                        self.data_buffer = self.data_buffer[1:]
+                        self.idx_cursor = 0
+                    else:
+                        # Packet is ok.
+                        self.data_buffer = self.data_buffer[self.idx_cursor:]
+                        self.idx_cursor = 0
+
+                        # Save the packet's data.
+                        # TODO: Don't save everything...
+                        for current_packet_type in packet_util.get_packet_types(self._current_packet_types):
+                            if current_packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
+                                self.arm_status_1_data.append(self._current_arm_status_1_data)
+                                self.arm_status_2_data.append(self._current_arm_status_2_data)
+                                self.arm_status_3_data.append(self._current_arm_status_3_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_ALTITUDE:
+                                self.altitude_1_data.append(self._current_altitude_1_data)
+                                self.altitude_2_data.append(self._current_altitude_2_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_ACCELERATION:
+                                self.acceleration_x_data.append(self._current_acceleration_x_data)
+                                self.acceleration_y_data.append(self._current_acceleration_y_data)
+                                self.acceleration_z_data.append(self._current_acceleration_z_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_GPS_COORDINATES:
+                                self.gps_latitude_data.append(self._current_gps_latitude_data)
+                                self.gps_longitude_data.append(self._current_gps_longitude_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
+                                self.board_1_temperature_data.append(self._current_board_1_temperature_data)
+                                self.board_2_temperature_data.append(self._current_board_2_temperature_data)
+                                self.board_3_temperature_data.append(self._current_board_3_temperature_data)
+                                self.board_4_temperature_data.append(self._current_board_4_temperature_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_BOARD_VOLTAGE:
+                                self.board_1_voltage_data.append(self._current_board_1_voltage_data)
+                                self.board_2_voltage_data.append(self._current_board_2_voltage_data)
+                                self.board_3_voltage_data.append(self._current_board_3_voltage_data)
+                                self.board_4_voltage_data.append(self._current_board_4_voltage_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_BOARD_CURRENT:
+                                self.board_1_current_data.append(self._current_board_1_current_data)
+                                self.board_2_current_data.append(self._current_board_2_current_data)
+                                self.board_3_current_data.append(self._current_board_3_current_data)
+                                self.board_4_current_data.append(self._current_board_4_current_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
+                                self.battery_1_voltage_data.append(self._current_battery_1_voltage_data)
+                                self.battery_2_voltage_data.append(self._current_battery_2_voltage_data)
+                                self.battery_3_voltage_data.append(self._current_battery_3_voltage_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_MAGNETOMETER:
+                                self.magnetometer_data_1.append(self._current_magnetometer_data_1)
+                                self.magnetometer_data_2.append(self._current_magnetometer_data_2)
+                                self.magnetometer_data_3.append(self._current_magnetometer_data_3)
+                            elif current_packet_type == packet_util.PACKET_TYPE_GYROSCOPE:
+                                self.gyroscope_x_data.append(self._current_gyroscope_x_data)
+                                self.gyroscope_y_data.append(self._current_gyroscope_y_data)
+                                self.gyroscope_z_data.append(self._current_gyroscope_z_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_GPS_SATELLITES:
+                                self.gps_satellites_data.append(self._current_gps_satellites_data)
+                            elif current_packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
+                                self.gps_ground_speed_data.append(self._current_gps_ground_speed_data)
                 
                 # Check packet checksum:
-                is_ok = False
-                if self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
-                    is_ok = True
+                # is_ok = False
+                # if self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_payload_bytes, packet_checksum):
+                #     is_ok = True
                 
                 # if is_ok:
                 #     print(f'[OK] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
@@ -199,12 +264,12 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 #     print(f'[BAD] {packet_types_bytes.hex()} {packet_payload_bytes.hex()} {packet_checksum_bytes.hex()}')
                 #     print(f'\tExpected {self.checksum_calculator.calculate_checksum(packet_types_bytes + packet_payload_bytes)}, got {packet_checksum}')
 
-                if is_ok:
-                    self.data_buffer = self.data_buffer[self.idx_cursor:]
-                    self.idx_cursor = 0
-                else:
-                    self.data_buffer = self.data_buffer[1:]
-                    self.idx_cursor = 0
+                # if is_ok:
+                #     self.data_buffer = self.data_buffer[self.idx_cursor:]
+                #     self.idx_cursor = 0
+                # else:
+                #     self.data_buffer = self.data_buffer[1:]
+                #     self.idx_cursor = 0
                     # TODO: Need to track if we are in "network recover" state.
                 
                 # The basic algorithm for recovery is:
