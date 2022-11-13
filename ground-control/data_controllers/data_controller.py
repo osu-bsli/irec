@@ -4,7 +4,14 @@ class DataController:
     """
     Generic data controller class for reading/writing to a port/connection.
     """
+
     def __init__(self, identifier: str) -> None:
+        """
+        Constructor.
+
+        `identifier` - A string prefix that will be used for UI widget tags.
+        Must be unique across class instances.
+        """
         self.identifier = identifier
         pass
     
