@@ -1,7 +1,8 @@
 import serial
 import serial.tools.list_ports
 import dearpygui.dearpygui as gui
-from . import data_controller
+from data_controllers import data_controller
+from utils import config_util
 
 class SerialDataController(data_controller.DataController):
 
@@ -22,6 +23,11 @@ class SerialDataController(data_controller.DataController):
         self.CONFIG_MENU_PORT_STOP_BITS = f'{self.identifier}.config_menu.stop_bits'
         self.CONFIG_MENU_PORT_PARITY = f'{self.identifier}.config_menu.parity'
         self.CONFIG_MENU_PORT_BYTE_SIZE = f'{self.identifier}.config_menu.byte_size'
+
+        # Load config
+        config = config_util.get_config('config.toml')
+        if self.identifier in config: # Configs are instance-specific.
+            self.set_config(config[self.identifier])
 
     # Returns a dictionary with different config options.
     def get_config(self) -> dict[str]:
@@ -67,21 +73,21 @@ class SerialDataController(data_controller.DataController):
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_NAME, items=self.available_ports, width=128)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_NAME, items=self.available_ports, default_value=self.port_name, width=128)
             btn = gui.add_button(label='Rescan ports', width=128, callback=rescan_ports)
             gui.configure_item(self.CONFIG_MENU_PORT_NAME, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
         with gui.group(horizontal=True):
             gui.add_text('Baud rate:')
-            gui.add_input_int(tag=self.CONFIG_MENU_PORT_BAUD_RATE, default_value=9600, width=-1)
+            gui.add_input_int(tag=self.CONFIG_MENU_PORT_BAUD_RATE, default_value=self.port_baud_rate, width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Stop bits:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=['1', '1.5', '2'], default_value='1', width=-1)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=['1', '1.5', '2'], default_value=self.port_stop_bits, width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value=self.port_parity, width=-1) # TODO: Convert default value to full names.
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value=self.port_byte_size, width=-1) # TODO: Convert default values to full names.
         
         rescan_ports()
     
@@ -125,6 +131,11 @@ class SerialDataController(data_controller.DataController):
             self.port_byte_size = serial.SEVENBITS
         elif data == '8 bits':
             self.port_byte_size = serial.EIGHTBITS
+        
+        # Write config file
+        config = config_util.get_config('config.toml') # Need to merge with existing config, not overwrite.
+        config[self.identifier] = self.get_config()
+        config_util.set_config('config.toml', config)
 
     def open(self) -> None:
         try:

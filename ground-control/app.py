@@ -1,5 +1,5 @@
 import dearpygui.dearpygui as gui
-import serial
+import tomli
 from data_controllers.iliad_data_controller import IliadDataController
 
 class App:
@@ -12,7 +12,7 @@ class App:
     def __init__(self) -> None:
 
         # Start serial ports and stuff:
-        self.iliad = IliadDataController('iliad')
+        self.iliad = IliadDataController('iliad_data_controller')
 
         # Start UI:
         gui.create_context()
