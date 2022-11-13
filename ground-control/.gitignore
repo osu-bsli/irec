@@ -1,6 +1,8 @@
 # python
 __pycache__/
-*/__pycache__/
+
+# pytest
+.pytest_cache/
 
 # vscode
 .vscode/
