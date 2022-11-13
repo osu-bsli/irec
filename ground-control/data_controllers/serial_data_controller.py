@@ -67,21 +67,21 @@ class SerialDataController(data_controller.DataController):
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            self.CONFIG_MENU_PORT_NAME = gui.add_combo(items=self.available_ports, width=128)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_NAME, items=self.available_ports, width=128)
             btn = gui.add_button(label='Rescan ports', width=128, callback=rescan_ports)
             gui.configure_item(self.CONFIG_MENU_PORT_NAME, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
         with gui.group(horizontal=True):
-            self.CONFIG_MENU_PORT_BAUD_RATE = gui.add_text('Baud rate:')
-            gui.add_input_int(default_value=9600, width=-1)
+            gui.add_text('Baud rate:')
+            gui.add_input_int(tag=self.CONFIG_MENU_PORT_BAUD_RATE, default_value=9600, width=-1)
         with gui.group(horizontal=True):
-            self.CONFIG_MENU_PORT_STOP_BITS = gui.add_text('Stop bits:')
-            gui.add_combo(items=['1', '1.5', '2'], default_value='1', width=-1)
+            gui.add_text('Stop bits:')
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=['1', '1.5', '2'], default_value='1', width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            self.CONFIG_MENU_PORT_PARITY = gui.add_combo(items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value='None', width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            self.CONFIG_MENU_PORT_BYTE_SIZE = gui.add_combo(items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value='8 bits', width=-1)
         
         rescan_ports()
     
