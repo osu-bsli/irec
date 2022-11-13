@@ -34,6 +34,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.board_1_current_data: list[tuple[float, float]] = []
         self.board_2_current_data: list[tuple[float, float]] = []
         self.board_3_current_data: list[tuple[float, float]] = []
+        self.board_4_current_data: list[tuple[float, float]] = []
         self.battery_1_voltage_data: list[tuple[float, float]] = []
         self.battery_2_voltage_data: list[tuple[float, float]] = []
         self.battery_3_voltage_data: list[tuple[float, float]] = []
@@ -145,6 +146,39 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                     self.board_2_voltage_data,
                                     self.board_3_voltage_data,
                                     self.board_4_voltage_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_BOARD_CURRENT:
+                                store_packet_data((
+                                    self.board_1_current_data,
+                                    self.board_2_current_data,
+                                    self.board_3_current_data,
+                                    self.board_4_current_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
+                                store_packet_data((
+                                    self.battery_1_voltage_data,
+                                    self.battery_2_voltage_data,
+                                    self.battery_3_voltage_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_MAGNETOMETER:
+                                store_packet_data((
+                                    self.magnetometer_data_1,
+                                    self.magnetometer_data_2,
+                                    self.magnetometer_data_3
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GYROSCOPE:
+                                store_packet_data((
+                                    self.gyroscope_x_data,
+                                    self.gyroscope_y_data,
+                                    self.gyroscope_z_data
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GPS_SATELLITES:
+                                store_packet_data((
+                                    self.gps_sattelites_data,
+                                    ), packet_timestamp, payload)
+                            elif packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
+                                store_packet_data((
+                                    self.gps_ground_speed_data,
                                     ), packet_timestamp, payload)
                 
                 # Parse footer:
