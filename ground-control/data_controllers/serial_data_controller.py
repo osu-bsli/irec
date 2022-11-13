@@ -88,29 +88,53 @@ class SerialDataController(data_controller.DataController):
             self.available_ports = []
             for port, description, hardware_id in ports:
                 self.available_ports.append(port)
-            gui.configure_item(self.CONFIG_MENU_PORT_NAME, items=self.available_ports) # DANGER! Only called after tag is defined, but must be careful!
-            # TODO: Find a solution to this. Tags should be pre-defined strings. But, they must be unique to each instance of this class. Maybe pass in an identifier prefix in the constructor?
+            gui.configure_item(self.CONFIG_MENU_PORT_NAME, items=self.available_ports)
 
         with gui.group(horizontal=True):
             gui.add_text('Port:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_NAME, items=self.available_ports, default_value=self.port_name, width=128)
+            gui.add_combo(
+                tag=self.CONFIG_MENU_PORT_NAME,
+                items=self.available_ports,
+                default_value=self.port_name,
+                width=128
+            )
             btn = gui.add_button(label='Rescan ports', width=128, callback=rescan_ports)
             gui.configure_item(self.CONFIG_MENU_PORT_NAME, width=-(gui.get_item_width(btn) + 9)) # 1 + mvStyleVarItemSpacing x.
+
         with gui.group(horizontal=True):
             gui.add_text('Baud rate:')
-            gui.add_input_int(tag=self.CONFIG_MENU_PORT_BAUD_RATE, default_value=self.port_baud_rate, width=-1)
+            gui.add_input_int(
+                tag=self.CONFIG_MENU_PORT_BAUD_RATE,
+                default_value=self.port_baud_rate,
+                width=-1
+            )
+
         with gui.group(horizontal=True):
             gui.add_text('Stop bits:')
-            # gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=['1', '1.5', '2'], default_value=self.port_stop_bits, width=-1)
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=[x for y, x in SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES.items()], default_value=SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES[self.port_stop_bits], width=-1)
+            gui.add_combo(
+                tag=self.CONFIG_MENU_PORT_STOP_BITS,
+                items=[x for y, x in SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES.items()],
+                default_value=SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES[self.port_stop_bits],
+                width=-1
+            )
+
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            # gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value=self.port_parity, width=-1) # TODO: Convert default value to full names.
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=[x for y, x in SerialDataController.PORT_PARITY_DISPLAY_VALUES.items()], default_value=SerialDataController.PORT_PARITY_DISPLAY_VALUES[self.port_parity], width=-1) # TODO: Convert default value to full names.
+            gui.add_combo(
+                tag=self.CONFIG_MENU_PORT_PARITY,
+                items=[x for y, x in SerialDataController.PORT_PARITY_DISPLAY_VALUES.items()],
+                default_value=SerialDataController.PORT_PARITY_DISPLAY_VALUES[self.port_parity],
+                width=-1
+            )
+            
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            # gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value=self.port_byte_size, width=-1) # TODO: Convert default values to full names.
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=[x for y, x in SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES.items()], default_value=SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES[self.port_byte_size], width=-1) # TODO: Convert default values to full names.
+            gui.add_combo(
+                tag=self.CONFIG_MENU_PORT_BYTE_SIZE,
+                items=[x for y, x in SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES.items()],
+                default_value=SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES[self.port_byte_size],
+                width=-1
+            )
         
         rescan_ports()
     
