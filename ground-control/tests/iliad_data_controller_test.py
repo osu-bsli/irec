@@ -2,6 +2,7 @@ from data_controllers.iliad_data_controller import IliadDataController
 import utils.packet_util as packet_util
 import serial
 import math
+import pytest
 
 # TODO: Don't hardcode port values. Maybe make virtual linked ports?
 
@@ -47,42 +48,65 @@ def setup_packet_test() -> tuple[IliadDataController, serial.Serial]:
     )
     return (test, port)
 
-def test_arm_status_packet():
+@pytest.mark.parametrize(
+    "timestamp, status_1, status_2, status_3",
+    [
+        (0.0, True, True, True),
+        (999.999, True, False, True),
+        (-999.999, False, False, False),
+    ]
+)
+def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, status_3: bool):
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, 0.0, (True, True, True)))
+    print(f'{timestamp}')
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, timestamp, (status_1, status_2, status_3)))
     for i in range(100):
         test.update()
-    assert test.arm_status_1_data == [(0.0, True)]
-    assert test.arm_status_2_data == [(0.0, True)]
-    assert test.arm_status_3_data == [(0.0, True)]
+    assert len(test.arm_status_1_data) == 1
+    assert len(test.arm_status_2_data) == 1
+    assert len(test.arm_status_3_data) == 1
+    assert math.isclose(test.arm_status_1_data[0][0], timestamp, rel_tol=1e-6)
+    assert math.isclose(test.arm_status_2_data[0][0], timestamp, rel_tol=1e-6)
+    assert math.isclose(test.arm_status_3_data[0][0], timestamp, rel_tol=1e-6)
+    assert test.arm_status_1_data[0][1] == status_1
+    assert test.arm_status_2_data[0][1] == status_2
+    assert test.arm_status_3_data[0][1] == status_3
     test.close()
     port.close()
-    
-def test_altitude_packet():
+
+@pytest.mark.parametrize(
+    "timestamp, altitude_1, altitude_2",
+    [
+        (0.0, 0.0, 0.0),
+        (0.0, 999.999, -999.999),
+        (0.0, -999.999, 999.999),
+    ]
+)
+def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float):
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, 0.0, (1.234, 5.678)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, (altitude_1, altitude_2)))
     for i in range(100):
         test.update()
     assert len(test.altitude_1_data) == 1
     assert len(test.altitude_2_data) == 1
-    assert test.altitude_1_data[0][0] == 0.0
-    assert test.altitude_2_data[0][0] == 0.0
-    assert math.isclose(test.altitude_1_data[0][1], 1.234, rel_tol=1e-6) # TODO: Figure out specific tolerances.
-    assert math.isclose(test.altitude_2_data[0][1], 5.678, rel_tol=1e-6)
+    assert test.altitude_1_data[0][0] == timestamp
+    assert test.altitude_2_data[0][0] == timestamp
+    assert math.isclose(test.altitude_1_data[0][1], altitude_1, rel_tol=1e-6) # TODO: Figure out specific tolerances.
+    assert math.isclose(test.altitude_2_data[0][1], altitude_2, rel_tol=1e-6)
     test.close()
     port.close()
 
-def test_acceleration_packet():
+def test_acceleration_packet(timestamp: float, acceleration_x: float, acceleration_y: float, acceleration_z: float):
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, 0.0, (1.234, 5.678, 9.012)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, timestamp, (acceleration_x, acceleration_y, acceleration_z)))
     for i in range(100):
         test.update()
     assert len(test.acceleration_x_data) == 1
     assert len(test.acceleration_y_data) == 1
     assert len(test.acceleration_z_data) == 1
-    assert test.acceleration_x_data[0][0] == 0.0
-    assert test.acceleration_y_data[0][0] == 0.0
-    assert test.acceleration_z_data[0][0] == 0.0
+    assert test.acceleration_x_data[0][0] == timestamp
+    assert test.acceleration_y_data[0][0] == timestamp
+    assert test.acceleration_z_data[0][0] == timestamp
     assert math.isclose(test.acceleration_x_data[0][1], 1.234, rel_tol=1e-6)
     assert math.isclose(test.acceleration_y_data[0][1], 5.678, rel_tol=1e-6)
     assert math.isclose(test.acceleration_z_data[0][1], 9.012, rel_tol=1e-6)
