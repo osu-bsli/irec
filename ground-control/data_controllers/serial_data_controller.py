@@ -3,6 +3,7 @@ import serial.tools.list_ports
 import dearpygui.dearpygui as gui
 from data_controllers import data_controller
 from utils import config_util
+import bidict
 
 class SerialDataController(data_controller.DataController):
 
@@ -61,6 +62,25 @@ class SerialDataController(data_controller.DataController):
             if config['port_byte_size'] in [serial.FIVEBITS, serial.SIXBITS, serial.SEVENBITS, serial.EIGHTBITS]:
                 self.port_byte_size = config['port_byte_size']
     
+    PORT_STOP_BITS_DISPLAY_VALUES = bidict.bidict({
+        serial.STOPBITS_ONE: '1',
+        serial.STOPBITS_ONE_POINT_FIVE: '1.5',
+        serial.STOPBITS_TWO: '2',
+    })
+    PORT_PARITY_DISPLAY_VALUES = bidict.bidict({
+        serial.PARITY_NONE: 'None',
+        serial.PARITY_EVEN: 'Even',
+        serial.PARITY_ODD: 'Odd',
+        serial.PARITY_MARK: 'Mark',
+        serial.PARITY_SPACE: 'Space',
+    })
+    PORT_BYTE_SIZE_DISPLAY_VALUES = bidict.bidict({
+        serial.FIVEBITS: '5 bits',
+        serial.SIXBITS: '6 bits',
+        serial.SEVENBITS: '7 bits',
+        serial.EIGHTBITS: '8 bits',
+    })
+
     def add_config_menu(self) -> None:
         self.available_ports = []
         def rescan_ports() -> None:
@@ -81,13 +101,16 @@ class SerialDataController(data_controller.DataController):
             gui.add_input_int(tag=self.CONFIG_MENU_PORT_BAUD_RATE, default_value=self.port_baud_rate, width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Stop bits:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=['1', '1.5', '2'], default_value=self.port_stop_bits, width=-1)
+            # gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=['1', '1.5', '2'], default_value=self.port_stop_bits, width=-1)
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_STOP_BITS, items=[x for y, x in SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES.items()], default_value=SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES[self.port_stop_bits], width=-1)
         with gui.group(horizontal=True):
             gui.add_text('Parity:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value=self.port_parity, width=-1) # TODO: Convert default value to full names.
+            # gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=['None', 'Even', 'Odd', 'Mark', 'Space'], default_value=self.port_parity, width=-1) # TODO: Convert default value to full names.
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_PARITY, items=[x for y, x in SerialDataController.PORT_PARITY_DISPLAY_VALUES.items()], default_value=SerialDataController.PORT_PARITY_DISPLAY_VALUES[self.port_parity], width=-1) # TODO: Convert default value to full names.
         with gui.group(horizontal=True):
             gui.add_text('Byte size:')
-            gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value=self.port_byte_size, width=-1) # TODO: Convert default values to full names.
+            # gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=['5 bits', '6 bits', '7 bits', '8 bits'], default_value=self.port_byte_size, width=-1) # TODO: Convert default values to full names.
+            gui.add_combo(tag=self.CONFIG_MENU_PORT_BYTE_SIZE, items=[x for y, x in SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES.items()], default_value=SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES[self.port_byte_size], width=-1) # TODO: Convert default values to full names.
         
         rescan_ports()
     
@@ -101,36 +124,18 @@ class SerialDataController(data_controller.DataController):
 
         # Set port stop bits
         data = gui.get_value(self.CONFIG_MENU_PORT_STOP_BITS)
-        if data == '1':
-            self.port_stop_bits = serial.STOPBITS_ONE
-        elif data == '1.5':
-            self.port_stop_bits = serial.STOPBITS_ONE_POINT_FIVE
-        elif data == '2':
-            self.port_stop_bits = serial.STOPBITS_TWO
+        if data in SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES.inverse:
+            self.port_stop_bits = SerialDataController.PORT_STOP_BITS_DISPLAY_VALUES.inverse[data]
 
         # Set port parity
         data = gui.get_value(self.CONFIG_MENU_PORT_PARITY)
-        if data == 'None':
-            self.port_parity = serial.PARITY_NONE
-        elif data == 'Even':
-            self.port_parity = serial.PARITY_EVEN
-        elif data == 'Odd':
-            self.port_parity = serial.PARITY_ODD
-        elif data == 'Mark':
-            self.port_parity = serial.PARITY_MARK
-        elif data == 'Space':
-            self.port_parity = serial.PARITY_SPACE
+        if data in SerialDataController.PORT_PARITY_DISPLAY_VALUES.inverse:
+            self.port_parity = SerialDataController.PORT_PARITY_DISPLAY_VALUES.inverse[data]
         
         # Set port byte size
         data=gui.get_value(self.CONFIG_MENU_PORT_BYTE_SIZE)
-        if data == '5 bits':
-            self.port_byte_size = serial.FIVEBITS
-        elif data == '6 bits':
-            self.port_byte_size = serial.SIXBITS
-        elif data == '7 bits':
-            self.port_byte_size = serial.SEVENBITS
-        elif data == '8 bits':
-            self.port_byte_size = serial.EIGHTBITS
+        if data in SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES.inverse:
+            self.port_byte_size = SerialDataController.PORT_BYTE_SIZE_DISPLAY_VALUES.inverse[data]
         
         # Write config file
         config = config_util.get_config('config.toml') # Need to merge with existing config, not overwrite.
