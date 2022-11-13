@@ -44,7 +44,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.gyroscope_x_data: list[tuple[float, float]] = []
         self.gyroscope_y_data: list[tuple[float, float]] = []
         self.gyroscope_z_data: list[tuple[float, float]] = []
-        self.gps_sattelites_data: list[tuple[float, int]] = []
+        self.gps_satellites_data: list[tuple[float, int]] = []
         self.gps_ground_speed_data: list[tuple[float, float]] = []
     
     def update(self) -> None:
@@ -174,7 +174,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                     ), packet_timestamp, payload)
                             elif packet_type == packet_util.PACKET_TYPE_GPS_SATELLITES:
                                 store_packet_data((
-                                    self.gps_sattelites_data,
+                                    self.gps_satellites_data,
                                     ), packet_timestamp, payload)
                             elif packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
                                 store_packet_data((
