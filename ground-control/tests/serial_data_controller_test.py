@@ -1,9 +1,10 @@
 from data_controllers.serial_data_controller import SerialDataController
+from utils import config_util
 import serial
 import dearpygui.dearpygui as gui
 
 def test_set_config():
-    test = SerialDataController()
+    test = SerialDataController('test')
     config = {
         'port_name': 'COM1',
         'port_baud_rate': 9600,
@@ -22,7 +23,7 @@ def test_set_config():
 def test_open_exception():
     was_exception = False
     try:
-        test = SerialDataController()
+        test = SerialDataController('test')
         test.set_config({
             'port_name': 'qwertyuiop',
             'port_baud_rate': 9600,
@@ -38,7 +39,7 @@ def test_open_exception():
 
 def test_config_ui():
     # Test config ui
-    test = SerialDataController()
+    test = SerialDataController('test')
     test.set_config({
         'port_name': 'COM1',
         'port_baud_rate': 9600,
@@ -58,9 +59,9 @@ def test_config_ui():
     gui.set_value(test.CONFIG_MENU_PORT_BYTE_SIZE, '5 bits')
     for i in range(1000):
         test.update()
-        gui.render_dearpygui_frame()
+        # gui.render_dearpygui_frame()
     test.apply_config()
-    assert test.get_config == {
+    assert test.get_config() == {
         'port_name': 'COM2',
         'port_baud_rate': 0,
         'port_stop_bits': serial.STOPBITS_ONE_POINT_FIVE,
@@ -69,3 +70,8 @@ def test_config_ui():
     }
     test.close()
     gui.destroy_context()
+
+    # Clean up config.toml
+    config = config_util.get_config('config.toml')
+    config.pop('test', None) # Removes key 'test', returns the value or None if key isn't there.
+    config_util.set_config('config.toml', config)

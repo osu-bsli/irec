@@ -7,7 +7,7 @@ import pytest
 # TODO: Don't hardcode port values. Maybe make virtual linked ports?
 
 def test_update():
-    test = IliadDataController()
+    test = IliadDataController('test')
     config = {
         'port_name': 'COM2',
         'port_baud_rate': 9600,
@@ -30,7 +30,7 @@ def setup_packet_test() -> tuple[IliadDataController, serial.Serial]:
     Both must be closed when finished.
     """
     # TODO: Rewrite as a context manager? The `with` syntax is perfect for opening/closing resources.
-    test = IliadDataController()
+    test = IliadDataController('test')
     test.set_config({
         'port_name': 'COM2',
         'port_baud_rate': 9600,
