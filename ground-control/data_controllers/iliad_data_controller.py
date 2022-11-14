@@ -5,8 +5,8 @@ import crc
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, identifier: str) -> None:
+        super().__init__(identifier)
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
