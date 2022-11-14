@@ -6,3 +6,6 @@ __pycache__/
 
 # vscode
 .vscode/
+
+# misc
+config.toml
