@@ -1,5 +1,0 @@
-from data_controllers import iliad_data_controller
-from data_controllers import serial_data_controller
-
-iliad_data_controller.test()
-serial_data_controller.test()
