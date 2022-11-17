@@ -197,23 +197,25 @@ class Grapher(AppComponent):
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
 
-        # Create the gui stuff:
         with gui.group(horizontal=True):
-            displaySidebar()
-        
-        with gui.group(horizontal=False):
-            with gui.tab_bar() as tb:
-                # with gui.tab_bar(pos=(100, 100)) as tb:
-                #tracking tab
-                displayTracking()
-                #arming tab
-                displayArming()
-                #health tab
-                displayHealth()
-                #packets tab
-                displayPackets()
-                #recovery tab
-                displayRecovery()
+
+            # Create the gui stuff:
+            with gui.group(horizontal=False):
+                displaySidebar()
+            
+            with gui.group(horizontal=False):
+                with gui.tab_bar() as tb:
+                    # with gui.tab_bar(pos=(100, 100)) as tb:
+                    #tracking tab
+                    displayTracking()
+                    #arming tab
+                    displayArming()
+                    #health tab
+                    displayHealth()
+                    #packets tab
+                    displayPackets()
+                    #recovery tab
+                    displayRecovery()
         
 
     

@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as gui
 import tomli
 from data_controllers.iliad_data_controller import IliadDataController
+from grapher.grapher import Grapher
 
 class App:
 
@@ -22,6 +23,11 @@ class App:
         with gui.font_registry():
             primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16)
             gui.bind_font(primary_font)
+
+
+        with gui.window(tag=App.TAG_MAIN_WINDOW):
+            gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
+            self.grapher = Grapher('grapher')
 
         # Init config menu:
         with gui.window(label='Config', tag=App.TAG_CONFIG_WINDOW, min_size=(512, 512)):
@@ -64,9 +70,6 @@ class App:
                 gui.add_menu_item(label='Docs', callback=None)
                 gui.add_menu_item(label='About', callback=None)
 
-        with gui.window(tag=App.TAG_MAIN_WINDOW):
-            gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
-
         gui.show_viewport()
         gui.maximize_viewport()
 
@@ -77,6 +80,7 @@ class App:
         Calls `update()` on all components.
         """
         self.iliad.update()
+        self.grapher.update()
 
     def run(self) -> None:
         """
