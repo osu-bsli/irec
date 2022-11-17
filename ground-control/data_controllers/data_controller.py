@@ -1,10 +1,10 @@
+import dearpygui.dearpygui as gui
+from components.app_component import AppComponent
 
-class DataController:
+class DataController(AppComponent):
     """
     Generic data controller class for reading/writing to a port/connection.
     """
-    def __init__(self) -> None:
-        pass
     
     # Raise when we can't open().
     class DataControllerException(Exception):
@@ -14,23 +14,22 @@ class DataController:
         This is usually raised when DataController.open() fails.
         """
         pass
-
-    # Returns a dictionary with different config options.
-    def get_config(self) -> dict[str]:
-        return {}
-    
-    # Sets config options from the dictionary passed in.
-    def set_config(self, config: dict[str]) -> None:
-        pass
     
     def open(self) -> None:
+        """
+        Opens the data source, or initializes it, or whatever.
+        """
         raise DataController.DataControllerException('Generic data controller cannot be opened.')
     
     def is_open(self) -> bool:
+        """
+        Checks if this is open.
+        """
         return False
     
     def close(self) -> None:
+        """
+        Closes the data source, or cleans it up, or whatever.
+        """
         pass
 
-    def update(self) -> None:
-        pass
