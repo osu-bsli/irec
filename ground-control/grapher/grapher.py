@@ -1,4 +1,5 @@
 from components.app_component import AppComponent
+from data_controllers.iliad_data_controller import IliadDataController
 import dearpygui.dearpygui as gui
 import time
 from math import sin
@@ -194,8 +195,11 @@ def displayRecovery():
         gui.add_text(currentTime)
 
 class Grapher(AppComponent):
-    def __init__(self, identifier: str) -> None:
+    def __init__(self, identifier: str, iliad: IliadDataController) -> None:
         super().__init__(identifier)
+
+        # Store a reference to the IliadDataController so we can get data from it later.
+        self.iliad = iliad
 
         with gui.group(horizontal=True):
 

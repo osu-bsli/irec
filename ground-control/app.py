@@ -43,7 +43,7 @@ class App:
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
-            self.grapher = Grapher('grapher')
+            self.grapher = Grapher('grapher', self.iliad)
 
         # Init config menu:
         with gui.window(label='Config', tag=App.TAG_CONFIG_WINDOW, min_size=(512, 512)):
