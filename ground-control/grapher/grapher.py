@@ -279,9 +279,16 @@ class Grapher(AppComponent):
 
             
             #set the series x and y to the last nsamples
-            gui.set_value('Altitude_tag', [list(Altitude[-nsamples:]), list(AY_axis[-nsamples:])])
+            # Set altitude data:
+            altitude_1_x_values: list[float] = []
+            altitude_1_y_values: list[float] = []
+            for point in self.iliad.altitude_1_data:
+                altitude_1_x_values.append(point[0])
+                altitude_1_y_values.append(point[1])
+            gui.set_value('Altitude_tag', [altitude_1_x_values, altitude_1_y_values])
             gui.fit_axis_data('x_axis')
             gui.fit_axis_data('y_axis')
+
             gui.set_value('Acceleration_tag', [list(Acceleration[-nsamples:]), list(BY_axis[-nsamples:])])
             gui.fit_axis_data('x_axis2')
             gui.fit_axis_data('y_axis2') 
