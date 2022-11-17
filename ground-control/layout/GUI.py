@@ -3,8 +3,67 @@ from math import *    # math for sin plot
 import constants as C   # global constants
 import time     # delayed plotting
 # import tkinter as tk    # screen dimensions
+import dearpygui.dearpygui as dpg
+import time
+import threading
+
+#variables for plotting over time
+nsamples = 100
+
+global Altitude
+global AY_axis
+global Acceleration
+global BY_axis
+global Velocity
+global CY_axis
 
 
+# Use a list if you need all the data. 
+# Empty list of nsamples should exist at the beginning.
+# Theres a cleaner way to do this probably.
+AY_axis = [0.0] * nsamples
+Altitude = [0.0] * nsamples
+BY_axis = [0.0] * nsamples
+Acceleration = [0.0] * nsamples
+CY_axis = [0.0] * nsamples
+Velocity = [0.0] * nsamples
+
+
+#update data function
+def update_data():
+    sample = 1
+    t0 = time.time()
+    frequency=1.0
+    while True:
+
+        # Get new data sample. Note we need both x and y values
+        # if we want a meaningful axis unit.
+        t = time.time() - t0
+        y = sin(2.0 * pi * frequency * t)
+        y2= cos(4.0 * pi * frequency * t)
+        y3=tan(4.0 * pi * frequency * t)
+        AY_axis.append(y)
+        Altitude.append(t)
+        BY_axis.append(y2)
+        Acceleration.append(t)
+        CY_axis.append(y3)
+        Velocity.append(t)
+
+        
+        #set the series x and y to the last nsamples
+        dpg.set_value('Altitude_tag', [list(Altitude[-nsamples:]), list(AY_axis[-nsamples:])])
+        dpg.fit_axis_data('x_axis')
+        dpg.fit_axis_data('y_axis')
+        dpg.set_value('Acceleration_tag', [list(Acceleration[-nsamples:]), list(BY_axis[-nsamples:])])
+        dpg.fit_axis_data('x_axis2')
+        dpg.fit_axis_data('y_axis2') 
+        dpg.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
+        dpg.fit_axis_data('x_axis3')
+        dpg.fit_axis_data('y_axis3')          
+
+        
+        time.sleep(0.01)
+        sample=sample+1
 
 # TODO plot data from serial in
 # placeholder: sin plots
@@ -20,15 +79,16 @@ for i in range(0,1000):
 currentTime = time.mktime(time.gmtime())
 
 # create plot in the current section
-def plot(labelText, tagText):
-    dpg.create_context()
+def plot(labelText, x_data, y_data, tagy, tagx, series_tag, label_text):
     dpg.window(label=labelText)
     pass
     with dpg.plot(label=labelText, height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
         dpg.add_plot_legend()
-        dpg.add_plot_axis(dpg.mvXAxis, label="x")
-        dpg.add_plot_axis(dpg.mvYAxis, label="y", tag=tagText)
-        dpg.add_line_series(sindatax, sindatay, label="0.5 + 0.5 * sin(x)", parent=tagText)
+        dpg.add_plot_axis(dpg.mvXAxis, label="x", tag=tagx)
+        dpg.add_plot_axis(dpg.mvYAxis, label="y", tag=tagy)
+        dpg.add_line_series(x=list(x_data),y=list(y_data), 
+                            label=label_text, parent=tagy, 
+                            tag=series_tag)
 
 def displaySidebar():
     # bind buttons to an initial named theme.
@@ -88,7 +148,7 @@ def displayTracking():
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="altitude_column")
                         with dpg.table_row():
-                            plot("Altitude", "AY axis")
+                            plot('Altitude', Altitude, AY_axis, 'y_axis', 'x_axis', 'Altitude_tag', 'Altitude (m)')
                     # Plot B
                     with dpg.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
@@ -96,7 +156,7 @@ def displayTracking():
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="acceleration_column")
                         with dpg.table_row():
-                            plot("Acceleration", "BY axis")
+                            plot("Acceleration", Acceleration, BY_axis, 'y_axis2', 'x_axis2', 'Acceleration_tag',  'Acceleration (m/s^2)')
 
             # Row for Plots C and D
             with dpg.table_row():
@@ -108,15 +168,15 @@ def displayTracking():
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="acceleration_column")
                         with dpg.table_row():
-                            plot("Velocity", "CY axis")
+                            plot("Velocity", Velocity, CY_axis, 'y_axis3', 'x_axis3', 'Velocity_tag',  'Velocity (m/s)')
                     # Plot D
                     with dpg.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
                         borders_outerV=True, context_menu_in_body=True, row_background=True,
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="acceleration_column")
-                        with dpg.table_row():
-                            plot("Orientation", "DY axis")
+                        #with dpg.table_row():
+                            #plot("Orientation", "Orientation", "DY axis")
             # with dpg.table_row():
                 # with dpg.group(horizontal=True):
                 #     with dpg.table(header_row=False, no_host_extendX=True, delay_search=True,
@@ -164,6 +224,7 @@ def displayRecovery():
                 dpg.add_theme_color(dpg.mvThemeCol_Button, (0, 150, 100))
         dpg.add_button(label="Landed", width=300, height=75)
         dpg.bind_item_theme(dpg.last_item(), "Theme Landed")
+        dpg.add_text(currentTime)
 
 # diagnostic info goes here
 def displayHealth():
@@ -235,6 +296,8 @@ displayGUI()
 dpg.create_viewport(title='Iliad Ground Control GUI', width=C.VIEWPORT_WIDTH, height=C.VIEWPORT_HEIGHT,x_pos=C.VIEWPORT_XPOS,y_pos=C.VIEWPORT_YPOS,small_icon=C.ICON_FILE, large_icon=C.ICON_FILE)
 dpg.setup_dearpygui()
 dpg.show_viewport()
+thread = threading.Thread(target=update_data)
+thread.start()
 dpg.start_dearpygui()
 dpg.create_context()
 dpg.destroy_context() #comment
