@@ -58,7 +58,7 @@ def get_packet_types(n):
 
 def create_packet(types: int, time: float, data: tuple) -> bytes:
     header = struct.pack('>hf', types, time)
-    # footer = struct.pack('>h', checksum)
+    header_checksum = struct.pack('>i', crc_calculator.calculate_checksum(header))
 
     body = bytes()
     type_flags: list[int] = get_packet_types(types)
@@ -112,7 +112,7 @@ def create_packet(types: int, time: float, data: tuple) -> bytes:
             body = body + struct.pack('>f', data[idx_data])
             idx_data += 1
     
-    checksum = crc_calculator.calculate_checksum(header + body)
-    footer = struct.pack('>i', checksum)
+    packet_checksum = crc_calculator.calculate_checksum(header + header_checksum + body)
+    footer = struct.pack('>i', packet_checksum)
 
-    return header + body + footer
+    return header + header_checksum + body + footer
