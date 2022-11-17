@@ -234,4 +234,60 @@ class Grapher(AppComponent):
         pass
 
     def update(self) -> None:
-        pass
+            pass
+
+            #variables for plotting over time
+            nsamples = 100
+
+            global Altitude
+            global AY_axis
+            global Acceleration
+            global BY_axis
+            global Velocity
+            global CY_axis
+
+
+            # Use a list if you need all the data. 
+            # Empty list of nsamples should exist at the beginning.
+            # Theres a cleaner way to do this probably.
+            AY_axis = [0.0] * nsamples
+            Altitude = [0.0] * nsamples
+            BY_axis = [0.0] * nsamples
+            Acceleration = [0.0] * nsamples
+            CY_axis = [0.0] * nsamples
+            Velocity = [0.] * nsamples
+
+            sample = 1
+            t0 = time.time()
+            frequency=1.0
+            while True:
+                
+
+                # Get new data sample. Note we need both x and y values
+                # if we want a meaningful axis unit.
+                t = time.time() - t0
+                y = (2.0 * frequency * t)
+                y2= (4.0 * frequency * t)
+                y3=(4.0 * frequency * t)
+                AY_axis.append(y)
+                Altitude.append(t)
+                BY_axis.append(y2)
+                Acceleration.append(t)
+                CY_axis.append(y3)
+                Velocity.append(t)
+
+                
+                #set the series x and y to the last nsamples
+                gui.set_value('Altitude_tag', [list(Altitude[-nsamples:]), list(AY_axis[-nsamples:])])
+                gui.fit_axis_data('x_axis')
+                gui.fit_axis_data('y_axis')
+                gui.set_value('Acceleration_tag', [list(Acceleration[-nsamples:]), list(BY_axis[-nsamples:])])
+                gui.fit_axis_data('x_axis2')
+                gui.fit_axis_data('y_axis2') 
+                gui.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
+                gui.fit_axis_data('x_axis3')
+                gui.fit_axis_data('y_axis3')          
+
+                
+                time.sleep(0.01)
+                sample=sample+1
