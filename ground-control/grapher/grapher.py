@@ -55,6 +55,8 @@ Acceleration = [0.0] * nsamples
 CY_axis = [0.0] * nsamples
 Velocity = [0.0] * nsamples
 
+t0 = time.time()
+
 # TODO plot data from serial in
 # placeholder: sin plots
 # arrays to hold data to plot
@@ -239,36 +241,14 @@ class Grapher(AppComponent):
 
     def update(self) -> None:
 
-            #variables for plotting over time
-            nsamples = 100
-
-            global Altitude
-            global AY_axis
-            global Acceleration
-            global BY_axis
-            global Velocity
-            global CY_axis
-
-
-            # Use a list if you need all the data. 
-            # Empty list of nsamples should exist at the beginning.
-            # Theres a cleaner way to do this probably.
-            AY_axis = [0.0] * nsamples
-            Altitude = [0.0] * nsamples
-            BY_axis = [0.0] * nsamples
-            Acceleration = [0.0] * nsamples
-            CY_axis = [0.0] * nsamples
-            Velocity = [0.] * nsamples
-
             sample = 1
-            t0 = time.time()
             frequency=1.0                
 
             # Get new data sample. Note we need both x and y values
             # if we want a meaningful axis unit.
             t = time.time() - t0
             y = (2.0 * frequency * t)
-            y2= (4.0 * frequency * t)
+            y2= (4.0 * sin(frequency) * t)
             y3=(4.0 * frequency * t)
             AY_axis.append(y)
             Altitude.append(t)
@@ -280,8 +260,8 @@ class Grapher(AppComponent):
             
             #set the series x and y to the last nsamples
             # Set altitude data:
-            altitude_1_x_values: list[float] = []
-            altitude_1_y_values: list[float] = []
+            altitude_1_x_values: list[float] = [t, 2*t, 3*t]
+            altitude_1_y_values: list[float] = [t, 2*t, 3*t]
             for point in self.iliad.altitude_1_data:
                 altitude_1_x_values.append(point[0])
                 altitude_1_y_values.append(point[1])
