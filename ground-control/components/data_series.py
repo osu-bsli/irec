@@ -8,3 +8,7 @@ class DataSeries():
     def add_point(self, x_value, y_value) -> None:
         self.x_data.append(x_value)
         self.y_data.append(y_value)
+    
+    def add_point(self, xy_tuple: tuple[float, any]) -> None:
+        self.x_data.append(xy_tuple[0])
+        self.y_data.append(xy_tuple[1])
