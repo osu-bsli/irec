@@ -24,6 +24,7 @@ PLOT_WIDTH=VIEWPORT_WIDTH/2
 PLOT_HEIGHT=VIEWPORT_HEIGHT/2
 
 # (r, g, b, alpha)
+#orng_btn_theme = (150, 30, 30)
 BUTTON_ACTIVE_COLOR=(0, 150, 100, 255)  # green
 BUTTON_INACTIVE_COLOR=(150, 30, 30)     # red
 
@@ -91,6 +92,7 @@ def displaySidebar():
     with gui.theme(tag="telemetry_button_theme"):
         with gui.theme_component(gui.mvButton):
             gui.add_theme_color(gui.mvThemeCol_Button, (0, 150, 100))
+            #gui.bind_item_theme(f"stats_1", (0, 150, 100, 255))
     gui.add_button(label="Telemetry", width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)    
     gui.bind_item_theme(gui.last_item(), "telemetry_button_theme")
 
@@ -260,8 +262,8 @@ class Grapher(AppComponent):
             
             #set the series x and y to the last nsamples
             # Set altitude data:
-            altitude_1_x_values: list[float] = [t, 2*t, 3*t]
-            altitude_1_y_values: list[float] = [t, 2*t, 3*t]
+            altitude_1_x_values: list[float] = []
+            altitude_1_y_values: list[float] = []
             for point in self.iliad.altitude_1_data:
                 altitude_1_x_values.append(point[0])
                 altitude_1_y_values.append(point[1])
@@ -269,7 +271,12 @@ class Grapher(AppComponent):
             gui.fit_axis_data('x_axis')
             gui.fit_axis_data('y_axis')
 
-            gui.set_value('Acceleration_tag', [list(Acceleration[-nsamples:]), list(BY_axis[-nsamples:])])
+            acceleration_1_x_values: list[float] = []
+            acceleration_1_y_values: list[float] = []
+            for point in self.iliad.altitude_1_data:
+                altitude_1_x_values.append(point[0])
+                altitude_1_y_values.append(point[1])
+            gui.set_value('Acceleration_tag', [acceleration_1_x_values, acceleration_1_y_values])
             gui.fit_axis_data('x_axis2')
             gui.fit_axis_data('y_axis2') 
             gui.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
