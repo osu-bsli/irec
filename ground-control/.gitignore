@@ -9,3 +9,4 @@ __pycache__/
 
 # misc
 config.toml
+data/*
