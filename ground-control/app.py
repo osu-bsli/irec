@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as gui
 import tomli
 from data_controllers.iliad_data_controller import IliadDataController
+from grapher.grapher import Grapher
 
 class App:
 
@@ -22,6 +23,27 @@ class App:
         with gui.font_registry():
             primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16)
             gui.bind_font(primary_font)
+
+
+        with gui.window(tag=App.TAG_MAIN_WINDOW):
+
+            with gui.menu_bar(tag=App.TAG_MAIN_MENU):
+                with gui.menu(label='Options'):
+                    gui.add_menu_item(label='Config', callback=lambda: gui.show_item(App.TAG_CONFIG_WINDOW))
+                with gui.menu(label='Tools'):
+                    gui.add_menu_item(label='Packet Inspector', callback=None)
+                    gui.add_menu_item(label='GUI Demo', callback=gui.show_imgui_demo)
+                    gui.add_menu_item(label='Graphs Demo', callback=gui.show_implot_demo)
+                    gui.add_menu_item(label='Font Manager', callback=gui.show_font_manager)
+                    gui.add_menu_item(label='Style Editor', callback=gui.show_style_editor)
+                with gui.menu(label='View'):
+                    gui.add_menu_item(label='Save layout', callback=None)
+                    gui.add_menu_item(label='Load layout', callback=None)
+                with gui.menu(label='Help'):
+                    gui.add_menu_item(label='Docs', callback=None)
+                    gui.add_menu_item(label='About', callback=None)
+            gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
+            self.grapher = Grapher('grapher', self.iliad)
 
         # Init config menu:
         with gui.window(label='Config', tag=App.TAG_CONFIG_WINDOW, min_size=(512, 512)):
@@ -48,25 +70,6 @@ class App:
                 gui.add_button(label='Apply', callback=on_apply_config)
         gui.hide_item(App.TAG_CONFIG_WINDOW)
 
-        with gui.viewport_menu_bar(tag=App.TAG_MAIN_MENU):
-            with gui.menu(label='Options'):
-                gui.add_menu_item(label='Config', callback=lambda: gui.show_item(App.TAG_CONFIG_WINDOW))
-            with gui.menu(label='Tools'):
-                gui.add_menu_item(label='Packet Inspector', callback=None)
-                gui.add_menu_item(label='GUI Demo', callback=gui.show_imgui_demo)
-                gui.add_menu_item(label='Graphs Demo', callback=gui.show_implot_demo)
-                gui.add_menu_item(label='Font Manager', callback=gui.show_font_manager)
-                gui.add_menu_item(label='Style Editor', callback=gui.show_style_editor)
-            with gui.menu(label='View'):
-                gui.add_menu_item(label='Save layout', callback=None)
-                gui.add_menu_item(label='Load layout', callback=None)
-            with gui.menu(label='Help'):
-                gui.add_menu_item(label='Docs', callback=None)
-                gui.add_menu_item(label='About', callback=None)
-
-        with gui.window(tag=App.TAG_MAIN_WINDOW):
-            gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
-
         gui.show_viewport()
         gui.maximize_viewport()
 
@@ -77,6 +80,7 @@ class App:
         Calls `update()` on all components.
         """
         self.iliad.update()
+        self.grapher.update()
 
     def run(self) -> None:
         """
