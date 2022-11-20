@@ -1,4 +1,5 @@
 import data_controllers.serial_data_controller as serial_data_controller
+from components.data_series import DataSeries
 import struct
 import utils.packet_util as packet_util
 import crc
@@ -11,39 +12,39 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
 
-        self.arm_status_1_data: list[tuple[float, bool]] = []
-        self.arm_status_2_data: list[tuple[float, bool]] = []
-        self.arm_status_3_data: list[tuple[float, bool]] = []
-        self.altitude_1_data: list[tuple[float, float]] = []
-        self.altitude_2_data: list[tuple[float, float]] = []
-        self.acceleration_x_data: list[tuple[float, float]] = []
-        self.acceleration_y_data: list[tuple[float, float]] = []
-        self.acceleration_z_data: list[tuple[float, float]] = []
-        self.gps_latitude_data: list[tuple[float, float]] = []
-        self.gps_longitude_data: list[tuple[float, float]] = []
-        self.board_1_temperature_data: list[tuple[float, float]] = []
-        self.board_2_temperature_data: list[tuple[float, float]] = []
-        self.board_3_temperature_data: list[tuple[float, float]] = []
-        self.board_4_temperature_data: list[tuple[float, float]] = []
-        self.board_1_voltage_data: list[tuple[float, float]] = []
-        self.board_2_voltage_data: list[tuple[float, float]] = []
-        self.board_3_voltage_data: list[tuple[float, float]] = []
-        self.board_4_voltage_data: list[tuple[float, float]] = []
-        self.board_1_current_data: list[tuple[float, float]] = []
-        self.board_2_current_data: list[tuple[float, float]] = []
-        self.board_3_current_data: list[tuple[float, float]] = []
-        self.board_4_current_data: list[tuple[float, float]] = []
-        self.battery_1_voltage_data: list[tuple[float, float]] = []
-        self.battery_2_voltage_data: list[tuple[float, float]] = []
-        self.battery_3_voltage_data: list[tuple[float, float]] = []
-        self.magnetometer_data_1: list[tuple[float, float]] = []
-        self.magnetometer_data_2: list[tuple[float, float]] = []
-        self.magnetometer_data_3: list[tuple[float, float]] = []
-        self.gyroscope_x_data: list[tuple[float, float]] = []
-        self.gyroscope_y_data: list[tuple[float, float]] = []
-        self.gyroscope_z_data: list[tuple[float, float]] = []
-        self.gps_satellites_data: list[tuple[float, int]] = []
-        self.gps_ground_speed_data: list[tuple[float, float]] = []
+        self.arm_status_1_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
+        self.arm_status_2_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
+        self.arm_status_3_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
+        self.altitude_1_data =          DataSeries('time', 'Barometer Altitude')    # float, float
+        self.altitude_2_data =          DataSeries('time', 'GPS Altitude')          # float, float
+        self.acceleration_x_data =      DataSeries('time', 'X Acceleration')        # float, float
+        self.acceleration_y_data =      DataSeries('time', 'Y Acceleration')        # float, float
+        self.acceleration_z_data =      DataSeries('time', 'Z Acceleration')        # float, float
+        self.gps_latitude_data =        DataSeries('time', 'GPS Latitude')          # float, float
+        self.gps_longitude_data =       DataSeries('time', 'GPS Longitude')         # float, float
+        self.board_1_temperature_data = DataSeries('time', 'Board 1 Temperature')   # float, float
+        self.board_2_temperature_data = DataSeries('time', 'Board 1 Temperature')   # float, float
+        self.board_3_temperature_data = DataSeries('time', 'Board 1 Temperature')   # float, float
+        self.board_4_temperature_data = DataSeries('time', 'Board 1 Temperature')   # float, float
+        self.board_1_voltage_data =     DataSeries('time', 'Board 1 Voltage')       # float, float
+        self.board_2_voltage_data =     DataSeries('time', 'Board 2 Voltage')       # float, float
+        self.board_3_voltage_data =     DataSeries('time', 'Board 3 Voltage')       # float, float
+        self.board_4_voltage_data =     DataSeries('time', 'Board 4 Voltage')       # float, float
+        self.board_1_current_data =     DataSeries('time', 'Board 1 Current')       # float, float
+        self.board_2_current_data =     DataSeries('time', 'Board 2 Current')       # float, float
+        self.board_3_current_data =     DataSeries('time', 'Board 3 Current')       # float, float
+        self.board_4_current_data =     DataSeries('time', 'Board 4 Current')       # float, float
+        self.battery_1_voltage_data =   DataSeries('time', 'Battery 1 Voltage')     # float, float
+        self.battery_2_voltage_data =   DataSeries('time', 'Battery 2 Voltage')     # float, float
+        self.battery_3_voltage_data =   DataSeries('time', 'Battery 3 Voltage')     # float, float
+        self.magnetometer_data_1 =      DataSeries('time', 'Magnetometer X')        # float, float
+        self.magnetometer_data_2 =      DataSeries('time', 'Magnetometer Y')        # float, float
+        self.magnetometer_data_3 =      DataSeries('time', 'Magnetometer Z')        # float, float
+        self.gyroscope_x_data =         DataSeries('time', 'Gyroscope X')           # float, float
+        self.gyroscope_y_data =         DataSeries('time', 'Gyroscope Y')           # float, float
+        self.gyroscope_z_data =         DataSeries('time', 'Gyroscope Z')           # float, float
+        self.gps_satellites_data =      DataSeries('time', 'GPS Satellite Count')   # float, int
+        self.gps_ground_speed_data =    DataSeries('time', 'GPS Ground Speed')      # float, float
 
         # Temporary variables to store data while we check the packet's checksum.
         self._current_packet_types: int = None
@@ -225,48 +226,48 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                 # Save the packet's data.
                                 for current_packet_type in packet_util.get_packet_types(self._current_packet_types):
                                     if current_packet_type == packet_util.PACKET_TYPE_ARM_STATUS:
-                                        self.arm_status_1_data.append(self._current_arm_status_1_data)
-                                        self.arm_status_2_data.append(self._current_arm_status_2_data)
-                                        self.arm_status_3_data.append(self._current_arm_status_3_data)
+                                        self.arm_status_1_data.add_point(self._current_arm_status_1_data)
+                                        self.arm_status_2_data.add_point(self._current_arm_status_2_data)
+                                        self.arm_status_3_data.add_point(self._current_arm_status_3_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_ALTITUDE:
-                                        self.altitude_1_data.append(self._current_altitude_1_data)
-                                        self.altitude_2_data.append(self._current_altitude_2_data)
+                                        self.altitude_1_data.add_point(self._current_altitude_1_data)
+                                        self.altitude_2_data.add_point(self._current_altitude_2_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_ACCELERATION:
-                                        self.acceleration_x_data.append(self._current_acceleration_x_data)
-                                        self.acceleration_y_data.append(self._current_acceleration_y_data)
-                                        self.acceleration_z_data.append(self._current_acceleration_z_data)
+                                        self.acceleration_x_data.add_point(self._current_acceleration_x_data)
+                                        self.acceleration_y_data.add_point(self._current_acceleration_y_data)
+                                        self.acceleration_z_data.add_point(self._current_acceleration_z_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_GPS_COORDINATES:
-                                        self.gps_latitude_data.append(self._current_gps_latitude_data)
-                                        self.gps_longitude_data.append(self._current_gps_longitude_data)
+                                        self.gps_latitude_data.add_point(self._current_gps_latitude_data)
+                                        self.gps_longitude_data.add_point(self._current_gps_longitude_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
-                                        self.board_1_temperature_data.append(self._current_board_1_temperature_data)
-                                        self.board_2_temperature_data.append(self._current_board_2_temperature_data)
-                                        self.board_3_temperature_data.append(self._current_board_3_temperature_data)
-                                        self.board_4_temperature_data.append(self._current_board_4_temperature_data)
+                                        self.board_1_temperature_data.add_point(self._current_board_1_temperature_data)
+                                        self.board_2_temperature_data.add_point(self._current_board_2_temperature_data)
+                                        self.board_3_temperature_data.add_point(self._current_board_3_temperature_data)
+                                        self.board_4_temperature_data.add_point(self._current_board_4_temperature_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_BOARD_VOLTAGE:
-                                        self.board_1_voltage_data.append(self._current_board_1_voltage_data)
-                                        self.board_2_voltage_data.append(self._current_board_2_voltage_data)
-                                        self.board_3_voltage_data.append(self._current_board_3_voltage_data)
-                                        self.board_4_voltage_data.append(self._current_board_4_voltage_data)
+                                        self.board_1_voltage_data.add_point(self._current_board_1_voltage_data)
+                                        self.board_2_voltage_data.add_point(self._current_board_2_voltage_data)
+                                        self.board_3_voltage_data.add_point(self._current_board_3_voltage_data)
+                                        self.board_4_voltage_data.add_point(self._current_board_4_voltage_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_BOARD_CURRENT:
-                                        self.board_1_current_data.append(self._current_board_1_current_data)
-                                        self.board_2_current_data.append(self._current_board_2_current_data)
-                                        self.board_3_current_data.append(self._current_board_3_current_data)
-                                        self.board_4_current_data.append(self._current_board_4_current_data)
+                                        self.board_1_current_data.add_point(self._current_board_1_current_data)
+                                        self.board_2_current_data.add_point(self._current_board_2_current_data)
+                                        self.board_3_current_data.add_point(self._current_board_3_current_data)
+                                        self.board_4_current_data.add_point(self._current_board_4_current_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
-                                        self.battery_1_voltage_data.append(self._current_battery_1_voltage_data)
-                                        self.battery_2_voltage_data.append(self._current_battery_2_voltage_data)
-                                        self.battery_3_voltage_data.append(self._current_battery_3_voltage_data)
+                                        self.battery_1_voltage_data.add_point(self._current_battery_1_voltage_data)
+                                        self.battery_2_voltage_data.add_point(self._current_battery_2_voltage_data)
+                                        self.battery_3_voltage_data.add_point(self._current_battery_3_voltage_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_MAGNETOMETER:
-                                        self.magnetometer_data_1.append(self._current_magnetometer_data_1)
-                                        self.magnetometer_data_2.append(self._current_magnetometer_data_2)
-                                        self.magnetometer_data_3.append(self._current_magnetometer_data_3)
+                                        self.magnetometer_data_1.add_point(self._current_magnetometer_data_1)
+                                        self.magnetometer_data_2.add_point(self._current_magnetometer_data_2)
+                                        self.magnetometer_data_3.add_point(self._current_magnetometer_data_3)
                                     elif current_packet_type == packet_util.PACKET_TYPE_GYROSCOPE:
-                                        self.gyroscope_x_data.append(self._current_gyroscope_x_data)
-                                        self.gyroscope_y_data.append(self._current_gyroscope_y_data)
-                                        self.gyroscope_z_data.append(self._current_gyroscope_z_data)
+                                        self.gyroscope_x_data.add_point(self._current_gyroscope_x_data)
+                                        self.gyroscope_y_data.add_point(self._current_gyroscope_y_data)
+                                        self.gyroscope_z_data.add_point(self._current_gyroscope_z_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_GPS_SATELLITES:
-                                        self.gps_satellites_data.append(self._current_gps_satellites_data)
+                                        self.gps_satellites_data.add_point(self._current_gps_satellites_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
-                                        self.gps_ground_speed_data.append(self._current_gps_ground_speed_data)
+                                        self.gps_ground_speed_data.add_point(self._current_gps_ground_speed_data)
 

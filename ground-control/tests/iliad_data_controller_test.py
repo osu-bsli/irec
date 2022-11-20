@@ -1,5 +1,6 @@
 from data_controllers.iliad_data_controller import IliadDataController
 import utils.packet_util as packet_util
+import utils.math_util as math_util
 import serial
 import math
 import pytest
@@ -61,16 +62,12 @@ def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, sta
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, timestamp, (status_1, status_2, status_3)))
     for i in range(100):
         test.update()
-    assert len(test.arm_status_1_data) == 1
-    assert len(test.arm_status_2_data) == 1
-    assert len(test.arm_status_3_data) == 1
-    assert len(test.altitude_1_data) == 0
-    assert math.isclose(test.arm_status_1_data[0][0], timestamp, rel_tol=1e-6) # TODO: Figure out specific tolerances.
-    assert math.isclose(test.arm_status_2_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.arm_status_3_data[0][0], timestamp, rel_tol=1e-6)
-    assert test.arm_status_1_data[0][1] == status_1
-    assert test.arm_status_2_data[0][1] == status_2
-    assert test.arm_status_3_data[0][1] == status_3
+    assert math_util.is_list_close(test.arm_status_1_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.arm_status_2_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.arm_status_3_data.x_data, [timestamp])
+    assert test.arm_status_1_data.y_data[0] == status_1
+    assert test.arm_status_2_data.y_data[0] == status_2
+    assert test.arm_status_3_data.y_data[0] == status_3
     test.close()
     port.close()
 
@@ -87,12 +84,10 @@ def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float)
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, (altitude_1, altitude_2)))
     for i in range(100):
         test.update()
-    assert len(test.altitude_1_data) == 1
-    assert len(test.altitude_2_data) == 1
-    assert math.isclose(test.altitude_1_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.altitude_2_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.altitude_1_data[0][1], altitude_1, rel_tol=1e-6)
-    assert math.isclose(test.altitude_2_data[0][1], altitude_2, rel_tol=1e-6)
+    assert math_util.is_list_close(test.altitude_1_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.altitude_2_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.altitude_1_data.y_data, [altitude_1])
+    assert math_util.is_list_close(test.altitude_2_data.y_data, [altitude_2])
     test.close()
     port.close()
 
@@ -109,15 +104,12 @@ def test_acceleration_packet(timestamp: float, acceleration_x: float, accelerati
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, timestamp, (acceleration_x, acceleration_y, acceleration_z)))
     for i in range(100):
         test.update()
-    assert len(test.acceleration_x_data) == 1
-    assert len(test.acceleration_y_data) == 1
-    assert len(test.acceleration_z_data) == 1
-    assert math.isclose(test.acceleration_x_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.acceleration_y_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.acceleration_z_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.acceleration_x_data[0][1], acceleration_x, rel_tol=1e-6)
-    assert math.isclose(test.acceleration_y_data[0][1], acceleration_y, rel_tol=1e-6)
-    assert math.isclose(test.acceleration_z_data[0][1], acceleration_z, rel_tol=1e-6)
+    assert math_util.is_list_close(test.acceleration_x_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.acceleration_y_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.acceleration_z_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.acceleration_x_data.y_data, [acceleration_x])
+    assert math_util.is_list_close(test.acceleration_y_data.y_data, [acceleration_y])
+    assert math_util.is_list_close(test.acceleration_z_data.y_data, [acceleration_z])
     test.close()
     port.close()
 
@@ -134,12 +126,10 @@ def test_gps_coordinate_packet(timestamp: float, latitude: float, longitude: flo
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_COORDINATES, timestamp, (latitude, longitude)))
     for i in range(100):
         test.update()
-    assert len(test.gps_latitude_data) == 1
-    assert len(test.gps_longitude_data) == 1
-    assert math.isclose(test.gps_latitude_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.gps_longitude_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.gps_latitude_data[0][1], latitude, rel_tol=1e-6)
-    assert math.isclose(test.gps_longitude_data[0][1], longitude, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_latitude_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.gps_longitude_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.gps_latitude_data.y_data, [latitude])
+    assert math_util.is_list_close(test.gps_longitude_data.y_data, [longitude])
     test.close()
     port.close()
 
@@ -156,18 +146,14 @@ def test_board_temperature_packet(timestamp: float, temp_1: float, temp_2: float
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_TEMPERATURE, timestamp, (temp_1, temp_2, temp_3, temp_4)))
     for i in range(100):
         test.update()
-    assert len(test.board_1_temperature_data) == 1
-    assert len(test.board_2_temperature_data) == 1
-    assert len(test.board_3_temperature_data) == 1
-    assert len(test.board_4_temperature_data) == 1
-    assert math.isclose(test.board_1_temperature_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_2_temperature_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_3_temperature_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_4_temperature_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_1_temperature_data[0][1], temp_1, rel_tol=1e-6)
-    assert math.isclose(test.board_2_temperature_data[0][1], temp_2, rel_tol=1e-6)
-    assert math.isclose(test.board_3_temperature_data[0][1], temp_3, rel_tol=1e-6)
-    assert math.isclose(test.board_4_temperature_data[0][1], temp_4, rel_tol=1e-6)
+    assert math_util.is_list_close(test.board_1_temperature_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_2_temperature_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_3_temperature_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_4_temperature_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_1_temperature_data.y_data, [temp_1])
+    assert math_util.is_list_close(test.board_2_temperature_data.y_data, [temp_2])
+    assert math_util.is_list_close(test.board_3_temperature_data.y_data, [temp_3])
+    assert math_util.is_list_close(test.board_4_temperature_data.y_data, [temp_4])
     test.close()
     port.close()
 
@@ -184,18 +170,14 @@ def test_board_voltage_packet(timestamp: float, voltage_1: float, voltage_2: flo
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3, voltage_4)))
     for i in range(100):
         test.update()
-    assert len(test.board_1_voltage_data) == 1
-    assert len(test.board_2_voltage_data) == 1
-    assert len(test.board_3_voltage_data) == 1
-    assert len(test.board_4_voltage_data) == 1
-    assert math.isclose(test.board_1_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_2_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_3_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_4_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_1_voltage_data[0][1], voltage_1, rel_tol=1e-6)
-    assert math.isclose(test.board_2_voltage_data[0][1], voltage_2, rel_tol=1e-6)
-    assert math.isclose(test.board_3_voltage_data[0][1], voltage_3, rel_tol=1e-6)
-    assert math.isclose(test.board_4_voltage_data[0][1], voltage_4, rel_tol=1e-6)
+    assert math_util.is_list_close(test.board_1_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_2_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_3_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_4_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_1_voltage_data.y_data, [voltage_1])
+    assert math_util.is_list_close(test.board_2_voltage_data.y_data, [voltage_2])
+    assert math_util.is_list_close(test.board_3_voltage_data.y_data, [voltage_3])
+    assert math_util.is_list_close(test.board_4_voltage_data.y_data, [voltage_4])
     test.close()
     port.close()
 
@@ -212,18 +194,14 @@ def test_board_current_packet(timestamp: float, current_1: float, current_2: flo
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_CURRENT, timestamp, (current_1, current_2, current_3, current_4)))
     for i in range(100):
         test.update()
-    assert len(test.board_1_current_data) == 1
-    assert len(test.board_2_current_data) == 1
-    assert len(test.board_3_current_data) == 1
-    assert len(test.board_4_current_data) == 1
-    assert math.isclose(test.board_1_current_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_2_current_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_3_current_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_4_current_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.board_1_current_data[0][1], current_1, rel_tol=1e-6)
-    assert math.isclose(test.board_2_current_data[0][1], current_2, rel_tol=1e-6)
-    assert math.isclose(test.board_3_current_data[0][1], current_3, rel_tol=1e-6)
-    assert math.isclose(test.board_4_current_data[0][1], current_4, rel_tol=1e-6)
+    assert math_util.is_list_close(test.board_1_current_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_2_current_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_3_current_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_4_current_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.board_1_current_data.y_data, [current_1])
+    assert math_util.is_list_close(test.board_2_current_data.y_data, [current_2])
+    assert math_util.is_list_close(test.board_3_current_data.y_data, [current_3])
+    assert math_util.is_list_close(test.board_4_current_data.y_data, [current_4])
     test.close()
     port.close()
 
@@ -240,15 +218,12 @@ def test_battery_voltage_packet(timestamp: float, voltage_1: float, voltage_2: f
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BATTERY_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3)))
     for i in range(100):
         test.update()
-    assert len(test.battery_1_voltage_data) == 1
-    assert len(test.battery_2_voltage_data) == 1
-    assert len(test.battery_3_voltage_data) == 1
-    assert math.isclose(test.battery_1_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.battery_2_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.battery_3_voltage_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.battery_1_voltage_data[0][1], voltage_1, rel_tol=1e-6)
-    assert math.isclose(test.battery_2_voltage_data[0][1], voltage_2, rel_tol=1e-6)
-    assert math.isclose(test.battery_3_voltage_data[0][1], voltage_3, rel_tol=1e-6)
+    assert math_util.is_list_close(test.battery_1_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.battery_2_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.battery_3_voltage_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.battery_1_voltage_data.y_data, [voltage_1])
+    assert math_util.is_list_close(test.battery_2_voltage_data.y_data, [voltage_2])
+    assert math_util.is_list_close(test.battery_3_voltage_data.y_data, [voltage_3])
     test.close()
     port.close()
 
@@ -265,15 +240,12 @@ def test_magnetometer_packet(timestamp: float, magnetometer_1: float, magnetomet
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_MAGNETOMETER, timestamp, (magnetometer_1, magnetometer_2, magnetometer_3)))
     for i in range(100):
         test.update()
-    assert len(test.magnetometer_data_1) == 1
-    assert len(test.magnetometer_data_2) == 1
-    assert len(test.magnetometer_data_3) == 1
-    assert math.isclose(test.magnetometer_data_1[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.magnetometer_data_2[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.magnetometer_data_3[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.magnetometer_data_1[0][1], magnetometer_1, rel_tol=1e-6)
-    assert math.isclose(test.magnetometer_data_2[0][1], magnetometer_2, rel_tol=1e-6)
-    assert math.isclose(test.magnetometer_data_3[0][1], magnetometer_3, rel_tol=1e-6)
+    assert math_util.is_list_close(test.magnetometer_data_1.x_data, [timestamp])
+    assert math_util.is_list_close(test.magnetometer_data_2.x_data, [timestamp])
+    assert math_util.is_list_close(test.magnetometer_data_3.x_data, [timestamp])
+    assert math_util.is_list_close(test.magnetometer_data_1.y_data, [magnetometer_1])
+    assert math_util.is_list_close(test.magnetometer_data_2.y_data, [magnetometer_2])
+    assert math_util.is_list_close(test.magnetometer_data_3.y_data, [magnetometer_3])
     test.close()
     port.close()
 
@@ -290,15 +262,12 @@ def test_gyroscope_packet(timestamp: float, gyroscope_x: float, gyroscope_y: flo
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GYROSCOPE, timestamp, (gyroscope_x, gyroscope_y, gyroscope_z)))
     for i in range(100):
         test.update()
-    assert len(test.gyroscope_x_data) == 1
-    assert len(test.gyroscope_y_data) == 1
-    assert len(test.gyroscope_z_data) == 1
-    assert math.isclose(test.gyroscope_x_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.gyroscope_y_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.gyroscope_z_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.gyroscope_x_data[0][1], gyroscope_x, rel_tol=1e-6)
-    assert math.isclose(test.gyroscope_y_data[0][1], gyroscope_y, rel_tol=1e-6)
-    assert math.isclose(test.gyroscope_z_data[0][1], gyroscope_z, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gyroscope_x_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.gyroscope_y_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.gyroscope_z_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.gyroscope_x_data.y_data, [gyroscope_x])
+    assert math_util.is_list_close(test.gyroscope_y_data.y_data, [gyroscope_y])
+    assert math_util.is_list_close(test.gyroscope_z_data.y_data, [gyroscope_z])
     test.close()
     port.close()
 
@@ -315,9 +284,8 @@ def test_gps_satellites_packet(timestamp: float, satellites: int):
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_SATELLITES, timestamp, (satellites,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_satellites_data) == 1
-    assert math.isclose(test.gps_satellites_data[0][0], timestamp, rel_tol=1e-6)
-    assert test.gps_satellites_data[0][1] == satellites
+    assert math_util.is_list_close(test.gps_satellites_data.x_data, [timestamp])
+    assert test.gps_satellites_data.y_data == [satellites]
     test.close()
     port.close()
 
@@ -334,9 +302,8 @@ def test_gps_ground_speed_packet(timestamp: float, speed: float):
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, (speed,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 1
-    assert math.isclose(test.gps_ground_speed_data[0][0], timestamp, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], speed, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [timestamp])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [speed])
     test.close()
     port.close()
 
@@ -347,13 +314,8 @@ def test_multiple_packets():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (123.456,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.2, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 123.456, rel_tol=1e-6)
+    math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.2])
+    math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 123.456, 123.456])
     test.close()
     port.close()
 
@@ -365,12 +327,10 @@ def test_mixed_packets():
         (0, 123.456)))
     for i in range(100):
         test.update()
-    assert len(test.gps_satellites_data) == 1
-    assert math.isclose(test.gps_satellites_data[0][0], 0.0, rel_tol=1e-6)
-    assert test.gps_satellites_data[0][1] == 0
-    assert len(test.gps_ground_speed_data) == 1
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_satellites_data.x_data, [0.0])
+    assert test.gps_satellites_data.y_data == [0]
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456])
     test.close()
     port.close()
 
@@ -383,70 +343,72 @@ def test_resync_on_corrupted_packet():
     port.write(corrupted_packet)
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.5, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.6, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.7, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.8, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.9, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.0, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.1, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.2, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.3, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.4, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.5, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.6, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.7, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.8, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.9, (567.890,)))
+    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 2.0, (567.890,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 20
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[3][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[3][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[4][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[4][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[5][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[5][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[6][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[6][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[7][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[7][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[8][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[8][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[9][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[9][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[10][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[10][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[11][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[11][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[12][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[12][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[13][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[13][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[14][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[14][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[15][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[15][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[16][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[16][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[17][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[17][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[18][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[18][1], 567.890, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[19][0], 0.4, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[19][1], 567.890, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [
+        0.0,
+        0.1,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        1.0,
+        1.1,
+        1.2,
+        1.3,
+        1.4,
+        1.5,
+        1.6,
+        1.7,
+        1.8,
+        1.9,
+        2.0,
+    ])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [
+        123.456,
+        789.012,
+        901.234,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+        567.890,
+    ])
     test.close()
     port.close()
 
 def test_resync_speed():
-    # TODO: This test fails because the parsing algorithm / resync algorithm waits for the full packet, even if the type is corrupted. We need to add a second checksum just for the header.
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -456,13 +418,8 @@ def test_resync_speed():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
 
@@ -476,13 +433,8 @@ def test_resync_on_corrupted_header():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
 
@@ -496,13 +448,8 @@ def test_resync_on_corrupted_body():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
 
@@ -519,13 +466,8 @@ def test_resync_on_double_corrupted_head():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
 
@@ -542,13 +484,8 @@ def test_resync_on_double_corrupted_body():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
 
@@ -565,12 +502,7 @@ def test_resync_on_double_corrupted_mixed():
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
-    assert len(test.gps_ground_speed_data) == 3
-    assert math.isclose(test.gps_ground_speed_data[0][0], 0.0, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[0][1], 123.456, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][0], 0.1, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[1][1], 789.012, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][0], 0.3, rel_tol=1e-6)
-    assert math.isclose(test.gps_ground_speed_data[2][1], 901.234, rel_tol=1e-6)
+    assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
+    assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
