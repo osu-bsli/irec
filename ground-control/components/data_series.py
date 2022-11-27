@@ -14,6 +14,6 @@ class DataSeries():
         self.y_data.append(xy_tuple[1])
     
     def latest(self) -> any:
-        if self.x_data == []:
+        if self.y_data == []:
             return None
-        return self.x_data[-1]
+        return self.y_data[-1]
