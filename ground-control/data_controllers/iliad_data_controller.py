@@ -275,27 +275,27 @@ class IliadDataController(serial_data_controller.SerialDataController):
     def arm_camera(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (True,))
         self.port.write(packet)
-        print(f'[SENT] PACKET_TYPE_ARM_CAMERA {time.time()} true')
+        print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} True')
     def disarm_camera(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (False,))
         self.port.write(packet)
-        print(f'[SENT] PACKET_TYPE_ARM_CAMERA {time.time()} false')
+        print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} False')
     
     def arm_srad_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (True,))
         self.port.write(packet)
-        print(f'[SENT] PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} true')
+        print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} True')
     def disarm_srad_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (False,))
         self.port.write(packet)
-        print(f'[SENT] PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} false')
+        print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} False')
     
     def arm_cots_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (True,))
         self.port.write(packet)
-        print(f'[SENT] PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} true')
+        print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} True')
     def disarm_cots_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (False,))
         self.port.write(packet)
-        print(f'[SENT] PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} false')
+        print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} False')
 

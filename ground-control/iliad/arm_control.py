@@ -9,6 +9,7 @@ class ArmControl(AppComponent):
 
         self.iliad = iliad
         self.iliad.open()
+        self.frame = 0
 
         with gui.window(label='Arm Control'):
             with gui.group(horizontal=True):
@@ -61,6 +62,8 @@ class ArmControl(AppComponent):
         self.iliad.disarm_cots_flight_computer()
 
     def update(self) -> None:
+        self.frame += 1
+
         camera_arm_status: bool = self.iliad.arm_status_1_data.latest() # Can be None.
         if camera_arm_status is None:
             pass
@@ -73,26 +76,26 @@ class ArmControl(AppComponent):
             gui.show_item(f'{self.identifier}.camera.arm')
             gui.hide_item(f'{self.identifier}.camera.disarm')
         
-        srad_fc_status: bool = self.iliad.arm_status_2_data.latest() # Can be None.
-        if srad_fc_status is None:
+        srad_fc_arm_status: bool = self.iliad.arm_status_2_data.latest() # Can be None.
+        if srad_fc_arm_status is None:
             pass
-        elif srad_fc_status == True:
+        elif srad_fc_arm_status == True:
             gui.set_value(f'{self.identifier}.srad_fc.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.srad_fc.arm')
             gui.show_item(f'{self.identifier}.srad_fc.disarm')
-        elif srad_fc_status == False:
+        elif srad_fc_arm_status == False:
             gui.set_value(f'{self.identifier}.srad_fc.status', 'DISARMED')
             gui.show_item(f'{self.identifier}.srad_fc.arm')
             gui.hide_item(f'{self.identifier}.srad_fc.disarm')
         
-        cots_fc_status: bool = self.iliad.arm_status_3_data.latest() # Can be None.
-        if cots_fc_status is None:
+        cots_fc_arm_status: bool = self.iliad.arm_status_3_data.latest() # Can be None.
+        if cots_fc_arm_status is None:
             pass
-        elif cots_fc_status == True:
+        elif cots_fc_arm_status == True:
             gui.set_value(f'{self.identifier}.cots_fc.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.cots_fc.arm')
             gui.show_item(f'{self.identifier}.cots_fc.disarm')
-        elif cots_fc_status == False:
+        elif cots_fc_arm_status == False:
             gui.set_value(f'{self.identifier}.cots_fc.status', 'DISARMED')
             gui.show_item(f'{self.identifier}.cots_fc.arm')
             gui.hide_item(f'{self.identifier}.cots_fc.disarm')
