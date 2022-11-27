@@ -3,6 +3,7 @@ from components.data_series import DataSeries
 import struct
 import utils.packet_util as packet_util
 import crc
+import time
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
@@ -270,4 +271,31 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                         self.gps_satellites_data.add_point(self._current_gps_satellites_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
                                         self.gps_ground_speed_data.add_point(self._current_gps_ground_speed_data)
+    
+    def arm_camera(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (True,))
+        self.port.write(packet)
+        print(f'[SENT] PACKET_TYPE_ARM_CAMERA {time.time()} true')
+    def disarm_camera(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (False,))
+        self.port.write(packet)
+        print(f'[SENT] PACKET_TYPE_ARM_CAMERA {time.time()} false')
+    
+    def arm_srad_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (True,))
+        self.port.write(packet)
+        print(f'[SENT] PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} true')
+    def disarm_srad_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (False,))
+        self.port.write(packet)
+        print(f'[SENT] PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} false')
+    
+    def arm_cots_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (True,))
+        self.port.write(packet)
+        print(f'[SENT] PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} true')
+    def disarm_cots_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (False,))
+        self.port.write(packet)
+        print(f'[SENT] PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} false')
 
