@@ -262,26 +262,21 @@ class Grapher(AppComponent):
             
             #set the series x and y to the last nsamples
             # Set altitude data:
-            altitude_1_x_values: list[float] = []
-            altitude_1_y_values: list[float] = []
-            for point in self.iliad.altitude_1_data:
-                altitude_1_x_values.append(point[0])
-                altitude_1_y_values.append(point[1])
-            gui.set_value('Altitude_tag', [altitude_1_x_values, altitude_1_y_values])
+            gui.set_value('Altitude_tag', [self.iliad.altitude_1_data.x_data, self.iliad.altitude_1_data.y_data])
             gui.fit_axis_data('x_axis')
             gui.fit_axis_data('y_axis')
 
-            acceleration_1_x_values: list[float] = []
-            acceleration_1_y_values: list[float] = []
-            for point in self.iliad.altitude_1_data:
-                altitude_1_x_values.append(point[0])
-                altitude_1_y_values.append(point[1])
-            gui.set_value('Acceleration_tag', [acceleration_1_x_values, acceleration_1_y_values])
-            gui.fit_axis_data('x_axis2')
-            gui.fit_axis_data('y_axis2') 
-            gui.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
-            gui.fit_axis_data('x_axis3')
-            gui.fit_axis_data('y_axis3')          
+            # acceleration_1_x_values: list[float] = []
+            # acceleration_1_y_values: list[float] = []
+            # for point in self.iliad.altitude_1_data:
+            #     altitude_1_x_values.append(point[0])
+            #     altitude_1_y_values.append(point[1])
+            # gui.set_value('Acceleration_tag', [acceleration_1_x_values, acceleration_1_y_values])
+            # gui.fit_axis_data('x_axis2')
+            # gui.fit_axis_data('y_axis2') 
+            # gui.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
+            # gui.fit_axis_data('x_axis3')
+            # gui.fit_axis_data('y_axis3')          
 
             
             time.sleep(0.01)
