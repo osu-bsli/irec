@@ -13,9 +13,6 @@ class App:
 
     def __init__(self) -> None:
 
-        # Start serial ports and stuff:
-        self.iliad = IliadDataController('iliad_data_controller')
-
         # Start UI:
         gui.create_context()
         gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
@@ -44,6 +41,8 @@ class App:
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
+
+            self.iliad = IliadDataController('iliad_data_controller')
             self.grapher = Grapher('grapher', self.iliad)
             self.arm_control = ArmControl('armctl', self.iliad)
 

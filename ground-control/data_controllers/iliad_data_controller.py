@@ -4,11 +4,21 @@ import struct
 import utils.packet_util as packet_util
 import crc
 import time
+import dearpygui.dearpygui as gui
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
+
+        # Create a gui for opening / closing the connection
+        with gui.window(label='Telemetry Connection'):
+            with gui.group(horizontal=True):
+                gui.add_text('DISCONNECTED', tag=f'{self.identifier}.connection.status')
+                gui.add_button(label='Connect', tag=f'{self.identifier}.connection.connect', callback=lambda: self._on_connect_button_clicked())
+                gui.add_button(label='Disconnect', tag=f'{self.identifier}.connection.disconnect', callback=lambda: self._on_disconnect_button_clicked())
+            gui.add_text('', show=False, tag=f'{self.identifier}.connection.error')
+            gui.hide_item(f'{self.identifier}.connection.disconnect')
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
@@ -83,6 +93,24 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self._current_gps_satellites_data: tuple[float, int] = None
         self._current_gps_ground_speed_data: tuple[float, float] = None
     
+    def _on_connect_button_clicked(self) -> None:
+        try:
+            gui.hide_item(f'{self.identifier}.connection.error')
+            self.open()
+            gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
+            gui.hide_item(f'{self.identifier}.connection.connect')
+            gui.show_item(f'{self.identifier}.connection.disconnect')
+        except serial_data_controller.SerialDataController.DataControllerException as e:
+            gui.set_value(f'{self.identifier}.connection.error', str(e))
+            gui.show_item(f'{self.identifier}.connection.error')
+            gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+    def _on_disconnect_button_clicked(self) -> None:
+        gui.hide_item(f'{self.identifier}.connection.error')
+        self.close()
+        gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+        gui.show_item(f'{self.identifier}.connection.connect')
+        gui.hide_item(f'{self.identifier}.connection.disconnect')
+
     def update(self) -> None:
         if self.is_open():
             
