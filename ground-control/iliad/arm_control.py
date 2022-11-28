@@ -8,8 +8,11 @@ class ArmControl(AppComponent):
         super().__init__(identifier)
 
         self.iliad = iliad
-        self.iliad.open()
-        self.frame = 0
+        # self.iliad.open() # TODO: We actually need controls for this...
+
+        self.is_camera_armed = False
+        self.is_srad_fc_armed = False
+        self.is_cots_fc_armed = False
 
         with gui.window(label='Arm Control'):
             with gui.group(horizontal=True):
@@ -61,17 +64,17 @@ class ArmControl(AppComponent):
         gui.hide_item(f'{self.identifier}.cots_fc.disarm')
         self.iliad.disarm_cots_flight_computer()
 
-    def update(self) -> None:
-        self.frame += 1
-
+    def update(self) -> None: # TODO: Cache last timestamp so we only update GUI when statuses change.
         camera_arm_status: bool = self.iliad.arm_status_1_data.latest() # Can be None.
         if camera_arm_status is None:
             pass
         elif camera_arm_status == True:
+            self.is_camera_armed = True
             gui.set_value(f'{self.identifier}.camera.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.camera.arm')
             gui.show_item(f'{self.identifier}.camera.disarm')
         elif camera_arm_status == False:
+            self.is_camera_armed = False
             gui.set_value(f'{self.identifier}.camera.status', 'DISARMED')
             gui.show_item(f'{self.identifier}.camera.arm')
             gui.hide_item(f'{self.identifier}.camera.disarm')
@@ -80,10 +83,12 @@ class ArmControl(AppComponent):
         if srad_fc_arm_status is None:
             pass
         elif srad_fc_arm_status == True:
+            self.is_srad_fc_armed = True
             gui.set_value(f'{self.identifier}.srad_fc.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.srad_fc.arm')
             gui.show_item(f'{self.identifier}.srad_fc.disarm')
         elif srad_fc_arm_status == False:
+            self.is_srad_fc_armed = False
             gui.set_value(f'{self.identifier}.srad_fc.status', 'DISARMED')
             gui.show_item(f'{self.identifier}.srad_fc.arm')
             gui.hide_item(f'{self.identifier}.srad_fc.disarm')
@@ -92,10 +97,12 @@ class ArmControl(AppComponent):
         if cots_fc_arm_status is None:
             pass
         elif cots_fc_arm_status == True:
+            self.is_cots_fc_armed = True
             gui.set_value(f'{self.identifier}.cots_fc.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.cots_fc.arm')
             gui.show_item(f'{self.identifier}.cots_fc.disarm')
         elif cots_fc_arm_status == False:
+            self.is_cots_fc_armed = False
             gui.set_value(f'{self.identifier}.cots_fc.status', 'DISARMED')
             gui.show_item(f'{self.identifier}.cots_fc.arm')
             gui.hide_item(f'{self.identifier}.cots_fc.disarm')
