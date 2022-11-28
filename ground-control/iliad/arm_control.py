@@ -1,6 +1,5 @@
 from components.app_component import AppComponent
 from data_controllers.iliad_data_controller import IliadDataController
-from utils import packet_util
 import dearpygui.dearpygui as gui
 
 class ArmControl(AppComponent):
@@ -8,7 +7,6 @@ class ArmControl(AppComponent):
         super().__init__(identifier)
 
         self.iliad = iliad
-        # self.iliad.open() # TODO: We actually need controls for this...
 
         self.is_camera_armed = False
         self.is_srad_fc_armed = False
@@ -66,9 +64,7 @@ class ArmControl(AppComponent):
 
     def update(self) -> None: # TODO: Cache last timestamp so we only update GUI when statuses change.
         camera_arm_status: bool = self.iliad.arm_status_1_data.latest() # Can be None.
-        if camera_arm_status is None:
-            pass
-        elif camera_arm_status == True:
+        if camera_arm_status == True:
             self.is_camera_armed = True
             gui.set_value(f'{self.identifier}.camera.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.camera.arm')
@@ -80,9 +76,7 @@ class ArmControl(AppComponent):
             gui.hide_item(f'{self.identifier}.camera.disarm')
         
         srad_fc_arm_status: bool = self.iliad.arm_status_2_data.latest() # Can be None.
-        if srad_fc_arm_status is None:
-            pass
-        elif srad_fc_arm_status == True:
+        if srad_fc_arm_status == True:
             self.is_srad_fc_armed = True
             gui.set_value(f'{self.identifier}.srad_fc.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.srad_fc.arm')
@@ -94,9 +88,7 @@ class ArmControl(AppComponent):
             gui.hide_item(f'{self.identifier}.srad_fc.disarm')
         
         cots_fc_arm_status: bool = self.iliad.arm_status_3_data.latest() # Can be None.
-        if cots_fc_arm_status is None:
-            pass
-        elif cots_fc_arm_status == True:
+        if cots_fc_arm_status == True:
             self.is_cots_fc_armed = True
             gui.set_value(f'{self.identifier}.cots_fc.status', 'ARMED')
             gui.hide_item(f'{self.identifier}.cots_fc.arm')

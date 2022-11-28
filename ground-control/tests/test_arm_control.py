@@ -144,3 +144,47 @@ def test_receive_multiple_arm_status(arm_statuses: list[tuple[bool, bool, bool]]
     iliad.close()
     port.close()
     gui.destroy_context()
+
+def test_receive_no_arm_status() -> None:
+
+    # Setup headless gui
+    gui.create_context()
+    gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
+    gui.setup_dearpygui()
+
+    # Get ArmControl instance
+    iliad = IliadDataController('test_iliad')
+    iliad.set_config({
+        'port_name': 'COM2',
+        'port_baud_rate': 9600,
+        'port_stop_bits': serial.STOPBITS_ONE,
+        'port_parity': serial.PARITY_NONE,
+        'port_byte_size': serial.EIGHTBITS,
+    })
+    iliad.open()
+    arm_control = ArmControl('test_arm_ctl', iliad)
+
+    # Open another port
+    port = serial.Serial(
+        port='COM1',
+        baudrate=9600,
+        stopbits=serial.STOPBITS_ONE,
+        parity=serial.PARITY_NONE,
+        bytesize=serial.EIGHTBITS,
+    )
+
+    # Do the test
+    assert arm_control.is_camera_armed == False
+    assert arm_control.is_srad_fc_armed == False
+    assert arm_control.is_cots_fc_armed == False
+    for i in range(100):
+        iliad.update()
+        arm_control.update()
+    assert arm_control.is_camera_armed == False
+    assert arm_control.is_srad_fc_armed == False
+    assert arm_control.is_cots_fc_armed == False
+
+    # Clean up
+    iliad.close()
+    port.close()
+    gui.destroy_context()
