@@ -20,7 +20,7 @@ VIEWPORT_XPOS=10
 VIEWPORT_YPOS=10
 
 # plot dimensions
-PLOT_WIDTH=VIEWPORT_WIDTH/2
+PLOT_WIDTH=VIEWPORT_WIDTH/2.05
 PLOT_HEIGHT=VIEWPORT_HEIGHT/2
 
 # (r, g, b, alpha)
@@ -49,13 +49,8 @@ global CY_axis
 # Use a list if you need all the data. 
 # Empty list of nsamples should exist at the beginning.
 # Theres a cleaner way to do this probably.
-AY_axis = [0.0] * nsamples
-Altitude = [0.0] * nsamples
-BY_axis = [0.0] * nsamples
-Acceleration = [0.0] * nsamples
-CY_axis = [0.0] * nsamples
-Velocity = [0.0] * nsamples
-
+original_x_axis = [0.0] * nsamples
+original_y_axis = [0.0] * nsamples
 t0 = time.time()
 
 # TODO plot data from serial in
@@ -72,17 +67,18 @@ for i in range(0,1000):
 currentTime = time.mktime(time.gmtime())
 
 # create plot in the current section
-def plot(labelText, x_data, y_data, tagy, tagx, series_tag, label_text):
+def create_plot(labelText, tagy, tagx, xAxisLabel, yAxisLabel):
     gui.window(label=labelText)
     pass
     with gui.plot(label=labelText, height=PLOT_HEIGHT, width=PLOT_WIDTH):
         gui.add_plot_legend()
-        gui.add_plot_axis(gui.mvXAxis, label="x", tag=tagx)
-        gui.add_plot_axis(gui.mvYAxis, label="y", tag=tagy)
+        gui.add_plot_axis(gui.mvXAxis, label=xAxisLabel, tag=tagx)
+        gui.add_plot_axis(gui.mvYAxis, label=yAxisLabel, tag=tagy)
+#add line series to plot
+def add_line_series_custom(x_data, y_data,  series_tag, label_text,  tagy):
         gui.add_line_series(x=list(x_data),y=list(y_data), 
                             label=label_text, parent=tagy, 
                             tag=series_tag)
-
 def displaySidebar():
     # bind buttons to an initial named theme.
     # modify the theme and re-bind button to change appearance.
@@ -130,43 +126,151 @@ def displayTracking():
             # create table column to hold plot rows
             gui.add_table_column(label="primary_column")
             
-            # Row for Plots A and B
+            # Row for Altitude and Acceleration Plots
             with gui.table_row():
                 with gui.group(horizontal=True):
-                    # Plot A
+                    # Plot Altitude
                     with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
                         borders_outerV=True, context_menu_in_body=True, row_background=True,
                         height=PLOT_HEIGHT, width=PLOT_WIDTH):
                         gui.add_table_column(label="altitude_column")
                         with gui.table_row():
-                            plot('Altitude', Altitude, AY_axis, 'y_axis', 'x_axis', 'Altitude_tag', 'Altitude (m)')
-                    # Plot B
+                            create_plot('Altitude', 'Altitude_y_axis', 'Altitude_x_axis', 'Time(s)', 'Altitude (meters)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Altitude_tag', 'Altitude', 'Altitude_y_axis')
+                    # Plot Acceleration data
                     with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
                         borders_outerV=True, context_menu_in_body=True, row_background=True,
                         height=PLOT_HEIGHT, width=PLOT_WIDTH):
-                        gui.add_table_column(label="acceleration_column")
+                        gui.add_table_column(label="accelerationX_column")
                         with gui.table_row():
-                            plot("Acceleration", Acceleration, BY_axis, 'y_axis2', 'x_axis2', 'Acceleration_tag',  'Acceleration (m/s^2)')
+                            create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationX_tag', 'AccelerationX', 'Acceleration_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationY_tag', 'AccelerationY', 'Acceleration_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationZ_tag', 'AccelerationZ', 'Acceleration_y_axis')
 
-            # Row for Plots C and D
+            # Row for Plots Latitude and Longitude and Board temperature data
             with gui.table_row():
                 with gui.group(horizontal=True):
-                    # Plot C
+                    # Plot GPS Latitude and Longitude
                     with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
                         borders_outerV=True, context_menu_in_body=True, row_background=True,
                         height=PLOT_HEIGHT, width=PLOT_WIDTH):
-                        gui.add_table_column(label="acceleration_column")
+                        gui.add_table_column(label="gps_latitude_and_longitude_column")
                         with gui.table_row():
-                            plot("Velocity", Velocity, CY_axis, 'y_axis3', 'x_axis3', 'Velocity_tag',  'Velocity (m/s)')
-                    # Plot D
+                            create_plot("GPS Latitude and Longitude", 'GPS_Latitude_and_Longitude_y_axis', 'GPS_Latitude_and_Longitude_x_axis', 'Time(s)', 'Location (Degrees)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Latitude_tag', 'GPS Latitude', 'GPS_Latitude_and_Longitude_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Longitude_tag', 'GPS Longitude', 'GPS_Latitude_and_Longitude_y_axis')
+
+                    # Plot Board temperature data
                     with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
                         borders_outerV=True, context_menu_in_body=True, row_background=True,
                         height=PLOT_HEIGHT, width=PLOT_WIDTH):
-                        gui.add_table_column(label="acceleration_column")
+                        gui.add_table_column(label="board_temperature_data_column")
+                        with gui.table_row():
+                            create_plot("Board 1 Temperature Data", 'board_temperature_data_y_axis', 'board_temperature_data_x_axis', 'Time(s)', 'Temperature (Kelvin)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_1_temperature_data_tag', "Board 1 Temperature Data", 'board_temperature_data_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_2_temperature_data_tag', "Board 2 Temperature Data", 'board_temperature_data_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_3_temperature_data_tag', "Board 3 Temperature Data", 'board_temperature_data_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_4_temperature_data_tag', "Board 4 Temperature Data", 'board_temperature_data_y_axis')
+            
+
+            # Row for Plots Board Voltage and Current data
+            with gui.table_row():
+                with gui.group(horizontal=True):
+                    # Plot Board Voltage data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="Voltage_column")
+                        with gui.table_row():
+                            create_plot("Board Voltage", 'Board_Voltage_y_axis', 'Board_Voltage_x_axis', 'Time(s)', 'Voltage (V)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_1_voltage_data_tag', 'Board 1 Voltage Data', 'Board_Voltage_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_2_voltage_data_tag', 'Board 2 Voltage Data', 'Board_Voltage_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_3_voltage_data_tag', 'Board 3 Voltage Data', 'Board_Voltage_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_4_voltage_data_tag', 'Board 4 Voltage Data', 'Board_Voltage_y_axis')
+
+                    # Plot Board Current data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="Current_column")
+                        with gui.table_row():
+                            create_plot("Board Current", 'Board_Current_y_axis', 'Board_Current_x_axis', 'Time(s)', 'Current (A)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_1_current_data_tag', "Board 1 Current Data", 'Board_Current_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_2_current_data_tag', "Board 2 Current Data", 'Board_Current_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_3_current_data_tag', "Board 3 Current Data", 'Board_Current_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'board_4_current_data_tag', "Board 4 Current Data", 'Board_Current_y_axis')
+            
+            # Row for Battery Voltage and Magnetometer data
+            with gui.table_row():
+                with gui.group(horizontal=True):
+                     # Plot Battery Voltage data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="Battery_Voltage_column")
+                        with gui.table_row():
+                            create_plot("Battery Voltage", 'Battery_Voltage_y_axis', 'Battery_Voltage_x_axis', 'Time(s)', 'Voltage (V)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'battery_1_voltage_data_tag', 'Battery 1 Voltage Data', 'Battery_Voltage_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'battery_2_voltage_data_tag', 'Battery 2 Voltage Data', 'Battery_Voltage_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'battery_3_voltage_data_tag', 'Battery 3 Voltage Data', 'Battery_Voltage_y_axis')
+                    
+                    # Plot Magnometer data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="Magnetometer_column")
+                        with gui.table_row():
+                            create_plot("Magnetometer Data", 'Magnetometer_y_axis', 'Magnetometer_x_axis', 'Time(s)', 'Magnetic Field (T)')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Magnetometer_X_tag', 'Magnetometer X Data', 'Magnetometer_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Magnetometer_Y_tag', 'Magnetometer Y Data', 'Magnetometer_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Magnetometer_Z_tag', 'Magnetometer Z Data', 'Magnetometer_y_axis')
+
+            # Row for gyroscope and gps satellites data
+            with gui.table_row():
+                with gui.group(horizontal=True):
+                     # Plot Gyroscope data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="Gyroscope_column")
+                        with gui.table_row():
+                            create_plot("Gyroscope Data", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', 'RPS')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_X_tag', 'Gyroscope X Data', 'Gyroscope_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Y_tag', 'Gyroscope Y Data', 'Gyroscope_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Z_tag', 'Gyroscope Z Data', 'Gyroscope_y_axis')
+                    
+                    # Plot GPS Satellites data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="GPS_Satellites_column")
+                        with gui.table_row():
+                            create_plot("GPS Satellites Data", 'GPS_Satellites_y_axis', 'GPS_Satellites_x_axis', 'Time (s)', 'GPS Data')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Satellites_tag', 'GPS Satellites Data', 'GPS_Satellites_y_axis')
+            
+            # Row for gps ground speed data
+            with gui.table_row():
+                with gui.group(horizontal=True):
+                     # Plot Gyroscope data
+                    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                        borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                        borders_outerV=True, context_menu_in_body=True, row_background=True,
+                        height=PLOT_HEIGHT, width=PLOT_WIDTH):
+                        gui.add_table_column(label="GPS_Ground_Speed_column")
+                        with gui.table_row():
+                            create_plot("GPS Ground Speed Data", 'GPS_Ground_Speed_y_axis', 'GPS_Ground_Speed_x_axis', 'Time (s)', 'GPS Ground Speed Data')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed Data', 'GPS_Ground_Speed_y_axis')
 
 # sebd abd recieve commands here
 def displayArming():
@@ -248,23 +352,167 @@ class Grapher(AppComponent):
 
             # Get new data sample. Note we need both x and y values
             # if we want a meaningful axis unit.
-            t = time.time() - t0
-            y = (2.0 * frequency * t)
-            y2= (4.0 * sin(frequency) * t)
-            y3=(4.0 * frequency * t)
-            AY_axis.append(y)
-            Altitude.append(t)
-            BY_axis.append(y2)
-            Acceleration.append(t)
-            CY_axis.append(y3)
-            Velocity.append(t)
+            #t = time.time() - t0
+            #y = (2.0 * frequency * t)
+            #y2= (4.0 * sin(frequency) * t)
+            #y3=(4.0 * frequency * t)
+            #AY_axis.append(y)
+            #Altitude.append(t)
+            #BY_axis.append(y2)
+            #Acceleration.append(t)
+            #CY_axis.append(y3)
+            #Velocity.append(t)
 
             
             #set the series x and y to the last nsamples
             # Set altitude data:
             gui.set_value('Altitude_tag', [self.iliad.altitude_1_data.x_data, self.iliad.altitude_1_data.y_data])
-            gui.fit_axis_data('x_axis')
-            gui.fit_axis_data('y_axis')
+            gui.fit_axis_data('Altitude_x_axis')
+            gui.fit_axis_data('Altitude_y_axis')
+
+            
+            #set acceleration X data:
+            gui.set_value('AccelerationX_tag', [self.iliad.acceleration_x_data.x_data, self.iliad.acceleration_x_data.y_data])
+            gui.fit_axis_data('Acceleration_x_axis')
+            gui.fit_axis_data('Acceleration_y_axis')
+            
+            #set acceleration Y data:
+            gui.set_value('AccelerationY_tag', [self.iliad.acceleration_y_data.x_data, self.iliad.acceleration_x_data.y_data])
+            gui.fit_axis_data('Acceleration_x_axis')
+            gui.fit_axis_data('Acceleration_y_axis')
+
+            #set acceleration Z data:
+            gui.set_value('AccelerationZ_tag', [self.iliad.acceleration_z_data.x_data, self.iliad.acceleration_x_data.y_data])
+            gui.fit_axis_data('Acceleration_x_axis')
+            gui.fit_axis_data('Acceleration_y_axis')
+
+            #set gps latitude data:
+            gui.set_value('GPS_Latitude_tag', [self.iliad.gps_latitude_data.x_data, self.iliad.gps_latitude_data.y_data])
+            gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
+            gui.fit_axis_data('GPS_Latitude_and_Longitude_y_axis')
+
+            #set gps longitude data:
+            gui.set_value('GPS_Longitude_tag', [self.iliad.gps_longitude_data.x_data, self.iliad.gps_longitude_data.y_data])
+            gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
+            gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
+
+            #set board 1 temperature data:
+            gui.set_value('board_1_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
+            gui.fit_axis_data('board_temperature_data_x_axis')
+            gui.fit_axis_data('board_temperature_data_y_axis')
+
+            #set board 2 temperature data:
+            gui.set_value('board_2_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
+            gui.fit_axis_data('board_temperature_data_x_axis')
+            gui.fit_axis_data('board_temperature_data_y_axis')
+
+            #set board 3 temperature data:
+            gui.set_value('board_3_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
+            gui.fit_axis_data('board_temperature_data_x_axis')
+            gui.fit_axis_data('board_temperature_data_y_axis')
+
+            #set board 4 temperature data:
+            gui.set_value('board_4_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
+            gui.fit_axis_data('board_temperature_data_x_axis')
+            gui.fit_axis_data('board_temperature_data_y_axis')
+
+            #set board 1 voltage data:
+            gui.set_value('board_1_voltage_data_tag', [self.iliad.board_1_voltage_data.x_data, self.iliad.board_1_voltage_data.y_data])
+            gui.fit_axis_data('Board_Voltage_x_axis')
+            gui.fit_axis_data('Board_Voltage_y_axis')
+
+            #set board 2 voltage data:
+            gui.set_value('board_2_voltage_data_tag', [self.iliad.board_2_voltage_data.x_data, self.iliad.board_2_voltage_data.y_data])
+            gui.fit_axis_data('Board_Voltage_x_axis')
+            gui.fit_axis_data('Board_Voltage_y_axis')
+
+            #set board 3 voltage data:
+            gui.set_value('board_3_voltage_data_tag', [self.iliad.board_3_voltage_data.x_data, self.iliad.board_3_voltage_data.y_data])
+            gui.fit_axis_data('Board_Voltage_x_axis')
+            gui.fit_axis_data('Board_Voltage_y_axis')
+
+            #set board 4 voltage data:
+            gui.set_value('board_4_voltage_data_tag', [self.iliad.board_4_voltage_data.x_data, self.iliad.board_4_voltage_data.y_data])
+            gui.fit_axis_data('Board_Voltage_x_axis')
+            gui.fit_axis_data('Board_Voltage_y_axis')
+
+           #set board 1 current data:
+            gui.set_value('board_1_current_data_tag', [self.iliad.board_1_current_data.x_data, self.iliad.board_1_voltage_data.y_data])
+            gui.fit_axis_data('Board_Current_x_axis')
+            gui.fit_axis_data('Board_Current_y_axis')
+
+            #set board 2 current data:
+            gui.set_value('board_2_current_data_tag', [self.iliad.board_2_current_data.x_data, self.iliad.board_2_voltage_data.y_data])
+            gui.fit_axis_data('Board_Current_x_axis')
+            gui.fit_axis_data('Board_Current_y_axis')
+
+            #set board 3 current data:
+            gui.set_value('board_3_current_data_tag', [self.iliad.board_3_current_data.x_data, self.iliad.board_3_voltage_data.y_data])
+            gui.fit_axis_data('Board_Current_x_axis')
+            gui.fit_axis_data('Board_Current_y_axis')
+
+            #set board 4 current data:
+            gui.set_value('board_4_current_data_tag', [self.iliad.board_4_current_data.x_data, self.iliad.board_4_voltage_data.y_data])
+            gui.fit_axis_data('Board_Current_x_axis')
+            gui.fit_axis_data('Board_Current_y_axis')
+
+            #set battery 1 current data:
+            gui.set_value('battery_1_voltage_data_tag', [self.iliad.battery_1_voltage_data.x_data, self.iliad.board_1_voltage_data.y_data])
+            gui.fit_axis_data('Battery_Voltage_x_axis')
+            gui.fit_axis_data('Battery_Voltage_y_axis')
+
+            #set battery 2 current data:
+            gui.set_value('battery_2_voltage_data_tag', [self.iliad.battery_2_voltage_data.x_data, self.iliad.board_2_voltage_data.y_data])
+            gui.fit_axis_data('Battery_Voltage_x_axis')
+            gui.fit_axis_data('Battery_Voltage_y_axis')
+
+            #set battery 3 current data:
+            gui.set_value('battery_3_voltage_data_tag', [self.iliad.battery_3_voltage_data.x_data, self.iliad.board_3_voltage_data.y_data])
+            gui.fit_axis_data('Battery_Voltage_x_axis')
+            gui.fit_axis_data('Battery_Voltage_y_axis')
+
+            #set magnetometer 1 data:
+            gui.set_value('Magnetometer_X_tag', [self.iliad.magnetometer_data_1.x_data, self.iliad.magnetometer_data_1.y_data])
+            gui.fit_axis_data('Magnetometer_x_axis')
+            gui.fit_axis_data('Magnetometer_y_axis')
+
+            #set magnetometer 2 data:
+            gui.set_value('Magnetometer_Y_tag', [self.iliad.magnetometer_data_2.x_data, self.iliad.magnetometer_data_2.y_data])
+            gui.fit_axis_data('Magnetometer_x_axis')
+            gui.fit_axis_data('Magnetometer_y_axis')
+
+            #set magnetometer 3 data:
+            gui.set_value('Magnetometer_Z_tag', [self.iliad.magnetometer_data_3.x_data, self.iliad.magnetometer_data_3.y_data])
+            gui.fit_axis_data('Magnetometer_x_axis')
+            gui.fit_axis_data('Magnetometer_y_axis')
+
+            #set gyroscope X data:
+            gui.set_value('Gyroscope_X_tag', [self.iliad.gyroscope_x_data.x_data, self.iliad.gyroscope_x_data.y_data])
+            gui.fit_axis_data('Gyroscope_x_axis')
+            gui.fit_axis_data('Gyroscope_y_axis')
+
+            #set gyroscope Y data:
+            gui.set_value('Gyroscope_Y_tag', [self.iliad.gyroscope_y_data.x_data, self.iliad.gyroscope_y_data.y_data])
+            gui.fit_axis_data('Gyroscope_x_axis')
+            gui.fit_axis_data('Gyroscope_y_axis')
+
+            #set gyroscope Z data:
+            gui.set_value('Gyroscope_Z_tag', [self.iliad.gyroscope_z_data.x_data, self.iliad.gyroscope_z_data.y_data])
+            gui.fit_axis_data('Gyroscope_x_axis')
+            gui.fit_axis_data('Gyroscope_y_axis')
+
+            #set gps satellites data:
+            gui.set_value('GPS_Satellites_tag', [self.iliad.gps_satellites_data.x_data, self.iliad.gps_satellites_data.y_data])
+            gui.fit_axis_data('GPS_Satellites_x_axis')
+            gui.fit_axis_data('GPS_Satellites_y_axis')
+
+            #set gps ground speed data:
+            gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed_data.x_data, self.iliad.gps_ground_speed_data.y_data])
+            gui.fit_axis_data('GPS_Ground_Speed_x_axis')
+            gui.fit_axis_data('GPS_Ground_Speed_y_axis')
+
+
+            
 
             # acceleration_1_x_values: list[float] = []
             # acceleration_1_y_values: list[float] = []
