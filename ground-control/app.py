@@ -8,6 +8,7 @@ class App:
     # Widget tags
     TAG_MAIN_WINDOW = 'app.main_window'
     TAG_MAIN_MENU = 'app.main_menu'
+    TAG_MAIN_TAB_BAR = 'app.main_tab_bar'
     TAG_CONFIG_WINDOW = 'app.config_window'
 
     def __init__(self) -> None:
@@ -42,6 +43,9 @@ class App:
                 with gui.menu(label='Help'):
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
+            
+            gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR)
+
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
             self.grapher = Grapher('grapher', self.iliad)
 
@@ -80,7 +84,7 @@ class App:
         Calls `update()` on all components.
         """
         self.iliad.update()
-        self.grapher.update()
+        # self.grapher.update()
 
     def run(self) -> None:
         """
