@@ -22,7 +22,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
             gui.hide_item(f'{self.identifier}.connection.disconnect')
 
         self.data_buffer = bytearray()
-        self.checksum_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
+        self.checksum_calculator = crc.Calculator(crc.Crc16.CCITT)
 
         self.arm_status_1_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
         self.arm_status_2_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
@@ -155,7 +155,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     The basic algorithm for recovery is:
                     If crc doesn't match up, don't read the packet, discard one byte at a time and try to parse again.
                     """
-                    if not self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes, packet_header_checksum):
+                    if not self.checksum_calculator.verify(packet_types_bytes + packet_timestamp_bytes, packet_header_checksum):
                         # Packet is not ok.
                         self.data_buffer = self.data_buffer[1:]
                         self.idx_cursor = 0
@@ -244,7 +244,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                             The basic algorithm for recovery is:
                             If crc doesn't match up, discard one byte at a time and try to parse again.
                             """
-                            if not self.checksum_calculator.verify_checksum(packet_types_bytes + packet_timestamp_bytes + packet_header_checksum_bytes + packet_payload_bytes, packet_checksum):
+                            if not self.checksum_calculator.verify(packet_types_bytes + packet_timestamp_bytes + packet_header_checksum_bytes + packet_payload_bytes, packet_checksum):
                                 # Packet is not ok.
                                 self.data_buffer = self.data_buffer[1:]
                                 self.idx_cursor = 0
