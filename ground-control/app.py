@@ -2,6 +2,7 @@ import dearpygui.dearpygui as gui
 import tomli
 from data_controllers.iliad_data_controller import IliadDataController
 from grapher.grapher import Grapher
+from iliad.arm_control import ArmControl
 
 class App:
 
@@ -12,9 +13,6 @@ class App:
     TAG_CONFIG_WINDOW = 'app.config_window'
 
     def __init__(self) -> None:
-
-        # Start serial ports and stuff:
-        self.iliad = IliadDataController('iliad_data_controller')
 
         # Start UI:
         gui.create_context()
@@ -47,7 +45,10 @@ class App:
             gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR)
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
+
+            self.iliad = IliadDataController('iliad_data_controller')
             self.grapher = Grapher('grapher', self.iliad)
+            self.arm_control = ArmControl('armctl', self.iliad)
 
         # Init config menu:
         with gui.window(label='Config', tag=App.TAG_CONFIG_WINDOW, min_size=(512, 512)):
@@ -84,7 +85,8 @@ class App:
         Calls `update()` on all components.
         """
         self.iliad.update()
-        self.grapher.update()
+        # self.grapher.update()
+        self.arm_control.update()
 
     def run(self) -> None:
         """
