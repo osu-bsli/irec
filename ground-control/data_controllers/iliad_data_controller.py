@@ -3,11 +3,23 @@ from components.data_series import DataSeries
 import struct
 import utils.packet_util as packet_util
 import crc
+import time
+import dearpygui.dearpygui as gui
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
+
+        # Create a gui for opening / closing the connection
+        with gui.window(label='Telemetry Connection'):
+            with gui.group(horizontal=True):
+                gui.add_text('DISCONNECTED', tag=f'{self.identifier}.connection.status')
+                gui.add_button(label='CONNECT', tag=f'{self.identifier}.connection.connect', callback=lambda: self._on_connect_button_clicked())
+                gui.add_button(label='DISCONNECT', tag=f'{self.identifier}.connection.disconnect', callback=lambda: self._on_disconnect_button_clicked())
+                gui.add_text(self.port_name, tag=f'{self.identifier}.connection.name')
+            gui.add_text('', show=False, tag=f'{self.identifier}.connection.error')
+            gui.hide_item(f'{self.identifier}.connection.disconnect')
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
@@ -82,6 +94,24 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self._current_gps_satellites_data: tuple[float, int] = None
         self._current_gps_ground_speed_data: tuple[float, float] = None
     
+    def _on_connect_button_clicked(self) -> None:
+        try:
+            gui.hide_item(f'{self.identifier}.connection.error')
+            self.open()
+            gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
+            gui.hide_item(f'{self.identifier}.connection.connect')
+            gui.show_item(f'{self.identifier}.connection.disconnect')
+        except serial_data_controller.SerialDataController.DataControllerException as e:
+            gui.set_value(f'{self.identifier}.connection.error', str(e))
+            gui.show_item(f'{self.identifier}.connection.error')
+            gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+    def _on_disconnect_button_clicked(self) -> None:
+        gui.hide_item(f'{self.identifier}.connection.error')
+        self.close()
+        gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+        gui.show_item(f'{self.identifier}.connection.connect')
+        gui.hide_item(f'{self.identifier}.connection.disconnect')
+
     def update(self) -> None:
         if self.is_open():
             
@@ -270,4 +300,51 @@ class IliadDataController(serial_data_controller.SerialDataController):
                                         self.gps_satellites_data.add_point(self._current_gps_satellites_data)
                                     elif current_packet_type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
                                         self.gps_ground_speed_data.add_point(self._current_gps_ground_speed_data)
+        # Update gui
+        if self.is_open():
+            gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
+            gui.hide_item(f'{self.identifier}.connection.connect')
+            gui.show_item(f'{self.identifier}.connection.disconnect')
+        else:
+            gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+            gui.show_item(f'{self.identifier}.connection.connect')
+            gui.hide_item(f'{self.identifier}.connection.disconnect')
+    
+    def set_config(self, config: dict[str]) -> None:
+        # Note: This gets called in the superclass's constructor, so GUI may not exist yet!
+        super().set_config(config)
+        if gui.does_item_exist(f'{self.identifier}.connection.name'):
+            gui.set_value(f'{self.identifier}.connection.name', self.port_name)
+    
+    def apply_config(self) -> None:
+        super().apply_config()
+        if gui.does_item_exist(f'{self.identifier}.connection.name'):
+            gui.set_value(f'{self.identifier}.connection.name', self.port_name)
+    
+    def arm_camera(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (True,))
+        self.port.write(packet)
+        print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} True')
+    def disarm_camera(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (False,))
+        self.port.write(packet)
+        print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} False')
+    
+    def arm_srad_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (True,))
+        self.port.write(packet)
+        print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} True')
+    def disarm_srad_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (False,))
+        self.port.write(packet)
+        print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} False')
+    
+    def arm_cots_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (True,))
+        self.port.write(packet)
+        print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} True')
+    def disarm_cots_flight_computer(self) -> None:
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (False,))
+        self.port.write(packet)
+        print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} False')
 

@@ -16,6 +16,10 @@ PACKET_TYPE_MAGNETOMETER = 256
 PACKET_TYPE_GYROSCOPE = 512
 PACKET_TYPE_GPS_SATELLITES = 1024
 PACKET_TYPE_GPS_GROUND_SPEED = 2048
+# Arm commands. These are only to be sent from ground, so we don't need to parse them in IliadDataController.
+PACKET_TYPE_ARM_CAMERA = 4096
+PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER = 8192
+PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER = 16384
 
 PAYLOAD_SIZE = {
     PACKET_TYPE_ARM_STATUS: 3,
@@ -29,7 +33,10 @@ PAYLOAD_SIZE = {
     PACKET_TYPE_MAGNETOMETER: 12,
     PACKET_TYPE_GYROSCOPE: 12,
     PACKET_TYPE_GPS_SATELLITES: 2,
-    PACKET_TYPE_GPS_GROUND_SPEED: 4
+    PACKET_TYPE_GPS_GROUND_SPEED: 4,
+    PACKET_TYPE_ARM_CAMERA: 1,
+    PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER: 1,
+    PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER: 1
 }
 
 PAYLOAD_FORMAT = {
@@ -44,7 +51,10 @@ PAYLOAD_FORMAT = {
     PACKET_TYPE_MAGNETOMETER: '>fff',
     PACKET_TYPE_GYROSCOPE: '>fff',
     PACKET_TYPE_GPS_SATELLITES: '>h',
-    PACKET_TYPE_GPS_GROUND_SPEED: '>f'
+    PACKET_TYPE_GPS_GROUND_SPEED: '>f',
+    PACKET_TYPE_ARM_CAMERA: '?',
+    PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER: '?',
+    PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER: '?'
 }
 
 # Splits a packet type bitflag into multiple packet types.
@@ -110,6 +120,18 @@ def create_packet(types: int, time: float, data: tuple) -> bytes:
 
         elif type_flag == PACKET_TYPE_GPS_GROUND_SPEED:
             body = body + struct.pack('>f', data[idx_data])
+            idx_data += 1
+        
+        elif type_flag == PACKET_TYPE_ARM_CAMERA:
+            body = body + struct.pack('>?', data[idx_data])
+            idx_data += 1
+        
+        elif type_flag == PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
+            body = body + struct.pack('>?', data[idx_data])
+            idx_data += 1
+        
+        elif type_flag == PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
+            body = body + struct.pack('>?', data[idx_data])
             idx_data += 1
     
     packet_checksum = crc_calculator.calculate_checksum(header + header_checksum + body)
