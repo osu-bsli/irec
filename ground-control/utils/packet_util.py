@@ -1,7 +1,7 @@
 import struct
 import crc
 
-crc_calculator = crc.CrcCalculator(crc.Crc16.CCITT)
+crc_calculator = crc.Calculator(crc.Crc16.CCITT)
 
 # Use for bitflags
 PACKET_TYPE_ARM_STATUS = 1
@@ -58,7 +58,7 @@ def get_packet_types(n):
 
 def create_packet(types: int, time: float, data: tuple) -> bytes:
     header = struct.pack('>hf', types, time)
-    header_checksum = struct.pack('>i', crc_calculator.calculate_checksum(header))
+    header_checksum = struct.pack('>i', crc_calculator.checksum(header))
 
     body = bytes()
     type_flags: list[int] = get_packet_types(types)
@@ -112,7 +112,7 @@ def create_packet(types: int, time: float, data: tuple) -> bytes:
             body = body + struct.pack('>f', data[idx_data])
             idx_data += 1
     
-    packet_checksum = crc_calculator.calculate_checksum(header + header_checksum + body)
+    packet_checksum = crc_calculator.checksum(header + header_checksum + body)
     footer = struct.pack('>i', packet_checksum)
 
     return header + header_checksum + body + footer
