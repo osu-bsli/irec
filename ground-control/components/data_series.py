@@ -12,3 +12,8 @@ class DataSeries():
     def add_point(self, xy_tuple: tuple[float, any]) -> None:
         self.x_data.append(xy_tuple[0])
         self.y_data.append(xy_tuple[1])
+    
+    def latest(self) -> any:
+        if self.y_data == []:
+            return None
+        return self.y_data[-1]
