@@ -12,6 +12,8 @@ def start_headless_gui() -> None:
     gui.create_context()
     gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
     gui.setup_dearpygui()
+    with gui.window():
+        gui.add_tab_bar(tag='app.main_tab_bar')
 
 def stop_headless_gui() -> None:
     gui.destroy_context()
