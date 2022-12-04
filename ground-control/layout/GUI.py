@@ -245,7 +245,7 @@ def displayPackets():
     with dpg.tab(label="Packets"):
         dpg.add_text("tabulated packet data and packet health info go here")
 
-# sebd abd recieve commands here
+# send and recieve commands here
 def displayArming():
     with dpg.tab(label="Arming"):
         dpg.add_text("Send commands and change arming status here")
