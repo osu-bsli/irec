@@ -93,5 +93,8 @@ if __name__ == '__main__':
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, gps_ground_speed_payload))
 
             print(f'[{timestamp}]')
-            # time.sleep(0.190540169) # Average time per packet in data.
-            time.sleep(0.0190540169) # Average time per packet in data.
+            #time.sleep(0.190540169) # Average time per packet in data.
+    # Wait until the buffer has been written to COM1
+    while(port.out_waiting > 0):
+        time.sleep(.1)
+    port.close()
