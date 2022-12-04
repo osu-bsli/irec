@@ -4,10 +4,23 @@ import utils.math_util as math_util
 import serial
 import math
 import pytest
+import dearpygui.dearpygui as gui
 
 # TODO: Don't hardcode port values. Maybe make virtual linked ports?
 
+def start_headless_gui() -> None:
+    gui.create_context()
+    gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
+    gui.setup_dearpygui()
+    with gui.window():
+        gui.add_tab_bar(tag='app.main_tab_bar')
+
+def stop_headless_gui() -> None:
+    gui.destroy_context()
+
+
 def test_update():
+    start_headless_gui()
     test = IliadDataController('test')
     config = {
         'port_name': 'COM2',
@@ -21,6 +34,7 @@ def test_update():
     for i in range(1000):
         test.update()
     test.close()
+    stop_headless_gui()
 
 def setup_packet_test() -> tuple[IliadDataController, serial.Serial]:
     """
@@ -58,6 +72,7 @@ def setup_packet_test() -> tuple[IliadDataController, serial.Serial]:
     ]
 )
 def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, status_3: bool):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, timestamp, (status_1, status_2, status_3)))
     for i in range(100):
@@ -70,6 +85,7 @@ def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, sta
     assert test.arm_status_3_data.y_data[0] == status_3
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, altitude_1, altitude_2",
@@ -80,6 +96,7 @@ def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, sta
     ]
 )
 def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, (altitude_1, altitude_2)))
     for i in range(100):
@@ -90,6 +107,7 @@ def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float)
     assert math_util.is_list_close(test.altitude_2_data.y_data, [altitude_2])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, acceleration_x, acceleration_y, acceleration_z",
@@ -100,6 +118,7 @@ def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float)
     ]
 )
 def test_acceleration_packet(timestamp: float, acceleration_x: float, acceleration_y: float, acceleration_z: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, timestamp, (acceleration_x, acceleration_y, acceleration_z)))
     for i in range(100):
@@ -112,6 +131,7 @@ def test_acceleration_packet(timestamp: float, acceleration_x: float, accelerati
     assert math_util.is_list_close(test.acceleration_z_data.y_data, [acceleration_z])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, latitude, longitude",
@@ -122,6 +142,7 @@ def test_acceleration_packet(timestamp: float, acceleration_x: float, accelerati
     ]
 )
 def test_gps_coordinate_packet(timestamp: float, latitude: float, longitude: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_COORDINATES, timestamp, (latitude, longitude)))
     for i in range(100):
@@ -132,6 +153,7 @@ def test_gps_coordinate_packet(timestamp: float, latitude: float, longitude: flo
     assert math_util.is_list_close(test.gps_longitude_data.y_data, [longitude])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, temp_1, temp_2, temp_3, temp_4",
@@ -142,6 +164,7 @@ def test_gps_coordinate_packet(timestamp: float, latitude: float, longitude: flo
     ]
 )
 def test_board_temperature_packet(timestamp: float, temp_1: float, temp_2: float, temp_3: float, temp_4: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_TEMPERATURE, timestamp, (temp_1, temp_2, temp_3, temp_4)))
     for i in range(100):
@@ -156,6 +179,7 @@ def test_board_temperature_packet(timestamp: float, temp_1: float, temp_2: float
     assert math_util.is_list_close(test.board_4_temperature_data.y_data, [temp_4])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, voltage_1, voltage_2, voltage_3, voltage_4",
@@ -166,6 +190,7 @@ def test_board_temperature_packet(timestamp: float, temp_1: float, temp_2: float
     ]
 )
 def test_board_voltage_packet(timestamp: float, voltage_1: float, voltage_2: float, voltage_3: float, voltage_4: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3, voltage_4)))
     for i in range(100):
@@ -180,6 +205,7 @@ def test_board_voltage_packet(timestamp: float, voltage_1: float, voltage_2: flo
     assert math_util.is_list_close(test.board_4_voltage_data.y_data, [voltage_4])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, current_1, current_2, current_3, current_4",
@@ -190,6 +216,7 @@ def test_board_voltage_packet(timestamp: float, voltage_1: float, voltage_2: flo
     ]
 )
 def test_board_current_packet(timestamp: float, current_1: float, current_2: float, current_3: float, current_4: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_CURRENT, timestamp, (current_1, current_2, current_3, current_4)))
     for i in range(100):
@@ -204,6 +231,7 @@ def test_board_current_packet(timestamp: float, current_1: float, current_2: flo
     assert math_util.is_list_close(test.board_4_current_data.y_data, [current_4])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, voltage_1, voltage_2, voltage_3",
@@ -214,6 +242,7 @@ def test_board_current_packet(timestamp: float, current_1: float, current_2: flo
     ]
 )
 def test_battery_voltage_packet(timestamp: float, voltage_1: float, voltage_2: float, voltage_3: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BATTERY_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3)))
     for i in range(100):
@@ -226,6 +255,7 @@ def test_battery_voltage_packet(timestamp: float, voltage_1: float, voltage_2: f
     assert math_util.is_list_close(test.battery_3_voltage_data.y_data, [voltage_3])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, magnetometer_1, magnetometer_2, magnetometer_3",
@@ -236,6 +266,7 @@ def test_battery_voltage_packet(timestamp: float, voltage_1: float, voltage_2: f
     ]
 )
 def test_magnetometer_packet(timestamp: float, magnetometer_1: float, magnetometer_2: float, magnetometer_3: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_MAGNETOMETER, timestamp, (magnetometer_1, magnetometer_2, magnetometer_3)))
     for i in range(100):
@@ -248,6 +279,7 @@ def test_magnetometer_packet(timestamp: float, magnetometer_1: float, magnetomet
     assert math_util.is_list_close(test.magnetometer_data_3.y_data, [magnetometer_3])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, gyroscope_x, gyroscope_y, gyroscope_z",
@@ -258,6 +290,7 @@ def test_magnetometer_packet(timestamp: float, magnetometer_1: float, magnetomet
     ]
 )
 def test_gyroscope_packet(timestamp: float, gyroscope_x: float, gyroscope_y: float, gyroscope_z: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GYROSCOPE, timestamp, (gyroscope_x, gyroscope_y, gyroscope_z)))
     for i in range(100):
@@ -270,6 +303,7 @@ def test_gyroscope_packet(timestamp: float, gyroscope_x: float, gyroscope_y: flo
     assert math_util.is_list_close(test.gyroscope_z_data.y_data, [gyroscope_z])
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, satellites",
@@ -280,6 +314,7 @@ def test_gyroscope_packet(timestamp: float, gyroscope_x: float, gyroscope_y: flo
     ]
 )
 def test_gps_satellites_packet(timestamp: float, satellites: int):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_SATELLITES, timestamp, (satellites,)))
     for i in range(100):
@@ -288,6 +323,7 @@ def test_gps_satellites_packet(timestamp: float, satellites: int):
     assert test.gps_satellites_data.y_data == [satellites]
     test.close()
     port.close()
+    stop_headless_gui()
 
 @pytest.mark.parametrize(
     "timestamp, speed",
@@ -298,6 +334,7 @@ def test_gps_satellites_packet(timestamp: float, satellites: int):
     ]
 )
 def test_gps_ground_speed_packet(timestamp: float, speed: float):
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, (speed,)))
     for i in range(100):
@@ -306,8 +343,10 @@ def test_gps_ground_speed_packet(timestamp: float, speed: float):
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [speed])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_multiple_packets():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (123.456,)))
@@ -318,8 +357,10 @@ def test_multiple_packets():
     math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 123.456, 123.456])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_mixed_packets():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(
         packet_util.PACKET_TYPE_GPS_SATELLITES + packet_util.PACKET_TYPE_GPS_GROUND_SPEED,
@@ -333,8 +374,10 @@ def test_mixed_packets():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_on_corrupted_packet():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -407,8 +450,10 @@ def test_resync_on_corrupted_packet():
     ])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_speed():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -422,8 +467,10 @@ def test_resync_speed():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_on_corrupted_header():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -437,8 +484,10 @@ def test_resync_on_corrupted_header():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_on_corrupted_body():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -452,8 +501,10 @@ def test_resync_on_corrupted_body():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_on_double_corrupted_head():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -470,8 +521,10 @@ def test_resync_on_double_corrupted_head():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_on_double_corrupted_body():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -488,8 +541,10 @@ def test_resync_on_double_corrupted_body():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
+    stop_headless_gui()
 
 def test_resync_on_double_corrupted_mixed():
+    start_headless_gui()
     (test, port) = setup_packet_test()
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
     port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
@@ -506,3 +561,4 @@ def test_resync_on_double_corrupted_mixed():
     assert math_util.is_list_close(test.gps_ground_speed_data.y_data, [123.456, 789.012, 901.234])
     test.close()
     port.close()
+    stop_headless_gui()

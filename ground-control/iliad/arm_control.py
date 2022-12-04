@@ -12,7 +12,7 @@ class ArmControl(AppComponent):
         self.is_srad_fc_armed = False
         self.is_cots_fc_armed = False
 
-        with gui.window(label='Arm Control'):
+        with gui.tab(label='Arm Control', parent='app.main_tab_bar'):
             with gui.group(horizontal=True):
                 gui.add_text('DISARMED', tag=f'{self.identifier}.camera.status')
                 gui.add_button(label='ARM', tag=f'{self.identifier}.camera.arm', callback=lambda: self.arm_camera())

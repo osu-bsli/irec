@@ -12,7 +12,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
         super().__init__(identifier)
 
         # Create a gui for opening / closing the connection
-        with gui.window(label='Telemetry Connection'):
+        with gui.tab(label='Telemetry Connection', parent='app.main_tab_bar'):
             with gui.group(horizontal=True):
                 gui.add_text('DISCONNECTED', tag=f'{self.identifier}.connection.status')
                 gui.add_button(label='CONNECT', tag=f'{self.identifier}.connection.connect', callback=lambda: self._on_connect_button_clicked())

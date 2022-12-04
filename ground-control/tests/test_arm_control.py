@@ -25,6 +25,8 @@ def test_receive_arm_status(camera_status: bool, srad_fc_status: bool, cots_fc_s
     gui.create_context()
     gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
     gui.setup_dearpygui()
+    with gui.window():
+        gui.add_tab_bar(tag='app.main_tab_bar')
 
     # Get ArmControl instance
     iliad = IliadDataController('test_iliad')
@@ -106,6 +108,8 @@ def test_receive_multiple_arm_status(arm_statuses: list[tuple[bool, bool, bool]]
     gui.create_context()
     gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
     gui.setup_dearpygui()
+    with gui.window():
+        gui.add_tab_bar(tag='app.main_tab_bar')
 
     # Get ArmControl instance
     iliad = IliadDataController('test_iliad')
@@ -151,6 +155,8 @@ def test_receive_no_arm_status() -> None:
     gui.create_context()
     gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
     gui.setup_dearpygui()
+    with gui.window():
+        gui.add_tab_bar(tag='app.main_tab_bar')
 
     # Get ArmControl instance
     iliad = IliadDataController('test_iliad')
