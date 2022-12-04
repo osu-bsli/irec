@@ -81,7 +81,7 @@ class App:
         Calls `update()` on all components.
         """
         self.iliad.update()
-        # self.grapher.update()
+        self.grapher.update()
         self.arm_control.update()
 
     def run(self) -> None:
