@@ -205,25 +205,26 @@ class Grapher(AppComponent):
         # Store a reference to the IliadDataController so we can get data from it later.
         self.iliad = iliad
 
-        with gui.group(horizontal=True):
+        with gui.tab(label='Telemetry', parent='app.main_tab_bar'):
+            with gui.group(horizontal=True):
 
-            # Create the gui stuff:
-            with gui.group(horizontal=False):
-                displaySidebar()
-            
-            with gui.group(horizontal=False):
-                with gui.tab_bar() as tb:
-                    # with gui.tab_bar(pos=(100, 100)) as tb:
-                    #tracking tab
-                    displayTracking()
-                    #arming tab
-                    displayArming()
-                    #health tab
-                    displayHealth()
-                    #packets tab
-                    displayPackets()
-                    #recovery tab
-                    displayRecovery()
+                # Create the gui stuff:
+                with gui.group(horizontal=False):
+                    displaySidebar()
+                
+                with gui.group(horizontal=False):
+                    with gui.tab_bar() as tb:
+                        # with gui.tab_bar(pos=(100, 100)) as tb:
+                        #tracking tab
+                        displayTracking()
+                        #arming tab
+                        displayArming()
+                        #health tab
+                        displayHealth()
+                        #packets tab
+                        displayPackets()
+                        #recovery tab
+                        displayRecovery()
         
 
     
