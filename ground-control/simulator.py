@@ -14,7 +14,8 @@ if __name__ == '__main__':
     # Setup sender port.
     port = serial.Serial(
         port='COM1',
-        baudrate=9600,
+        # baudrate=9600,
+        baudrate=999999999999999,
         stopbits=serial.STOPBITS_ONE,
         parity=serial.PARITY_NONE,
         bytesize=serial.EIGHTBITS,
@@ -92,4 +93,5 @@ if __name__ == '__main__':
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, gps_ground_speed_payload))
 
             print(f'[{timestamp}]')
-            time.sleep(0.190540169) # Average time per packet in data.
+            # time.sleep(0.190540169) # Average time per packet in data.
+            time.sleep(0.0190540169) # Average time per packet in data.
