@@ -166,7 +166,8 @@ def displayTracking():
                         dpg.add_table_column(label="acceleration_column")
                         with dpg.table_row():
                             create_plot("Acceleration", 'y_axis2', 'x_axis2')
-
+            
+            
             # Row for Plots C and D
             with dpg.table_row():
                 with dpg.group(horizontal=True):
