@@ -33,7 +33,7 @@ BUTTON_INACTIVE_COLOR=(150, 30, 30)     # red
 # persistent sidebar
 
 SIDEBAR_BUTTON_HEIGHT=VIEWPORT_HEIGHT/8     # 1/6 of total height
-SIDEBAR_BUTTON_WIDTH=VIEWPORT_WIDTH/10       # 1/10 of total width
+SIDEBAR_BUTTON_WIDTH=VIEWPORT_WIDTH/10      # 1/10 of total width
 
 ICON_FILE='resources/BSLI_logo.ico'
 
@@ -50,7 +50,7 @@ global CY_axis
 global latitude
 
 latitude=0
-
+l1=50.4321
 
 # Use a list if you need all the data. 
 # Empty list of nsamples should exist at the beginning.
@@ -88,21 +88,38 @@ def add_line_series_custom(x_data, y_data,  series_tag, label_text,  tagy):
                             label=label_text, parent=tagy, 
                             tag=series_tag)
 
-def update_data():
-            gui.configure_item("modal_id", show=False)
-            gui.configure_item(item="armed_tag", show=False)
-            gui.configure_item(item="unarmed_tag", show=True)
 
-            with gui.popup('Armed'):
-                gui.add_text("A popup")
+def armCamera():
+            #arm_camera(self.iliad)
+            gui.configure_item("armCameraPopupID", show=False)
+            return
 
-def update_data2():
-            gui.configure_item("modal_id2", show=False)
-            gui.configure_item(item="armed_tag", show=True)
-            gui.configure_item(item="unarmed_tag", show=False)
+def armSRADfc():
+            #arm_srad_flight_computer();
+            gui.configure_item("armSRADfcPopupID", show=False)
+            return
 
-            with gui.popup('Unarmed'):
-                gui.add_text("A popup")
+def armCOTSfc():
+            #arm_cots_flight_computer();
+            gui.configure_item("armCOTSfcPopupID", show=False)
+            return
+
+
+def disarmCamera():
+            #disarm_camera(self.iliad)
+            gui.configure_item("disarmCameraPopupID", show=False)
+            return
+
+def disarmSRADfc():
+            #disarm_srad_flight_computer();
+            gui.configure_item("disarmSRADfcPopupID", show=False)
+            return
+
+def disarmCOTSfc():
+            #disarm_cots_flight_computer();
+            gui.configure_item("disarmCOTSfcPopupID", show=False)
+            return
+
 
 def displaySidebar():
     # bind buttons to an initial named theme.
@@ -119,40 +136,79 @@ def displaySidebar():
             gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
 
     # Button for Telemetry status
-    gui.add_button(label='Armed', tag='armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="modal_id"):
-        gui.add_text("Would you like to unarm the rocket?")
-        gui.add_button(label="Yes",  callback=update_data)
-    gui.bind_item_theme('armed_tag', "theme_armed")
-    #make Unarmed button
-    gui.add_button(label='Unarmed', tag='unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="modal_id2"):
+    gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
+        gui.add_text("Would you like to unarm the camera?")
+        gui.add_button(label="Yes",  callback=armCamera)
+    gui.bind_item_theme('camera_armed_tag', "theme_armed")
+
+    gui.add_button(label='SRAD FC Armed', tag='SRAD_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
+        gui.add_text("Would you like to unarm the SRAD flight computer?")
+        gui.add_button(label="Yes",  callback=armSRADfc)
+    gui.bind_item_theme('SRAD_fc_armed_tag', "theme_armed")
+
+    gui.add_button(label='COTS FC Armed', tag='COTS_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
+        gui.add_text("Would you like to unarm the COTS flight computer?")
+        gui.add_button(label="Yes",  callback=armCOTSfc)
+    gui.bind_item_theme('COTS_fc_armed_tag', "theme_armed")
+
+    #make Unarmed buttons
+    gui.add_button(label='Camera Unarmed', tag='camera_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
         gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=update_data2)
-    gui.bind_item_theme('unarmed_tag', "theme_unarmed")
+        gui.add_button(label="Yes",  callback=disarmCamera)
+    gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
+
+    gui.add_button(label='SRAD FC Unarmed', tag='SRAD_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
+        gui.add_text("Would you like to arm the rocket?")
+        gui.add_button(label="Yes",  callback=disarmSRADfc)
+    gui.bind_item_theme('SRAD_fc_unarmed_tag', "theme_unarmed")
+
+    gui.add_button(label='COTS FC Unarmed', tag='COTS_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
+        gui.add_text("Would you like to arm the rocket?")
+        gui.add_button(label="Yes",  callback=disarmCOTSfc)
+    gui.bind_item_theme('COTS_fc_unarmed_tag', "theme_unarmed")
     #start without showing unarmed button
-    gui.configure_item(item="unarmed_tag", show=False)
+    gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
 
-    # Button for flight computer 1 status
-    with gui.theme(tag="fc1_button_theme"):
-        with gui.theme_component(gui.mvButton):
-            gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
-    gui.add_button(label="FC1", width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    gui.bind_item_theme(gui.last_item(), "fc1_button_theme")
 
-    # Button for Flight Computer 2 status
-    with gui.theme(tag="fc2_button_theme"):
-        with gui.theme_component(gui.mvButton):
-            gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
-    gui.add_button(label="FC2", width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    gui.bind_item_theme(gui.last_item(), "fc2_button_theme")
+    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+            borders_innerH=False, borders_outerH=True, borders_innerV=True,
+            borders_outerV=True, context_menu_in_body=True, row_background=True, width=VIEWPORT_WIDTH/10):
+                
+            # create table column to hold plot rows
+                gui.add_table_column(label="primary_columns", width=VIEWPORT_WIDTH/100)
 
-    # Button for Camera status
-    with gui.theme(tag="camera_button_theme"):
-        with gui.theme_component(gui.mvButton):
-            gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
-    gui.add_button(label="Camera", width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    gui.bind_item_theme(gui.last_item(), "camera_button_theme")
+                with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                    with gui.table_cell():
+                        gui.add_text("Altitude:")
+                        gui.add_text("0.00", id="altitude")
+                with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                    with gui.table_cell():
+                        gui.add_text("Acceleration X:")
+                        gui.add_text("0.00", id="accelerationX")
+                        gui.add_text("Acceleration Y:")
+                        gui.add_text("0.00", id="accelerationY")
+                        gui.add_text("Acceleration Z:")
+                        gui.add_text("0.00", id="accelerationZ")
+                with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                    with gui.table_cell():
+                        gui.add_text("GPS Ground Speed:")
+                        gui.add_text("0.00", id="GPSGroundSpeed")
+                with gui.table_row(height=VIEWPORT_HEIGHT/25):
+                    with gui.table_cell():
+                        gui.add_text("Gyroscope X data:")
+                        gui.add_text("0.00", id="gyroscopeX")
+                        gui.add_text("Gyroscope Y data:")
+                        gui.add_text("0.00", id="gyroscopeY")
+                        gui.add_text("Gyroscope Z data:")
+                        gui.add_text("0.00", id="gyroscopeZ")
+
+
 
 # display the 'tracking' tab of the main GUI
 def displayTracking():
@@ -182,8 +238,6 @@ def displayTracking():
                     # Plot Acceleration data
 
                             create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationX_tag', 'AccelerationX', 'Acceleration_y_axis')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationY_tag', 'AccelerationY', 'Acceleration_y_axis')
                             add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationZ_tag', 'AccelerationZ', 'Acceleration_y_axis')
                             
 
@@ -211,45 +265,54 @@ def displayTracking():
                 gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH*2)
                 
                 
-                # Row for Altitude and Acceleration Plots
+                # Row for Right Table
                 with gui.table_row( height=VIEWPORT_HEIGHT/100):
                     with gui.table_cell():
-                        gui.add_text("Altitude:")
-                        gui.add_text("0", id="altitude")
                         gui.add_text("Latitude/Longitude:")
                         with gui.group(horizontal=True):
-                            gui.add_text("0", id='latitude')
-                            gui.add_text("0", id='longitude')
+                            gui.add_text("(")
+                            gui.add_text("0.00", id='latitude')
+                            gui.add_text(",")
+                            gui.add_text("0.00", id='longitude')
+                            gui.add_text(")")
                 with gui.table_row( height=VIEWPORT_HEIGHT/9):
                     with gui.table_cell():
-                        gui.add_text("Battery 1 Voltage:")
-                        gui.add_text("0", id="battery1Voltage")
-                        gui.add_text("Battery 2 Voltage:")
-                        gui.add_text("0", id="battery2Voltage")
-                        gui.add_text("Battery 3 Voltage:")
-                        gui.add_text("0", id="battery3Voltage")
+                        gui.add_text("Board 1 Voltage:")
+                        gui.add_text("0.00", id="board1Voltage")
+                        gui.add_text("Board 2 Voltage:")
+                        gui.add_text("0.00", id="board2Voltage")
+                        gui.add_text("Board 3 Voltage:")
+                        gui.add_text("0.00", id="board3Voltage")
+                        gui.add_text("Board 4 Voltage:")
+                        gui.add_text("0.00", id="board4Voltage")
                 with gui.table_row( height=VIEWPORT_HEIGHT/9):
                     with gui.table_cell():
-                        gui.add_text("Battery 1 Current:")
-                        gui.add_text("0", id="battery1Current")
-                        gui.add_text("Battery 2 Current")
-                        gui.add_text("0", id="battery2Current")
-                        gui.add_text("Battery 3 Current:")
-                        gui.add_text("0", id="battery3Current")
+                        gui.add_text("Board 1 Current:")
+                        gui.add_text("0.00", id="board1Current")
+                        gui.add_text("Board 2 Current")
+                        gui.add_text("0.00", id="board2Current")
+                        gui.add_text("Board 3 Current:")
+                        gui.add_text("0.00", id="board3Current")
+                        gui.add_text("Board 4 Current:")
+                        gui.add_text("0.00", id="board4Current")
                 with gui.table_row( height=VIEWPORT_HEIGHT/10):
                     with gui.table_cell():
-                        gui.add_text("Temperature 1:")
-                        gui.add_text("0", id="battery1Temperature")
-                        gui.add_text("Temperature 2:")
-                        gui.add_text("0", id="battery2Temperature")
-                        gui.add_text("Temperature 3:")
-                        gui.add_text("0", id="battery3Temperature")
-                with gui.table_row( height=VIEWPORT_HEIGHT/100):
+                        gui.add_text("Board Temperature 1:")
+                        gui.add_text("0.00", id="board1Temperature")
+                        gui.add_text("Board Temperature 2:")
+                        gui.add_text("0.00", id="board2Temperature")
+                        gui.add_text("Board Temperature 3:")
+                        gui.add_text("0.00", id="board3Temperature")
+                        gui.add_text("Board Temperature 4:")
+                        gui.add_text("0.00", id="board4Temperature")
+                with gui.table_row( height=VIEWPORT_HEIGHT/10):
                     with gui.table_cell():
-                        gui.add_text("GPS Satellites Data:")
-                        gui.add_text("0", id="GPSSatellitesData")
-                        gui.add_text("Ground Speed Data:")
-                        gui.add_text("0", id="groundSpeedData")
+                        gui.add_text("Battery Voltage 1:")
+                        gui.add_text("0.00", id="battery1Voltage")
+                        gui.add_text("Battery Voltage 2:")
+                        gui.add_text("0.00", id="battery2Voltage")
+                        gui.add_text("Battery Voltage 3:")
+                        gui.add_text("0.00", id="battery3Voltage")
 
 
 # send abd recieve commands here
@@ -331,9 +394,121 @@ class Grapher(AppComponent):
             sample = 1
             frequency=1.0   
 
-            if(len(self.iliad.altitude_1_data.y_data) >= 1):
-                gui.set_value('altitude', (self.iliad.altitude_1_data.y_data[len(self.iliad.altitude_1_data.y_data)-1]))
             
+
+            ###Arming Status###
+            if(self.iliad.arm_status_1_data.y_data):
+                gui.configure_item(item="camera_armed_tag", show=False)
+                gui.configure_item(item="camera_unarmed_tag", show=True)
+
+            else:
+                gui.configure_item(item="camera_armed_tag", show=True)
+                gui.configure_item(item="camera_unarmed_tag", show=False)
+
+            if(self.iliad.arm_status_2_data.y_data):
+                gui.configure_item(item="SRAD_fc_armed_tag", show=False)
+                gui.configure_item(item="SRAD_fc_unarmed_tag", show=True)
+
+            else:
+                gui.configure_item(item="SRAD_fc_armed_tag", show=True)
+                gui.configure_item(item="SRAD_fc_unarmed_tag", show=False)
+
+            if(self.iliad.arm_status_3_data.y_data):
+                gui.configure_item(item="COTS_fc_armed_tag", show=False)
+                gui.configure_item(item="COTS_fc_unarmed_tag", show=True)
+
+            else:
+                gui.configure_item(item="COTS_fc_armed_tag", show=True)
+                gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
+
+            ###LEFT SIDE BAR###
+
+            #set altitude variable value
+            if(len(self.iliad.altitude_1_data.y_data) >= 1):
+                gui.set_value('altitude', round((self.iliad.altitude_1_data.y_data[len(self.iliad.altitude_1_data.y_data)-1]),2))
+
+            #set acceleration variable values
+            if(len(self.iliad.acceleration_x_data.y_data) >= 1):
+                gui.set_value('accelerationX', round((self.iliad.acceleration_x_data.y_data[len(self.iliad.acceleration_x_data.y_data)-1]),2))
+
+            if(len(self.iliad.acceleration_y_data.y_data) >= 1):
+                gui.set_value('accelerationY', round((self.iliad.acceleration_y_data.y_data[len(self.iliad.acceleration_y_data.y_data)-1]),2))
+
+            if(len(self.iliad.acceleration_z_data.y_data) >= 1):
+                gui.set_value('accelerationZ', round((self.iliad.acceleration_z_data.y_data[len(self.iliad.acceleration_z_data.y_data)-1]),2))
+
+            #set ground speed data variable value
+            if(len(self.iliad.gps_ground_speed_data.y_data) >= 1):
+                gui.set_value('GPSGroundSpeed', round((self.iliad.gps_ground_speed_data.y_data[len(self.iliad.gps_ground_speed_data.y_data)-1]),2))
+
+            #set gyroscope variable values
+            if(len(self.iliad.gyroscope_x_data.y_data) >= 1):
+                gui.set_value('gyroscopeX', round((self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]),2))
+
+            if(len(self.iliad.gyroscope_y_data.y_data) >= 1):
+                gui.set_value('gyroscopeY', round((self.iliad.gyroscope_y_data.y_data[len(self.iliad.gyroscope_y_data.y_data)-1]),2))
+
+            if(len(self.iliad.gyroscope_z_data.y_data) >= 1):
+                gui.set_value('gyroscopeZ', round((self.iliad.gyroscope_z_data.y_data[len(self.iliad.gyroscope_z_data.y_data)-1]),2))
+
+            
+
+        ###RIGHT SIDE BAR###
+            #set latitude/longitude variable values
+            if(len(self.iliad.gps_latitude_data.y_data) >= 1):
+                gui.set_value('latitude', round((self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1]),2))
+            
+            if(len(self.iliad.gps_longitude_data.y_data) >= 1):
+                gui.set_value('longitude', round((self.iliad.gps_longitude_data.y_data[len(self.iliad.gps_longitude_data.y_data)-1]),2))
+
+            #set board voltage variable values
+            if(len(self.iliad.board_1_voltage_data.y_data) >= 1):
+                gui.set_value('board1Voltage', round((self.iliad.board_1_voltage_data.y_data[len(self.iliad.board_1_voltage_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_2_voltage_data.y_data) >= 1):
+                gui.set_value('board2Voltage', round((self.iliad.board_2_voltage_data.y_data[len(self.iliad.board_2_voltage_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_3_voltage_data.y_data) >= 1):
+                gui.set_value('board3Voltage', round((self.iliad.board_3_voltage_data.y_data[len(self.iliad.board_3_voltage_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_4_voltage_data.y_data) >= 1):
+                gui.set_value('board4Voltage', round((self.iliad.board_4_voltage_data.y_data[len(self.iliad.board_4_voltage_data.y_data)-1]),2))
+
+            #set board current variable values
+            if(len(self.iliad.board_1_current_data.y_data) >= 1):
+                gui.set_value('board1Current', round((self.iliad.board_1_current_data.y_data[len(self.iliad.board_1_current_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_2_current_data.y_data) >= 1):
+                gui.set_value('board2Current', round((self.iliad.board_2_current_data.y_data[len(self.iliad.board_2_current_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_3_current_data.y_data) >= 1):
+                gui.set_value('board3Current', round((self.iliad.board_3_current_data.y_data[len(self.iliad.board_3_current_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_4_current_data.y_data) >= 1):
+                gui.set_value('board4Current', round((self.iliad.board_4_current_data.y_data[len(self.iliad.board_4_current_data.y_data)-1]),2))
+
+            #set board temperature variable values
+            if(len(self.iliad.board_1_temperature_data.y_data) >= 1):
+                gui.set_value('board1Temperature', round((self.iliad.board_1_temperature_data.y_data[len(self.iliad.board_1_temperature_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_2_temperature_data.y_data) >= 1):
+                gui.set_value('board2Temperature', round((self.iliad.board_2_temperature_data.y_data[len(self.iliad.board_2_temperature_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_3_temperature_data.y_data) >= 1):
+                gui.set_value('board3Temperature', round((self.iliad.board_3_temperature_data.y_data[len(self.iliad.board_3_temperature_data.y_data)-1]),2))
+
+            if(len(self.iliad.board_4_temperature_data.y_data) >= 1):
+                gui.set_value('board4Temperature', round((self.iliad.board_4_temperature_data.y_data[len(self.iliad.board_4_temperature_data.y_data)-1]),2))
+            
+            #set battery voltage variable values
+            if(len(self.iliad.battery_1_voltage_data.y_data) >= 1):
+                gui.set_value('battery1Voltage', round((self.iliad.battery_1_voltage_data.y_data[len(self.iliad.battery_1_voltage_data.y_data)-1]),2))
+
+            if(len(self.iliad.battery_2_voltage_data.y_data) >= 1):
+                gui.set_value('battery2Voltage', round((self.iliad.battery_2_voltage_data.y_data[len(self.iliad.battery_2_voltage_data.y_data)-1]),2))
+
+            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
+                gui.set_value('battery3Voltage', round((self.iliad.battery_3_voltage_data.y_data[len(self.iliad.battery_3_voltage_data.y_data)-1]),2))
 
             # Get new data sample. Note we need both x and y values
             # if we want a meaningful axis unit.
@@ -357,22 +532,22 @@ class Grapher(AppComponent):
 
             
             #set acceleration X data:
-            gui.set_value('AccelerationX_tag', [self.iliad.acceleration_x_data.x_data, self.iliad.acceleration_x_data.y_data])
-            gui.fit_axis_data('Acceleration_x_axis')
-            gui.fit_axis_data('Acceleration_y_axis')
+            #gui.set_value('AccelerationX_tag', [self.iliad.acceleration_x_data.x_data, self.iliad.acceleration_x_data.y_data])
+            #gui.fit_axis_data('Acceleration_x_axis')
+            #gui.fit_axis_data('Acceleration_y_axis')
             
             #set acceleration Y data:
-            gui.set_value('AccelerationY_tag', [self.iliad.acceleration_y_data.x_data, self.iliad.acceleration_x_data.y_data])
-            gui.fit_axis_data('Acceleration_x_axis')
-            gui.fit_axis_data('Acceleration_y_axis')
+            #gui.set_value('AccelerationY_tag', [self.iliad.acceleration_y_data.x_data, self.iliad.acceleration_x_data.y_data])
+            #gui.fit_axis_data('Acceleration_x_axis')
+            #gui.fit_axis_data('Acceleration_y_axis')
 
             #set acceleration Z data:
             gui.set_value('AccelerationZ_tag', [self.iliad.acceleration_z_data.x_data, self.iliad.acceleration_x_data.y_data])
             gui.fit_axis_data('Acceleration_x_axis')
             gui.fit_axis_data('Acceleration_y_axis')
 
-            if(len(self.iliad.gps_latitude_data.y_data) >= 1):
-                print(self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1])
+            #if(len(self.iliad.gps_latitude_data.y_data) >= 1):
+                #print(self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1])
             #set gps latitude data:
             #gui.set_value('GPS_Latitude_tag', self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)])
             #gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
@@ -474,19 +649,19 @@ class Grapher(AppComponent):
             #gui.fit_axis_data('Magnetometer_y_axis')
 
             #set gyroscope X data:
-            #gui.set_value('Gyroscope_X_tag', [self.iliad.gyroscope_x_data.x_data, self.iliad.gyroscope_x_data.y_data])
-            #gui.fit_axis_data('Gyroscope_x_axis')
-            #gui.fit_axis_data('Gyroscope_y_axis')
+            gui.set_value('Gyroscope_X_tag', [self.iliad.gyroscope_x_data.x_data, self.iliad.gyroscope_x_data.y_data])
+            gui.fit_axis_data('Gyroscope_x_axis')
+            gui.fit_axis_data('Gyroscope_y_axis')
 
             #set gyroscope Y data:
-            #gui.set_value('Gyroscope_Y_tag', [self.iliad.gyroscope_y_data.x_data, self.iliad.gyroscope_y_data.y_data])
-            #gui.fit_axis_data('Gyroscope_x_axis')
-            #gui.fit_axis_data('Gyroscope_y_axis')
+            gui.set_value('Gyroscope_Y_tag', [self.iliad.gyroscope_y_data.x_data, self.iliad.gyroscope_y_data.y_data])
+            gui.fit_axis_data('Gyroscope_x_axis')
+            gui.fit_axis_data('Gyroscope_y_axis')
 
             #set gyroscope Z data:
-            #gui.set_value('Gyroscope_Z_tag', [self.iliad.gyroscope_z_data.x_data, self.iliad.gyroscope_z_data.y_data])
-            #gui.fit_axis_data('Gyroscope_x_axis')
-            #gui.fit_axis_data('Gyroscope_y_axis')
+            gui.set_value('Gyroscope_Z_tag', [self.iliad.gyroscope_z_data.x_data, self.iliad.gyroscope_z_data.y_data])
+            gui.fit_axis_data('Gyroscope_x_axis')
+            gui.fit_axis_data('Gyroscope_y_axis')
 
             """#set gps satellites data:
             gui.set_value('GPS_Satellites_tag', [self.iliad.gps_satellites_data.x_data, self.iliad.gps_satellites_data.y_data])
