@@ -91,17 +91,20 @@ def add_line_series_custom(x_data, y_data,  series_tag, label_text,  tagy):
 
 def armCamera():
             #arm_camera(self.iliad)
+            print("I AM HERE1!!!")
             gui.configure_item("armCameraPopupID", show=False)
             return
 
 def armSRADfc():
             #arm_srad_flight_computer();
             gui.configure_item("armSRADfcPopupID", show=False)
+            print("I AM HERE2!!!")
             return
 
 def armCOTSfc():
             #arm_cots_flight_computer();
             gui.configure_item("armCOTSfcPopupID", show=False)
+            print("I AM HERE3!!!")
             return
 
 
