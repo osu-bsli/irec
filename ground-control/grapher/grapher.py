@@ -400,28 +400,28 @@ class Grapher(AppComponent):
 
             ###Arming Status###
             if(self.iliad.arm_status_1_data.y_data):
-                gui.configure_item(item="camera_armed_tag", show=False)
-                gui.configure_item(item="camera_unarmed_tag", show=True)
-
-            else:
                 gui.configure_item(item="camera_armed_tag", show=True)
                 gui.configure_item(item="camera_unarmed_tag", show=False)
 
-            if(self.iliad.arm_status_2_data.y_data):
-                gui.configure_item(item="SRAD_fc_armed_tag", show=False)
-                gui.configure_item(item="SRAD_fc_unarmed_tag", show=True)
-
             else:
+                gui.configure_item(item="camera_armed_tag", show=False)
+                gui.configure_item(item="camera_unarmed_tag", show=True)
+
+            if(self.iliad.arm_status_2_data.y_data):
                 gui.configure_item(item="SRAD_fc_armed_tag", show=True)
                 gui.configure_item(item="SRAD_fc_unarmed_tag", show=False)
 
-            if(self.iliad.arm_status_3_data.y_data):
-                gui.configure_item(item="COTS_fc_armed_tag", show=False)
-                gui.configure_item(item="COTS_fc_unarmed_tag", show=True)
-
             else:
+                gui.configure_item(item="SRAD_fc_armed_tag", show=False)
+                gui.configure_item(item="SRAD_fc_unarmed_tag", show=True)
+
+            if(self.iliad.arm_status_3_data.y_data):
                 gui.configure_item(item="COTS_fc_armed_tag", show=True)
                 gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
+
+            else:
+                gui.configure_item(item="COTS_fc_armed_tag", show=False)
+                gui.configure_item(item="COTS_fc_unarmed_tag", show=True)
 
             ###LEFT SIDE BAR###
 
