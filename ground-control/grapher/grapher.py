@@ -107,6 +107,7 @@ def armCOTSfc():
 
 def disarmCamera():
             #disarm_camera(self.iliad)
+            print("BOOM")
             gui.configure_item("disarmCameraPopupID", show=False)
             return
 
@@ -137,40 +138,41 @@ def displaySidebar():
 
     # Button for Telemetry status
     gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
         gui.add_text("Would you like to unarm the camera?")
-        gui.add_button(label="Yes",  callback=armCamera)
+        gui.add_button(label="Yes",  callback=disarmCamera)
     gui.bind_item_theme('camera_armed_tag', "theme_armed")
 
     gui.add_button(label='SRAD FC Armed', tag='SRAD_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
         gui.add_text("Would you like to unarm the SRAD flight computer?")
-        gui.add_button(label="Yes",  callback=armSRADfc)
+        gui.add_button(label="Yes",  callback=disarmSRADfc)
     gui.bind_item_theme('SRAD_fc_armed_tag', "theme_armed")
 
     gui.add_button(label='COTS FC Armed', tag='COTS_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
         gui.add_text("Would you like to unarm the COTS flight computer?")
-        gui.add_button(label="Yes",  callback=armCOTSfc)
+        gui.add_button(label="Yes",  callback=disarmCOTSfc)
     gui.bind_item_theme('COTS_fc_armed_tag', "theme_armed")
 
     #make Unarmed buttons
     gui.add_button(label='Camera Unarmed', tag='camera_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
+        print("I AM HERE!!!")
         gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=disarmCamera)
+        gui.add_button(label="Yes",  callback=armCamera)
     gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
 
     gui.add_button(label='SRAD FC Unarmed', tag='SRAD_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
         gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=disarmSRADfc)
+        gui.add_button(label="Yes",  callback=armSRADfc)
     gui.bind_item_theme('SRAD_fc_unarmed_tag', "theme_unarmed")
 
     gui.add_button(label='COTS FC Unarmed', tag='COTS_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
+    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
         gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=disarmCOTSfc)
+        gui.add_button(label="Yes",  callback=armCOTSfc)
     gui.bind_item_theme('COTS_fc_unarmed_tag', "theme_unarmed")
     #start without showing unarmed button
     gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
