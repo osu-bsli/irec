@@ -140,15 +140,17 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
     def update(self) -> None:
         if self.is_open():
+            self.ParserLibrary.enqueueByte.argtypes = (ct.c_void_p, ct.c_byte)
+            self.ParserLibrary.printBuffer.argtypes = (ct.c_void_p,)
             # Poll serial port and put anything there into data_buffer
             if self.port.in_waiting > 0:
                 data = self.port.read_all()
                 for byte in data:
                     self.ParserLibrary.enqueueByte(self.buffer, byte)
-            
 
             # Update the packet
             self.ParserLibrary.process_parser()
+            print(self.packet.type)
             if self.packet.is_ready == 1:
                 if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
                     self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1_data])
@@ -195,6 +197,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                     self.gps_satellites_data.add_point([self.packet.timestamp,self.packet.gps_satellites_data])
                 elif self.packet.type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
                     self.gps_ground_speed_data.add_point([self.packet.timestamp,self.packet.gps_ground_speed_data])   
+        self.packet.is_ready = 0
         # Update GUI
         if self.is_open():
             gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
