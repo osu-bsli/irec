@@ -37,6 +37,9 @@ SIDEBAR_BUTTON_WIDTH=VIEWPORT_WIDTH/10      # 1/10 of total width
 
 ICON_FILE='resources/BSLI_logo.ico'
 
+POPUP_POSITIONX = 625
+POPUP_POSITIONY = 325
+
 #variables for plotting over time
 nsamples = 100
 
@@ -130,94 +133,104 @@ def displaySidebar():
     # modify the theme and re-bind button to change appearance.
     # TODO button click redirects to relevant diagnostics
 
+    with gui.group(horizontal=False):
 
-    with gui.theme(tag="theme_armed"):
-        with gui.theme_component(gui.mvButton):
-            gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
+        with gui.theme(tag="theme_armed"):
+            with gui.theme_component(gui.mvButton):
+                gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
 
-    with gui.theme(tag="theme_unarmed"):
-        with gui.theme_component(gui.mvButton):
-            gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
+        with gui.theme(tag="theme_unarmed"):
+            with gui.theme_component(gui.mvButton):
+                gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
 
-    # Button for Telemetry status
-    gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
-        gui.add_text("Would you like to unarm the camera?")
-        gui.add_button(label="Yes",  callback=disarmCamera)
-    gui.bind_item_theme('camera_armed_tag', "theme_armed")
+        # Button for Telemetry status
+        gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+        with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
+            gui.add_text("Would you like to unarm the camera?")
+            gui.add_button(label="Yes",  callback=disarmCamera)
+        gui.bind_item_theme('camera_armed_tag', "theme_armed")
+        gui.configure_item("disarmCameraPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-    gui.add_button(label='SRAD FC Armed', tag='SRAD_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
-        gui.add_text("Would you like to unarm the SRAD flight computer?")
-        gui.add_button(label="Yes",  callback=disarmSRADfc)
-    gui.bind_item_theme('SRAD_fc_armed_tag', "theme_armed")
+        gui.add_button(label='SRAD FC Armed', tag='SRAD_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+        with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
+            gui.add_text("Would you like to unarm the SRAD flight computer?")
+            gui.add_button(label="Yes",  callback=disarmSRADfc)
+        gui.bind_item_theme('SRAD_fc_armed_tag', "theme_armed")
+        gui.configure_item("disarmSRADfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-    gui.add_button(label='COTS FC Armed', tag='COTS_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
-        gui.add_text("Would you like to unarm the COTS flight computer?")
-        gui.add_button(label="Yes",  callback=disarmCOTSfc)
-    gui.bind_item_theme('COTS_fc_armed_tag', "theme_armed")
+        gui.add_button(label='COTS FC Armed', tag='COTS_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+        with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
+            gui.add_text("Would you like to unarm the COTS flight computer?")
+            gui.add_button(label="Yes",  callback=disarmCOTSfc)
+        gui.bind_item_theme('COTS_fc_armed_tag', "theme_armed")
+        gui.configure_item("disarmCOTSfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+        
+        
 
-    #make Unarmed buttons
-    gui.add_button(label='Camera Unarmed', tag='camera_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
-        print("I AM HERE!!!")
-        gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=armCamera)
-    gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
+        #make Unarmed buttons
+        gui.add_button(label='Camera Unarmed', tag='camera_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+        with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
+            print("I AM HERE!!!")
+            gui.add_text("Would you like to arm the rocket?")
+            gui.add_button(label="Yes",  callback=armCamera)
+        gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
+        gui.configure_item("armCameraPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-    gui.add_button(label='SRAD FC Unarmed', tag='SRAD_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
-        gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=armSRADfc)
-    gui.bind_item_theme('SRAD_fc_unarmed_tag', "theme_unarmed")
+        gui.add_button(label='SRAD FC Unarmed', tag='SRAD_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+        with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
+            gui.add_text("Would you like to arm the rocket?")
+            gui.add_button(label="Yes",  callback=armSRADfc)
+        gui.bind_item_theme('SRAD_fc_unarmed_tag', "theme_unarmed")
+        gui.configure_item("armSRADfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-    gui.add_button(label='COTS FC Unarmed', tag='COTS_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-    with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
-        gui.add_text("Would you like to arm the rocket?")
-        gui.add_button(label="Yes",  callback=armCOTSfc)
-    gui.bind_item_theme('COTS_fc_unarmed_tag', "theme_unarmed")
-    #start without showing unarmed button
-    gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
+        gui.add_button(label='COTS FC Unarmed', tag='COTS_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+        with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
+            gui.add_text("Would you like to arm the rocket?")
+            gui.add_button(label="Yes",  callback=armCOTSfc)
+        gui.bind_item_theme('COTS_fc_unarmed_tag', "theme_unarmed")
+        gui.configure_item("armCOTSfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+
+        #start without showing unarmed button
+        gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
 
 
-    with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
-            borders_innerH=False, borders_outerH=True, borders_innerV=True,
-            borders_outerV=True, context_menu_in_body=True, row_background=True, width=VIEWPORT_WIDTH/10):
-                
-            # create table column to hold plot rows
-                gui.add_table_column(label="primary_columns", width=VIEWPORT_WIDTH/100)
+        with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                borders_outerV=True, context_menu_in_body=True, row_background=True, width=VIEWPORT_WIDTH/10):
+                    
+                # create table column to hold plot rows
+                    gui.add_table_column(label="primary_columns", width=VIEWPORT_WIDTH/100)
 
-                with gui.table_row(height=VIEWPORT_HEIGHT/100):
-                    with gui.table_cell():
-                        gui.add_text("Altitude:")
-                        gui.add_text("0.00", id="altitude")
-                with gui.table_row(height=VIEWPORT_HEIGHT/100):
-                    with gui.table_cell():
-                        gui.add_text("Acceleration X:")
-                        gui.add_text("0.00", id="accelerationX")
-                        gui.add_text("Acceleration Y:")
-                        gui.add_text("0.00", id="accelerationY")
-                        gui.add_text("Acceleration Z:")
-                        gui.add_text("0.00", id="accelerationZ")
-                with gui.table_row(height=VIEWPORT_HEIGHT/100):
-                    with gui.table_cell():
-                        gui.add_text("GPS Ground Speed:")
-                        gui.add_text("0.00", id="GPSGroundSpeed")
-                with gui.table_row(height=VIEWPORT_HEIGHT/25):
-                    with gui.table_cell():
-                        gui.add_text("Gyroscope X data:")
-                        gui.add_text("0.00", id="gyroscopeX")
-                        gui.add_text("Gyroscope Y data:")
-                        gui.add_text("0.00", id="gyroscopeY")
-                        gui.add_text("Gyroscope Z data:")
-                        gui.add_text("0.00", id="gyroscopeZ")
+                    with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                        with gui.table_cell():
+                            gui.add_text("Altitude:")
+                            gui.add_text("0.00", id="altitude")
+                    with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                        with gui.table_cell():
+                            gui.add_text("Acceleration X:")
+                            gui.add_text("0.00", id="accelerationX")
+                            gui.add_text("Acceleration Y:")
+                            gui.add_text("0.00", id="accelerationY")
+                            gui.add_text("Acceleration Z:")
+                            gui.add_text("0.00", id="accelerationZ")
+                    with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                        with gui.table_cell():
+                            gui.add_text("GPS Ground Speed:")
+                            gui.add_text("0.00", id="GPSGroundSpeed")
+                    with gui.table_row(height=VIEWPORT_HEIGHT/25):
+                        with gui.table_cell():
+                            gui.add_text("Gyroscope X data:")
+                            gui.add_text("0.00", id="gyroscopeX")
+                            gui.add_text("Gyroscope Y data:")
+                            gui.add_text("0.00", id="gyroscopeY")
+                            gui.add_text("Gyroscope Z data:")
+                            gui.add_text("0.00", id="gyroscopeZ")
 
 
 
 # display the 'tracking' tab of the main GUI
 def displayTracking():
-    with gui.tab(label="Tracking"):
+    with gui.tab(label="Tracking", parent='app.main_tab_bar'):
 
         # tracking tab
  
@@ -320,35 +333,27 @@ def displayTracking():
                         gui.add_text("0.00", id="battery3Voltage")
 
 
-# send abd recieve commands here
-def displayArming():
-    with gui.tab(label="Arming"):
-        gui.add_text("Send commands and change arming status here")
 
 # diagnostic info goes here
 def displayHealth():
-    with gui.tab(label="Health"):
+    with gui.tab(label="Health", parent='app.main_tab_bar'):
         gui.add_text("General system diagnostic info goes here")
 
 # raw packet/signal data
 def displayPackets():
-    with gui.tab(label="Packets"):
+    with gui.tab(label="Packets", parent='app.main_tab_bar'):
         gui.add_text("tabulated packet data and packet health info go here")
 
-# sebd abd recieve commands here
-def displayArming():
-    with gui.tab(label="Arming"):
-        gui.add_text("Send commands and change arming status here")
+
 
 # info relevant to rocket recovery goes here
 def displayRecovery():
-    with gui.tab(label="Recovery") as t2:
+    with gui.tab(label="Recovery", parent='app.main_tab_bar') as t2:
         with gui.theme(tag="landed_button_theme"):
             with gui.theme_component(gui.mvButton):
                 gui.add_theme_color(gui.mvThemeCol_Button, (0, 150, 100))
         gui.add_button(label="Landed", width=300, height=75)
         gui.bind_item_theme(gui.last_item(), "Theme Landed")
-        gui.add_text(currentTime)
 
 class Grapher(AppComponent):
     def __init__(self, identifier: str, iliad: IliadDataController) -> None:
@@ -356,30 +361,28 @@ class Grapher(AppComponent):
 
         # Store a reference to the IliadDataController so we can get data from it later.
         self.iliad = iliad
-
-        with gui.tab(label='Telemetry', parent='app.main_tab_bar'):
-            # Create the gui stuff:
-            with gui.group(horizontal=True):
-                with gui.group(horizontal=False):
-                    displaySidebar()
+        #displaySidebar()
+       #with gui.group(horizontal=True):
             
-                
-                with gui.group(horizontal=False):
-                    with gui.tab_bar() as tb:
-                        # with gui.tab_bar(pos=(100, 100)) as tb:
-                        #tracking tab
-                        displayTracking()
-                        #arming tab
-                        displayArming()
-                        #health tab
-                        displayHealth()
-                        #packets tab
-                        displayPackets()
-                        #recovery tab
-                        displayRecovery()
-        
 
+
+            #with gui.tab(label='Telemetry', parent='app.main_tab_bar'):
+    # Create the gui stuff:
     
+    
+        
+#with gui.tab_bar(pos=(200, 200)) as tb:
+        #tracking tab
+        displayTracking()
+        #health tab
+        displayHealth()
+        #packets tab
+        displayPackets()
+        #recovery tab
+        displayRecovery()
+
+
+
         # Returns a dictionary with different config options.
     def get_config(self) -> dict[str]:
         return {}

@@ -1,8 +1,9 @@
 import dearpygui.dearpygui as gui
 import tomli
 from data_controllers.iliad_data_controller import IliadDataController
-from grapher.grapher import Grapher
+from grapher.grapher import *
 from iliad.arm_control import ArmControl
+from grapher import grapher
 from typing import List, Any, Callable, Union, Tuple
 
 class App:
@@ -114,7 +115,7 @@ class App:
 
             return theme_id
 
-        # Start UI:
+        # Start GUI:
         gui.create_context()
         gui.create_viewport(title='Iliad Ground Control', width=600, height=300)
         gui.setup_dearpygui()
@@ -126,7 +127,6 @@ class App:
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())
-
             with gui.menu_bar(tag=App.TAG_MAIN_MENU):
                 with gui.menu(label='Options'):
                     gui.add_menu_item(label='Config', callback=lambda: gui.show_item(App.TAG_CONFIG_WINDOW))
@@ -142,8 +142,9 @@ class App:
                 with gui.menu(label='Help'):
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
-            
-            gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR)
+            with gui.group(horizontal=True):
+                displaySidebar()
+                gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
 
