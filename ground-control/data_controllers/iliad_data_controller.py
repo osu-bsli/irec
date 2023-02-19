@@ -38,7 +38,15 @@ class IliadDataController(serial_data_controller.SerialDataController):
         class Packet(ct.Structure):
             _fields_ = [("is_ready", ct.c_int), ("type", ct.c_int), ("timestamp", ct.c_float),
                         ("arm_status_1", ct.c_int), ("arm_status_2", ct.c_int), ("arm_status_3", ct.c_int), 
-                        ("altitude_1",ct.c_float), ("altitude_2",ct.c_float)]                # FILL WITH C STRUCT FIELDS
+                        ("altitude_1", ct.c_float), ("altitude_2", ct.c_float),
+                        ("acceleration_x", ct.c_float), ("acceleration_y", ct.c_float), ("acceleration_z", ct.c_float),
+                        ("gps_latitude", ct.c_float), ("gps_longitude", ct.c_float),
+                        ("board_1_temperature", ct.c_float), ("board_2_temperature", ct.c_float), ("board_3_temperature", ct.c_float), ("board_4_temperature", ct.c_float),
+                        ("board_1_voltage", ct.c_float), ("board_2_voltage", ct.c_float), ("board_3_voltage", ct.c_float), ("board_4_voltage", ct.c_float),
+                        ("battery_1_voltage", ct.c_float), ("battery_2_voltage", ct.c_float), ("battery_3_voltage", ct.c_float),
+                        ("magnetometer_1", ct.c_float), ("magnetometer_2", ct.c_float), ("magnetometer_3", ct.c_float),
+                        ("gyroscope_x", ct.c_float), ("gyroscope_y", ct.c_float), ("gyroscope_z", ct.c_float),
+                        ("gps_satellites", ct.c_short), ("gps_ground_speed", ct.c_float)]
         # Reset function return type
         self.ParserLibrary.get_packet.restype = ct.c_void_p
         self.ParserLibrary.get_buffer.restype = ct.c_void_p
@@ -153,50 +161,50 @@ class IliadDataController(serial_data_controller.SerialDataController):
             print(self.packet.type)
             if self.packet.is_ready == 1:
                 if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
-                    self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1_data])
-                    self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2_data])
-                    self.arm_status_3_data.add_point([self.packet.timestamp,self.packet.arm_status_3_data])
+                    self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2])
+                    self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1])
+                    self.arm_status_3_data.add_point([self.packet.timestamp,self.packet.arm_status_3])
                 elif self.packet.type == packet_util.PACKET_TYPE_ALTITUDE:
-                    self.altitude_1_data.add_point([self.packet.timestamp,self.packet.altitude_1_data])
-                    self.altitude_2_data.add_point([self.packet.timestamp,self.packet.altitude_2_data])
+                    self.altitude_1_data.add_point([self.packet.timestamp,self.packet.altitude_1])
+                    self.altitude_2_data.add_point([self.packet.timestamp,self.packet.altitude_2])
                 elif self.packet.type == packet_util.PACKET_TYPE_ACCELERATION:
-                    self.acceleration_x_data.add_point([self.packet.timestamp,self.packet.acceleration_x_data])
-                    self.acceleration_y_data.add_point([self.packet.timestamp,self.packet.acceleration_y_data])
-                    self.acceleration_z_data.add_point([self.packet.timestamp,self.packet.acceleration_z_data])
+                    self.acceleration_x_data.add_point([self.packet.timestamp,self.packet.acceleration_x])
+                    self.acceleration_y_data.add_point([self.packet.timestamp,self.packet.acceleration_y])
+                    self.acceleration_z_data.add_point([self.packet.timestamp,self.packet.acceleration_z])
                 elif self.packet.type == packet_util.PACKET_TYPE_GPS_COORDINATES:
-                    self.gps_latitude_data.add_point([self.packet.timestamp,self.packet.gps_latitude_data])
-                    self.gps_longitude_data.add_point([self.packet.timestamp,self.packet.gps_longitude_data])
+                    self.gps_latitude_data.add_point([self.packet.timestamp,self.packet.gps_latitude])
+                    self.gps_longitude_data.add_point([self.packet.timestamp,self.packet.gps_longitude])
                 elif self.packet.type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
-                    self.board_1_temperature_data.add_point([self.packet.timestamp,self.packet.board_1_temperature_data])
-                    self.board_2_temperature_data.add_point([self.packet.timestamp,self.packet.board_2_temperature_data])
-                    self.board_3_temperature_data.add_point([self.packet.timestamp,self.packet.board_3_temperature_data])
-                    self.board_4_temperature_data.add_point([self.packet.timestamp,self.packet.board_4_temperature_data])
+                    self.board_1_temperature_data.add_point([self.packet.timestamp,self.packet.board_1_temperature])
+                    self.board_2_temperature_data.add_point([self.packet.timestamp,self.packet.board_2_temperature])
+                    self.board_3_temperature_data.add_point([self.packet.timestamp,self.packet.board_3_temperature])
+                    self.board_4_temperature_data.add_point([self.packet.timestamp,self.packet.board_4_temperature])
                 elif self.packet.type == packet_util.PACKET_TYPE_BOARD_VOLTAGE:
-                    self.board_1_voltage_data.add_point([self.packet.timestamp,self.packet.board_1_voltage_data])
-                    self.board_2_voltage_data.add_point([self.packet.timestamp,self.packet.board_2_voltage_data])
-                    self.board_3_voltage_data.add_point([self.packet.timestamp,self.packet.board_3_voltage_data])
-                    self.board_4_voltage_data.add_point([self.packet.timestamp,self.packet.board_4_voltage_data])
+                    self.board_1_voltage_data.add_point([self.packet.timestamp,self.packet.board_1_voltage])
+                    self.board_2_voltage_data.add_point([self.packet.timestamp,self.packet.board_2_voltage])
+                    self.board_3_voltage_data.add_point([self.packet.timestamp,self.packet.board_3_voltage])
+                    self.board_4_voltage_data.add_point([self.packet.timestamp,self.packet.board_4_voltage])
                 elif self.packet.type == packet_util.PACKET_TYPE_BOARD_CURRENT:
-                    self.board_1_current_data.add_point([self.packet.timestamp,self.packet.board_1_current_data])
-                    self.board_2_current_data.add_point([self.packet.timestamp,self.packet.board_2_current_data])
-                    self.board_3_current_data.add_point([self.packet.timestamp,self.packet.board_3_current_data])
-                    self.board_4_current_data.add_point([self.packet.timestamp,self.packet.board_4_current_data])
+                    self.board_1_current_data.add_point([self.packet.timestamp,self.packet.board_1_current])
+                    self.board_2_current_data.add_point([self.packet.timestamp,self.packet.board_2_current])
+                    self.board_3_current_data.add_point([self.packet.timestamp,self.packet.board_3_current])
+                    self.board_4_current_data.add_point([self.packet.timestamp,self.packet.board_4_current])
                 elif self.packet.type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
-                    self.battery_1_voltage_data.add_point([self.packet.timestamp,self.packet.battery_1_voltage_data])
-                    self.battery_2_voltage_data.add_point([self.packet.timestamp,self.packet.battery_2_voltage_data])
-                    self.battery_3_voltage_data.add_point([self.packet.timestamp,self.packet.battery_3_voltage_data])
+                    self.battery_1_voltage_data.add_point([self.packet.timestamp,self.packet.battery_1_voltage])
+                    self.battery_2_voltage_data.add_point([self.packet.timestamp,self.packet.battery_2_voltage])
+                    self.battery_3_voltage_data.add_point([self.packet.timestamp,self.packet.battery_3_voltage])
                 elif self.packet.type == packet_util.PACKET_TYPE_MAGNETOMETER:
-                    self.magnetometer_data_1.add_point([self.packet.timestamp,self.packet.magnetometer_data_1])
-                    self.magnetometer_data_2.add_point([self.packet.timestamp,self.packet.magnetometer_data_2])
-                    self.magnetometer_data_3.add_point([self.packet.timestamp,self.packet.magnetometer_data_3])
+                    self.magnetometer_data_1.add_point([self.packet.timestamp,self.packet.magnetometer_1])
+                    self.magnetometer_data_2.add_point([self.packet.timestamp,self.packet.magnetometer_2])
+                    self.magnetometer_data_3.add_point([self.packet.timestamp,self.packet.magnetometer_3])
                 elif self.packet.type == packet_util.PACKET_TYPE_GYROSCOPE:
-                    self.gyroscope_x_data.add_point([self.packet.timestamp,self.packet.gyroscope_x_data])
-                    self.gyroscope_y_data.add_point([self.packet.timestamp,self.packet.gyroscope_y_data])
-                    self.gyroscope_z_data.add_point([self.packet.timestamp,self.packet.gyroscope_z_data])
+                    self.gyroscope_x_data.add_point([self.packet.timestamp,self.packet.gyroscope_x])
+                    self.gyroscope_y_data.add_point([self.packet.timestamp,self.packet.gyroscope_y])
+                    self.gyroscope_z_data.add_point([self.packet.timestamp,self.packet.gyroscope_z])
                 elif self.packet.type == packet_util.PACKET_TYPE_GPS_SATELLITES:
-                    self.gps_satellites_data.add_point([self.packet.timestamp,self.packet.gps_satellites_data])
+                    self.gps_satellites_data.add_point([self.packet.timestamp,self.packet.gps_satellites])
                 elif self.packet.type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
-                    self.gps_ground_speed_data.add_point([self.packet.timestamp,self.packet.gps_ground_speed_data])   
+                    self.gps_ground_speed_data.add_point([self.packet.timestamp,self.packet.gps_ground_speed])   
         self.packet.is_ready = 0
         # Update GUI
         if self.is_open():
