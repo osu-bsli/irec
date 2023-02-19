@@ -67,6 +67,81 @@ def get_packet_types(n):
             n ^= b
 
 def create_packet(types: int, time: float, data: tuple) -> bytes:
+    header = struct.pack('>h', types)
+    header_checksum = struct.pack('>i', crc_calculator.checksum(header))
+    header_time = struct.pack('>f', time)
+
+    body = bytes()
+    type_flags: list[int] = get_packet_types(types)
+    idx_data = 0
+    for type_flag in type_flags:
+        if type_flag == PACKET_TYPE_ARM_STATUS:
+            body = body + struct.pack('>???', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            idx_data += 3
+
+        elif type_flag == PACKET_TYPE_ALTITUDE:
+            body = body + struct.pack('>ff', data[idx_data], data[idx_data + 1])
+            idx_data += 2
+
+        elif type_flag == PACKET_TYPE_ACCELERATION:
+            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            idx_data += 3
+        
+        elif type_flag == PACKET_TYPE_GPS_COORDINATES:
+            body = body + struct.pack('>ff', data[idx_data], data[idx_data + 1])
+            idx_data += 2
+        
+        elif type_flag == PACKET_TYPE_BOARD_TEMPERATURE:
+            body = body + struct.pack('>ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
+            idx_data += 4
+
+        elif type_flag == PACKET_TYPE_BOARD_VOLTAGE:
+            body = body + struct.pack('>ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
+            idx_data += 4
+
+        elif type_flag == PACKET_TYPE_BOARD_CURRENT:
+            body = body + struct.pack('>ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
+            idx_data += 4
+
+        elif type_flag == PACKET_TYPE_BATTERY_VOLTAGE:
+            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            idx_data += 3
+
+        elif type_flag == PACKET_TYPE_MAGNETOMETER:
+            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            idx_data += 3
+
+        elif type_flag == PACKET_TYPE_GYROSCOPE:
+            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            idx_data += 3
+
+        elif type_flag == PACKET_TYPE_GPS_SATELLITES:
+            body = body + struct.pack('>h', data[idx_data])
+            idx_data += 1
+
+        elif type_flag == PACKET_TYPE_GPS_GROUND_SPEED:
+            body = body + struct.pack('>f', data[idx_data])
+            idx_data += 1
+        
+        elif type_flag == PACKET_TYPE_ARM_CAMERA:
+            body = body + struct.pack('>?', data[idx_data])
+            idx_data += 1
+        
+        elif type_flag == PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
+            body = body + struct.pack('>?', data[idx_data])
+            idx_data += 1
+        
+        elif type_flag == PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
+            body = body + struct.pack('>?', data[idx_data])
+            idx_data += 1
+    
+    packet_checksum = crc_calculator.checksum(header + header_checksum + body)
+    footer = struct.pack('>i', packet_checksum)
+
+    return header + header_checksum + header_time + body + footer
+
+
+def create_packet_mixed(types: int, time: float, data: tuple) -> bytes:
     header = struct.pack('>hf', types, time)
     header_checksum = struct.pack('>i', crc_calculator.checksum(header))
 
