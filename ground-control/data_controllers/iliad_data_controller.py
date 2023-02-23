@@ -90,42 +90,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.gyroscope_z_data =         DataSeries('time', 'Gyroscope Z')           # float, float
         self.gps_satellites_data =      DataSeries('time', 'GPS Satellite Count')   # float, int
         self.gps_ground_speed_data =    DataSeries('time', 'GPS Ground Speed')      # float, float
-
-        # Temporary variables to store data while we check the packet's checksum.
-        self._current_packet_types: int = None
-        self._current_arm_status_1_data: tuple[float, bool] = None
-        self._current_arm_status_2_data: tuple[float, bool] = None
-        self._current_arm_status_3_data: tuple[float, bool] = None
-        self._current_altitude_1_data: tuple[float, float] = None
-        self._current_altitude_2_data: tuple[float, float] = None
-        self._current_acceleration_x_data: tuple[float, float] = None
-        self._current_acceleration_y_data: tuple[float, float] = None
-        self._current_acceleration_z_data: tuple[float, float] = None
-        self._current_gps_latitude_data: tuple[float, float] = None
-        self._current_gps_longitude_data: tuple[float, float] = None
-        self._current_board_1_temperature_data: tuple[float, float] = None
-        self._current_board_2_temperature_data: tuple[float, float] = None
-        self._current_board_3_temperature_data: tuple[float, float] = None
-        self._current_board_4_temperature_data: tuple[float, float] = None
-        self._current_board_1_voltage_data: tuple[float, float] = None
-        self._current_board_2_voltage_data: tuple[float, float] = None
-        self._current_board_3_voltage_data: tuple[float, float] = None
-        self._current_board_4_voltage_data: tuple[float, float] = None
-        self._current_board_1_current_data: tuple[float, float] = None
-        self._current_board_2_current_data: tuple[float, float] = None
-        self._current_board_3_current_data: tuple[float, float] = None
-        self._current_board_4_current_data: tuple[float, float] = None
-        self._current_battery_1_voltage_data: tuple[float, float] = None
-        self._current_battery_2_voltage_data: tuple[float, float] = None
-        self._current_battery_3_voltage_data: tuple[float, float] = None
-        self._current_magnetometer_data_1: tuple[float, float] = None
-        self._current_magnetometer_data_2: tuple[float, float] = None
-        self._current_magnetometer_data_3: tuple[float, float] = None
-        self._current_gyroscope_x_data: tuple[float, float] = None
-        self._current_gyroscope_y_data: tuple[float, float] = None
-        self._current_gyroscope_z_data: tuple[float, float] = None
-        self._current_gps_satellites_data: tuple[float, int] = None
-        self._current_gps_ground_speed_data: tuple[float, float] = None
     
     def _on_connect_button_clicked(self) -> None:
         try:
@@ -161,8 +125,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
             print(self.packet.type)
             if self.packet.is_ready == 1:
                 if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
-                    self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2])
                     self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1])
+                    self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2])
                     self.arm_status_3_data.add_point([self.packet.timestamp,self.packet.arm_status_3])
                 elif self.packet.type == packet_util.PACKET_TYPE_ALTITUDE:
                     self.altitude_1_data.add_point([self.packet.timestamp,self.packet.altitude_1])
