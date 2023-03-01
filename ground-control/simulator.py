@@ -23,8 +23,9 @@ if __name__ == '__main__':
 
     with open('data/flight_data_2.csv') as csv_file:
         reader = csv.DictReader(csv_file)
-        for row in reader:
-            timestamp: float = float(row['time'])
+        for i in range (0,2):
+        #for row in reader:
+            """timestamp: float = float(row['time'])
 
             # Altitude packets
             altitude_1: float = float(row['baro_height'])
@@ -81,7 +82,7 @@ if __name__ == '__main__':
             gyroscope_z: float = float(row['bmx_z_gyro'])
             gyroscope_payload = (gyroscope_x, gyroscope_y, gyroscope_z)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GYROSCOPE, timestamp, gyroscope_payload))
-            
+                        
             # GPS satellites data
             gps_satellites: int = int(row['gps_satCount'])
             gps_satellites_payload = (gps_satellites,)
@@ -91,10 +92,12 @@ if __name__ == '__main__':
             gps_ground_speed: float = float(row['gps_groundSpeed'])
             gps_ground_speed_payload = (gps_ground_speed,)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, gps_ground_speed_payload))
-
             print(f'[{timestamp}]')
-            #time.sleep(0.190540169) # Average time per packet in data.
+            #time.sleep(0.190540169) # Average time per packet in data."""
+
+            port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE,i, (i*2,i*2+2)))
     # Wait until the buffer has been written to COM1
     while(port.out_waiting > 0):
         time.sleep(.1)
+    
     port.close()

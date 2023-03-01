@@ -67,14 +67,14 @@ def get_packet_types(n):
             n ^= b
 
 def create_packet(type: int, time: float, data: tuple) -> bytes:
-    header = struct.pack('>b', type)
+    header = struct.pack('>B', type)
     header_checksum = struct.pack('>H', crc_calculator.checksum(header))
     header_time = struct.pack('>f', time)
 
     body = bytes()
     idx_data = 0
     if type == PACKET_TYPE_ARM_STATUS:
-        body = body + struct.pack('>???', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+        body = body + struct.pack('>BBB', data[idx_data], data[idx_data + 1], data[idx_data + 2])
         idx_data += 3
 
     elif type == PACKET_TYPE_ALTITUDE:
@@ -114,7 +114,7 @@ def create_packet(type: int, time: float, data: tuple) -> bytes:
         idx_data += 3
 
     elif type == PACKET_TYPE_GPS_SATELLITES:
-        body = body + struct.pack('>h', data[idx_data])
+        body = body + struct.pack('>i', data[idx_data])
         idx_data += 1
 
     elif type == PACKET_TYPE_GPS_GROUND_SPEED:
@@ -122,15 +122,15 @@ def create_packet(type: int, time: float, data: tuple) -> bytes:
         idx_data += 1
         
     elif type == PACKET_TYPE_ARM_CAMERA:
-        body = body + struct.pack('>?', data[idx_data])
+        body = body + struct.pack('>b', data[idx_data])
         idx_data += 1
         
     elif type == PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
-        body = body + struct.pack('>?', data[idx_data])
+        body = body + struct.pack('>b', data[idx_data])
         idx_data += 1
         
     elif type == PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
-        body = body + struct.pack('>?', data[idx_data])
+        body = body + struct.pack('>b', data[idx_data])
         idx_data += 1
     
     packet_checksum = crc_calculator.checksum(header + header_checksum + header_time + body)
