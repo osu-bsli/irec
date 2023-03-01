@@ -6,6 +6,7 @@ import crc
 import time
 import dearpygui.dearpygui as gui
 import ctypes as ct
+import packetlib
 
 class IliadDataController(serial_data_controller.SerialDataController):
     
@@ -29,30 +30,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
 
         # ~~~ Connection with C ~~~
-        # Load DLL
-        libraryFile = r".\libparser_shared"
-        self.ParserLibrary = ct.WinDLL(libraryFile) # LIBRARY FILE NAME
-        # Initialize parser
-        self.ParserLibrary.initialize()
-        # C packet struct
-        class Packet(ct.Structure):
-            _fields_ = [("is_ready", ct.c_int), ("type", ct.c_ubyte), ("timestamp", ct.c_float),
-                        ("arm_status_1", ct.c_int), ("arm_status_2", ct.c_int), ("arm_status_3", ct.c_int), 
-                        ("altitude_1", ct.c_float), ("altitude_2", ct.c_float),
-                        ("acceleration_x", ct.c_float), ("acceleration_y", ct.c_float), ("acceleration_z", ct.c_float),
-                        ("gps_latitude", ct.c_float), ("gps_longitude", ct.c_float),
-                        ("board_1_temperature", ct.c_float), ("board_2_temperature", ct.c_float), ("board_3_temperature", ct.c_float), ("board_4_temperature", ct.c_float),
-                        ("board_1_voltage", ct.c_float), ("board_2_voltage", ct.c_float), ("board_3_voltage", ct.c_float), ("board_4_voltage", ct.c_float),
-                        ("battery_1_voltage", ct.c_float), ("battery_2_voltage", ct.c_float), ("battery_3_voltage", ct.c_float),
-                        ("magnetometer_1", ct.c_float), ("magnetometer_2", ct.c_float), ("magnetometer_3", ct.c_float),
-                        ("gyroscope_x", ct.c_float), ("gyroscope_y", ct.c_float), ("gyroscope_z", ct.c_float),
-                        ("gps_satellites", ct.c_int), ("gps_ground_speed", ct.c_float)]
-        # Reset function return type
-        self.ParserLibrary.get_packet.restype = ct.c_void_p
-        self.ParserLibrary.get_buffer.restype = ct.c_void_p
-        # Load packet
-        self.packet = Packet.from_address(self.ParserLibrary.get_packet())
-        self.buffer = self.ParserLibrary.get_buffer()
+        packetlib.initialize()
+        self.packet = packetlib.get_packet().contents
         # ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -111,30 +90,16 @@ class IliadDataController(serial_data_controller.SerialDataController):
         gui.hide_item(f'{self.identifier}.connection.disconnect')
 
     def update(self) -> None:
-        """#This all works
-        self.ParserLibrary.printBuffer.argtypes = (ct.c_void_p,)
-        print(self.ParserLibrary.printBuffer(self.buffer))
-        self.ParserLibrary.read_packet_type.argtypes = (ct.c_void_p,)
-        print(self.ParserLibrary.read_packet_type(self.buffer))
-        if (self.ParserLibrary.read_packet_type(self.buffer) == 2):
-            print(self.ParserLibrary.get_packet_payload_size(self.ParserLibrary.read_packet_type(self.buffer)))
-        """
         if self.is_open():
-            #print(self.buffer)
-            self.ParserLibrary.enqueueByte.argtypes = (ct.c_void_p, ct.c_byte)
-            self.ParserLibrary.parse_packet.argtypes = (ct.c_void_p,)
             # Poll serial port and put anything there into data_buffer
             if self.port.in_waiting > 0:
                 data = self.port.read_all()
                 for byte in data:
-                    self.ParserLibrary.enqueue(byte)
-                    
+                    packetlib.enqueue(ct.c_ubyte(byte))
             # Update the packet
-            #self.ParserLibrary.process()
-            # print(self.packet.type)
-            # print("   ", self.ParserLibrary.getSize(self.buffer))
-            # print("      ", self.packet.is_ready)
+            packetlib.process()
             if self.packet.is_ready == 1:
+                print(self.packet.type)
                 if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
                     self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1])
                     self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2])

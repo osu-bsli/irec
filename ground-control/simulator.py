@@ -8,6 +8,7 @@ from utils import packet_util
 import serial
 import csv
 import time
+import ctypes as ct
 
 if __name__ == '__main__':
 
@@ -23,9 +24,8 @@ if __name__ == '__main__':
 
     with open('data/flight_data_2.csv') as csv_file:
         reader = csv.DictReader(csv_file)
-        for i in range (0,2):
-        #for row in reader:
-            """timestamp: float = float(row['time'])
+        for row in reader:
+            timestamp: float = float(row['time'])
 
             # Altitude packets
             altitude_1: float = float(row['baro_height'])
@@ -50,7 +50,7 @@ if __name__ == '__main__':
             board_1_voltage: float = float(row['telemetrum_board.voltage'])
             board_2_voltage: float = float(row['stratologger_board.voltage'])
             board_3_voltage: float = float(row['camera_board.voltage'])
-            board_4_voltage: float = 0.0
+            board_4_voltage: float = 1.5
             board_voltage_payload = (board_1_voltage, board_2_voltage, board_3_voltage, board_4_voltage)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_VOLTAGE, timestamp, board_voltage_payload))
             
@@ -58,14 +58,14 @@ if __name__ == '__main__':
             board_1_current: float = float(row['telemetrum_board.current'])
             board_2_current: float = float(row['stratologger_board.current'])
             board_3_current: float = float(row['camera_board.current'])
-            board_4_current: float = 0.0
+            board_4_current: float = 1.5
             board_current_payload = (board_1_current, board_2_current, board_3_current, board_4_current)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_CURRENT, timestamp, board_current_payload))
 
             # Battery voltage packets
             battery_1_voltage: float = float(row['mainBatteryVoltage'])
-            battery_2_voltage: float = 0.0
-            battery_3_voltage: float = 0.0
+            battery_2_voltage: float = 1.5
+            battery_3_voltage: float = 1.5
             battery_voltage_payload = (battery_1_voltage, battery_2_voltage, battery_3_voltage)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BATTERY_VOLTAGE, timestamp, battery_voltage_payload))
 
@@ -93,9 +93,14 @@ if __name__ == '__main__':
             gps_ground_speed_payload = (gps_ground_speed,)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, gps_ground_speed_payload))
             print(f'[{timestamp}]')
-            #time.sleep(0.190540169) # Average time per packet in data."""
+            #time.sleep(0.190540169) # Average time per packet in data.
 
-            port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE,i, (i*2,i*2+2)))
+            """for i in [0x01, 0x21, 0x10, 0x6D, 0xE7, 0xFB, 0x3D, 0x01, 0x00, 0x01, 0x90, 0xE5]:
+                b = ct.c_ubyte(i)
+                port.write(b)
+            test = packet_util.create_packet(1,.123,(1,0,1))
+            for byte in test:
+                print(hex(byte))"""
     # Wait until the buffer has been written to COM1
     while(port.out_waiting > 0):
         time.sleep(.1)
