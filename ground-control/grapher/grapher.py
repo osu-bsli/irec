@@ -94,26 +94,26 @@ def add_line_series_custom(x_data, y_data,  series_tag, label_text,  tagy):
 
 def armCamera():
             #arm_camera(self.iliad)
-            print("I AM HERE1!!!")
+            #print("I AM HERE1!!!")
             gui.configure_item("armCameraPopupID", show=False)
             return
 
 def armSRADfc():
             #arm_srad_flight_computer();
             gui.configure_item("armSRADfcPopupID", show=False)
-            print("I AM HERE2!!!")
+            #print("I AM HERE2!!!")
             return
 
 def armCOTSfc():
             #arm_cots_flight_computer();
             gui.configure_item("armCOTSfcPopupID", show=False)
-            print("I AM HERE3!!!")
+            #print("I AM HERE3!!!")
             return
 
 
 def disarmCamera():
             #disarm_camera(self.iliad)
-            print("BOOM")
+            #print("BOOM")
             gui.configure_item("disarmCameraPopupID", show=False)
             return
 
@@ -137,11 +137,12 @@ def displaySidebar():
 
         with gui.theme(tag="theme_armed"):
             with gui.theme_component(gui.mvButton):
-                gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
+                gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
 
         with gui.theme(tag="theme_unarmed"):
             with gui.theme_component(gui.mvButton):
-                gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
+                gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
+                
 
         # Button for Telemetry status
         gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
@@ -170,7 +171,7 @@ def displaySidebar():
         #make Unarmed buttons
         gui.add_button(label='Camera Unarmed', tag='camera_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
         with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
-            print("I AM HERE!!!")
+            #print("I AM HERE!!!")
             gui.add_text("Would you like to arm the rocket?")
             gui.add_button(label="Yes",  callback=armCamera)
         gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
@@ -342,18 +343,23 @@ def displayHealth():
 # raw packet/signal data
 def displayPackets():
     with gui.tab(label="Packets", parent='app.main_tab_bar'):
-        gui.add_text("tabulated packet data and packet health info go here")
+        gui.add_text("insert button to link to csv file")
 
 
 
 # info relevant to rocket recovery goes here
 def displayRecovery():
-    with gui.tab(label="Recovery", parent='app.main_tab_bar') as t2:
+    """with gui.tab(label="Recovery", parent='app.main_tab_bar') as t2:
         with gui.theme(tag="landed_button_theme"):
             with gui.theme_component(gui.mvButton):
                 gui.add_theme_color(gui.mvThemeCol_Button, (0, 150, 100))
-        gui.add_button(label="Landed", width=300, height=75)
+        gui.add_button(label="Landed", width=650, height=75)
         gui.bind_item_theme(gui.last_item(), "Theme Landed")
+        width, height, channels, data = gui.load_image("MapOfTripoli.jpg")
+        with gui.texture_registry():
+            texture_id =gui.add_static_texture(width, height, data)
+
+        gui.add_image(texture_id, width = 650, height = 800*.13099/.23483)"""
 
 class Grapher(AppComponent):
     def __init__(self, identifier: str, iliad: IliadDataController) -> None:
@@ -375,11 +381,11 @@ class Grapher(AppComponent):
         #tracking tab
         displayTracking()
         #health tab
-        displayHealth()
+        #displayHealth()
         #packets tab
         displayPackets()
         #recovery tab
-        displayRecovery()
+        #displayRecovery()
 
 
 

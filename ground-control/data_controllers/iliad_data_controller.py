@@ -10,7 +10,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
-
+        
         # Create a gui for opening / closing the connection
         with gui.tab(label='Telemetry Connection', parent='app.main_tab_bar'):
             with gui.group(horizontal=True):
