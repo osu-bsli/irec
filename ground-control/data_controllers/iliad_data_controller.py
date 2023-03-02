@@ -99,7 +99,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
             # Update the packet
             packetlib.process()
             if self.packet.is_ready == 1:
-                print(self.packet.type)
                 if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
                     self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1])
                     self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2])
@@ -107,6 +106,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 elif self.packet.type == packet_util.PACKET_TYPE_ALTITUDE:
                     self.altitude_1_data.add_point([self.packet.timestamp,self.packet.altitude_1])
                     self.altitude_2_data.add_point([self.packet.timestamp,self.packet.altitude_2])
+                    print(self.packet.type, self.packet.timestamp, self.packet.altitude_1, self.packet.altitude_2)
+                    #print("NO")
                 elif self.packet.type == packet_util.PACKET_TYPE_ACCELERATION:
                     self.acceleration_x_data.add_point([self.packet.timestamp,self.packet.acceleration_x])
                     self.acceleration_y_data.add_point([self.packet.timestamp,self.packet.acceleration_y])
@@ -114,6 +115,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 elif self.packet.type == packet_util.PACKET_TYPE_GPS_COORDINATES:
                     self.gps_latitude_data.add_point([self.packet.timestamp,self.packet.gps_latitude])
                     self.gps_longitude_data.add_point([self.packet.timestamp,self.packet.gps_longitude])
+                    #print(self.packet.timestamp,self.packet.gps_latitude, self.packet.gps_longitude)
                 elif self.packet.type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
                     self.board_1_temperature_data.add_point([self.packet.timestamp,self.packet.board_1_temperature])
                     self.board_2_temperature_data.add_point([self.packet.timestamp,self.packet.board_2_temperature])

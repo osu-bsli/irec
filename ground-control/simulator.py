@@ -22,6 +22,19 @@ if __name__ == '__main__':
         bytesize=serial.EIGHTBITS,
     )
 
+    _lib_path = '.\libpacket_shared.dll'
+    _lib = ct.CDLL(_lib_path)
+    _lib.write_altitude_packet.argtypes = [ct.POINTER(ct.c_ubyte*64), ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_acceleration_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_gps_position_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_board_voltage_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_board_current_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_battery_voltage_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_magnetometer_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_gyroscope_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_gps_satellite_count_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_int]
+    _lib.write_gps_ground_speed_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float]
+
     with open('data/flight_data_2.csv') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
@@ -31,7 +44,13 @@ if __name__ == '__main__':
             altitude_1: float = float(row['baro_height'])
             altitude_2: float = float(row['gps_height'])
             altitude_payload = (altitude_1, altitude_2)
-            port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, altitude_payload))
+            packetP = packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, altitude_payload)
+            port.write(packetP)
+            packetC = ct.POINTER(ct.c_ubyte*64)()
+            bytesWritten = _lib.write_altitude_packet(packetC, timestamp, altitude_1, altitude_2)
+            for i in range(0,bytesWritten):
+                 port.write(packetC[i])
+            
 
             # Acceleration packets
             acceleration_x: float = float(row['bmx_x_accel'])
@@ -93,14 +112,15 @@ if __name__ == '__main__':
             gps_ground_speed_payload = (gps_ground_speed,)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, gps_ground_speed_payload))
             print(f'[{timestamp}]')
+
             #time.sleep(0.190540169) # Average time per packet in data.
 
-            """for i in [0x01, 0x21, 0x10, 0x6D, 0xE7, 0xFB, 0x3D, 0x01, 0x00, 0x01, 0x90, 0xE5]:
-                b = ct.c_ubyte(i)
-                port.write(b)
-            test = packet_util.create_packet(1,.123,(1,0,1))
-            for byte in test:
-                print(hex(byte))"""
+        # for i in [0x01, 0x21, 0x10, 0x6D, 0xE7, 0xFB, 0x3D, 0x01, 0x00, 0x01, 0x90, 0xE5]:
+        #     b = ct.c_ubyte(i)
+        #     port.write(b)
+        # test = packet_util.create_packet(2,.123,(.123,.123,.123))
+        # for byte in test:
+        #     print(hex(byte))
     # Wait until the buffer has been written to COM1
     while(port.out_waiting > 0):
         time.sleep(.1)
