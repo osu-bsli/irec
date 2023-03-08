@@ -76,13 +76,13 @@ class Buffer(ctypes.Structure):
 # Determine the path to the static library (changes base on OS)
 _lib_path = ""
 if sys.platform.startswith('linux') or sys.platform.startswith('linux2'):
-    _lib_path = 'libparser_shared.so'
+    _lib_path = './libparser_shared.so'
 elif sys.platform.startswith('freebsd'):
-    _lib_path = 'libparser_shared.so'
+    _lib_path = './libparser_shared.so'
 elif sys.platform.startswith('darwin'):
-    _lib_path = 'libparser_shared.so'
+    _lib_path = './libparser_shared.so'
 elif sys.platform.startswith('win32'):
-    _lib_path = '.\libparser_shared.dll'
+    _lib_path = './libparser_shared.dll'
 else:
     print('[ERROR] Packetlib doesn\'t support your OS.');
     exit(1);
