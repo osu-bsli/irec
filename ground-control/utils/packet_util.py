@@ -133,7 +133,6 @@ def create_packet(type: int, time: float, data: tuple) -> bytes:
         body = body + struct.pack('>b', data[idx_data])
         idx_data += 1
     
-    packet_checksum = crc_calculator.checksum(header + header_checksum + header_time + body)
     footer = struct.pack('<H', crc_calculator.checksum(header + header_checksum + header_time + body))
 
     return header + header_checksum + header_time + body + footer

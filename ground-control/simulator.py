@@ -16,7 +16,7 @@ if __name__ == '__main__':
     port = serial.Serial(
         port='COM1',
         # baudrate=9600,
-        baudrate=999999999999999,
+        baudrate=9600,
         stopbits=serial.STOPBITS_ONE,
         parity=serial.PARITY_NONE,
         bytesize=serial.EIGHTBITS,
@@ -44,12 +44,18 @@ if __name__ == '__main__':
             altitude_1: float = float(row['baro_height'])
             altitude_2: float = float(row['gps_height'])
             altitude_payload = (altitude_1, altitude_2)
-            packetP = packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, altitude_payload)
-            port.write(packetP)
-            packetC = ct.POINTER(ct.c_ubyte*64)()
-            bytesWritten = _lib.write_altitude_packet(packetC, timestamp, altitude_1, altitude_2)
-            for i in range(0,bytesWritten):
-                 port.write(packetC[i])
+            port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, altitude_payload))
+            # packet = ct.c_ubyte*64
+            # packetC = packet()
+            # bytesWritten = _lib.write_altitude_packet(ct.byref(packetC), timestamp, altitude_1, altitude_2)
+            # #print(bytesWritten)
+            #if timestamp >227.32 and timestamp<228.9:
+                #print(timestamp, altitude_1, altitude_2)
+            # for i in range(0,bytesWritten):
+            #     print(packetC[i])
+                #port.write(packetC)
+            # port.write(packetC)
+
             
 
             # Acceleration packets

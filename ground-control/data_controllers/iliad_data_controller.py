@@ -31,7 +31,10 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
         # ~~~ Connection with C ~~~
         packetlib.initialize()
-        self.packet = packetlib.get_packet().contents
+        self.packetPtr = packetlib.get_packet()
+        self.packet = self.packetPtr.contents
+        self.bufferPtr = packetlib.get_buffer()
+        self.buffer = self.bufferPtr.contents
         # ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -93,11 +96,16 @@ class IliadDataController(serial_data_controller.SerialDataController):
         if self.is_open():
             # Poll serial port and put anything there into data_buffer
             if self.port.in_waiting > 0:
-                data = self.port.read_all()
-                for byte in data:
-                    packetlib.enqueue(ct.c_ubyte(byte))
+                self.data_buffer += self.port.read_all()
+                bytesToQ = max(0, min(len(self.data_buffer), packetlib._BUFFER_SIZE - self.buffer.size - 1))
+                for i in range(bytesToQ):
+                    packetlib.enqueue(ct.c_ubyte(self.data_buffer[i]))
+                self.data_buffer = self.data_buffer[bytesToQ:]
+
             # Update the packet
             packetlib.process()
+            #while self.packet.is_ready == 1:
+                #self.packet = self.packetPtr.contents
             if self.packet.is_ready == 1:
                 if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
                     self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1])
@@ -106,7 +114,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 elif self.packet.type == packet_util.PACKET_TYPE_ALTITUDE:
                     self.altitude_1_data.add_point([self.packet.timestamp,self.packet.altitude_1])
                     self.altitude_2_data.add_point([self.packet.timestamp,self.packet.altitude_2])
-                    print(self.packet.type, self.packet.timestamp, self.packet.altitude_1, self.packet.altitude_2)
+                    if self.packet.timestamp < 1:
+                        print(self.packet.type, self.packet.timestamp, self.packet.altitude_1, self.packet.altitude_2)
                     #print("NO")
                 elif self.packet.type == packet_util.PACKET_TYPE_ACCELERATION:
                     self.acceleration_x_data.add_point([self.packet.timestamp,self.packet.acceleration_x])
@@ -148,6 +157,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 elif self.packet.type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
                     self.gps_ground_speed_data.add_point([self.packet.timestamp,self.packet.gps_ground_speed])   
             self.packet.is_ready = 0
+                #packetlib.process()
         # Update GUI
         if self.is_open():
             gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
