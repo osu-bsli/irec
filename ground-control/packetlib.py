@@ -1,7 +1,7 @@
 import ctypes
 import sys
 
-_BUFFER_SIZE = 64
+_BUFFER_SIZE = 1024
 
 class Packet(ctypes.Structure):
     _fields_ = [
