@@ -148,22 +148,37 @@ class IliadDataController(serial_data_controller.SerialDataController):
         if self.is_open():
             # Poll serial port and put anything there into data_buffer
             if self.port.in_waiting > 0:
+                # print('data')
                 self.data_buffer += self.port.read_all()
-                bytesToQ = max(0, min(len(self.data_buffer), packetlib._BUFFER_SIZE - self.buffer.size - 1))
-                for i in range(bytesToQ):
-                    packetlib.enqueue(ct.c_ubyte(self.data_buffer[i]))
-                self.data_buffer = self.data_buffer[bytesToQ:]
+            # else:
+            #     print('no data')
+            bytesToQ = max(0, min(len(self.data_buffer), packetlib._BUFFER_SIZE - self.buffer.size - 1))
+            for i in range(bytesToQ):
+                packetlib.enqueue(ct.c_ubyte(self.data_buffer[i]))
+            self.data_buffer = self.data_buffer[bytesToQ:]
 
             # Update the packet
             oldSize = 0
             while oldSize - self.buffer.size != 0:
                 #self.packet = self.packetPtr.contents
+                oldSize = self.buffer.size
                 packetlib.process()
                 if self.packet.is_ready == 1:
                     self.extract_packet_data()
                 self.packet.is_ready = 0
-                oldSize = self.buffer.size
                 #packetlib.process()
+
+            # for i in range(100):
+            #     packetlib.process()
+            #     if self.packet.is_ready == 1:
+            #         self.extract_packet_data()
+            #     self.packet.is_ready = 0
+
+            # packetlib.process()
+            # # print(self.buffer.size)
+            # if self.packet.is_ready == 1:
+            #     self.extract_packet_data()
+            # self.packet.is_ready = 0
 
         # Update GUI
         if self.is_open():
