@@ -155,14 +155,16 @@ class IliadDataController(serial_data_controller.SerialDataController):
                 self.data_buffer = self.data_buffer[bytesToQ:]
 
             # Update the packet
-            while self.buffer.size >= 9 * 8:
+            oldSize = 0
+            while oldSize - self.buffer.size != 0:
+                #self.packet = self.packetPtr.contents
                 packetlib.process()
-                #while self.packet.is_ready == 1:
-                    #self.packet = self.packetPtr.contents
                 if self.packet.is_ready == 1:
                     self.extract_packet_data()
                 self.packet.is_ready = 0
-                    #packetlib.process()
+                oldSize = self.buffer.size
+                #packetlib.process()
+
         # Update GUI
         if self.is_open():
             gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
