@@ -3,7 +3,7 @@ Simulates launch using telmetry data from summer 2022.
 
 Uses data/flight_data_2.csv which you'll need to get from Peter.
 """
-
+from datetime import datetime
 from utils import packet_util
 import serial
 import csv
@@ -11,6 +11,7 @@ import time
 import ctypes as ct
 
 if __name__ == '__main__':
+    start_time = datetime.now()
 
     # Setup sender port.
     port = serial.Serial(
@@ -132,3 +133,6 @@ if __name__ == '__main__':
         time.sleep(.1)
     
     port.close()
+
+    stop_time = datetime.now()
+    print(f'elapsed time: {stop_time - start_time}')
