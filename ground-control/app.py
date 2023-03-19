@@ -144,7 +144,7 @@ class App:
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
             with gui.group(horizontal=True):
-                Grapher.displaySidebar()
+                self.grapher.displaySidebar()
                 gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)

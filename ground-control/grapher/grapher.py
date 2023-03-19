@@ -308,7 +308,7 @@ class Grapher(AppComponent):
     # Create the gui stuff:
     
     
-    def displaySidebar():
+    def displaySidebar(self):
     # bind buttons to an initial named theme.
     # modify the theme and re-bind button to change appearance.
     # TODO button click redirects to relevant diagnostics
@@ -328,21 +328,21 @@ class Grapher(AppComponent):
             gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
                 gui.add_text("Would you like to unarm the camera?")
-                gui.add_button(label="Yes",  callback=Grapher.disarmCamera)
+                gui.add_button(label="Yes",  callback=self.disarmCamera)
             gui.bind_item_theme('camera_armed_tag', "theme_armed")
             gui.configure_item("disarmCameraPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
             gui.add_button(label='SRAD FC Armed', tag='SRAD_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
                 gui.add_text("Would you like to unarm the SRAD flight computer?")
-                gui.add_button(label="Yes",  callback=Grapher.disarmSRADfc)
+                gui.add_button(label="Yes",  callback=self.disarmSRADfc)
             gui.bind_item_theme('SRAD_fc_armed_tag', "theme_armed")
             gui.configure_item("disarmSRADfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
             gui.add_button(label='COTS FC Armed', tag='COTS_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
                 gui.add_text("Would you like to unarm the COTS flight computer?")
-                gui.add_button(label="Yes",  callback=Grapher.disarmCOTSfc)
+                gui.add_button(label="Yes",  callback=self.disarmCOTSfc)
             gui.bind_item_theme('COTS_fc_armed_tag', "theme_armed")
             gui.configure_item("disarmCOTSfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
             
@@ -353,21 +353,21 @@ class Grapher(AppComponent):
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
                 #print("I AM HERE!!!")
                 gui.add_text("Would you like to arm the rocket?")
-                gui.add_button(label="Yes",  callback=Grapher.armCamera)
+                gui.add_button(label="Yes",  callback=self.armCamera)
             gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
             gui.configure_item("armCameraPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
             gui.add_button(label='SRAD FC Unarmed', tag='SRAD_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
                 gui.add_text("Would you like to arm the rocket?")
-                gui.add_button(label="Yes",  callback=Grapher.armSRADfc)
+                gui.add_button(label="Yes",  callback=self.armSRADfc)
             gui.bind_item_theme('SRAD_fc_unarmed_tag', "theme_unarmed")
             gui.configure_item("armSRADfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
             gui.add_button(label='COTS FC Unarmed', tag='COTS_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
                 gui.add_text("Would you like to arm the rocket?")
-                gui.add_button(label="Yes",  callback=Grapher.armCOTSfc)
+                gui.add_button(label="Yes",  callback=self.armCOTSfc)
             gui.bind_item_theme('COTS_fc_unarmed_tag', "theme_unarmed")
             gui.configure_item("armCOTSfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
