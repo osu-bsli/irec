@@ -143,9 +143,16 @@ class App:
                 with gui.menu(label='Help'):
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
-            with gui.group(horizontal=True, tag='app.sidebar'):
+            # with gui.group(horizontal=True):
+            with gui.table(header_row=False, borders_outerH=True, borders_innerV=True, borders_innerH=True, borders_outerV=True):
+                gui.add_table_column()
+                gui.add_table_column()
+
+                with gui.table_row():
+                    gui.add_group(tag='app.sidebar')
+                    gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
+
                 # gui.add_group(horizontal=True, tag='app.sidebar')
-                gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
 
