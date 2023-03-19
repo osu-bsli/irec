@@ -143,8 +143,8 @@ class App:
                 with gui.menu(label='Help'):
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
-            with gui.group(horizontal=True):
-                self.grapher.displaySidebar()
+            with gui.group(horizontal=True, tag='app.sidebar'):
+                # gui.add_group(horizontal=True, tag='app.sidebar')
                 gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)

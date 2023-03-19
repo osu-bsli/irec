@@ -292,6 +292,8 @@ class Grapher(AppComponent):
         #displaySidebar()
         #with gui.group(horizontal=True):
 
+        self.displaySidebar()
+
         #with gui.tab_bar(pos=(200, 200)) as tb:
         #tracking tab
         displayTracking()
