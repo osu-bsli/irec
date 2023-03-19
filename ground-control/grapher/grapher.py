@@ -315,7 +315,7 @@ class Grapher(AppComponent):
     # modify the theme and re-bind button to change appearance.
     # TODO button click redirects to relevant diagnostics
 
-        with gui.group(horizontal=False):
+        with gui.group(horizontal=False, parent='app.sidebar'):
 
             with gui.theme(tag="theme_armed"):
                 with gui.theme_component(gui.mvButton):
