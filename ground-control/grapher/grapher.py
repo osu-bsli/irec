@@ -412,40 +412,36 @@ class Grapher(AppComponent):
 
     def armCamera(self) -> None:
         self.iliad.arm_camera()
-        print("I AM HERE1!!!")
         gui.configure_item("armCameraPopupID", show=False)
         return
 
-    def armSRADfc():
-        ##IliadDataController.arm_srad_flight_computer()
+    def armSRADfc(self):
+        self.iliad.arm_srad_flight_computer()
         gui.configure_item("armSRADfcPopupID", show=False)
-        #print("I AM HERE2!!!")
         return
 
-    def armCOTSfc():
-                #IliadDataController.arm_cots_flight_computer()
-                gui.configure_item("armCOTSfcPopupID", show=False)
-                #print("I AM HERE3!!!")
-                return
+    def armCOTSfc(self):
+        self.iliad.arm_cots_flight_computer()
+        gui.configure_item("armCOTSfcPopupID", show=False)
+        return
 
 
-    def disarmCamera():
-                #IliadDataController.disarm_camera()
-                #print("BOOM")
-                gui.configure_item("disarmCameraPopupID", show=False)
-                return
+    def disarmCamera(self):
+        self.iliad.disarm_camera()
+        gui.configure_item("disarmCameraPopupID", show=False)
+        return
 
-    def disarmSRADfc():
-                #IliadDataController.disarm_srad_flight_computer()
-                gui.configure_item("disarmSRADfcPopupID", show=False)
-                return
+    def disarmSRADfc(self):
+        self.iliad.disarm_srad_flight_computer()
+        gui.configure_item("disarmSRADfcPopupID", show=False)
+        return
 
-    def disarmCOTSfc():
-                #IliadDataController.disarm_cots_flight_computer()
-                gui.configure_item("disarmCOTSfcPopupID", show=False)
-                return
+    def disarmCOTSfc(self):
+        self.iliad.disarm_cots_flight_computer()
+        gui.configure_item("disarmCOTSfcPopupID", show=False)
+        return
 
-        # Returns a dictionary with different config options.
+    # Returns a dictionary with different config options.
     def get_config(self) -> dict[str]:
         return {}
 
