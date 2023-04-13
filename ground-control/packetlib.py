@@ -9,62 +9,50 @@ class Packet(ctypes.Structure):
         ('type', ctypes.c_ubyte),
         ('timestamp', ctypes.c_float),
 
-        # arm status
-        ('arm_status_1', ctypes.c_int), # actually an int
-        ('arm_status_2', ctypes.c_int), # actually an int
-        ('arm_status_3', ctypes.c_int), # actually an int
+        # High G accelerometer
+        ('high_g_accelerometer_x', ctypes.c_float),
+        ('high_g_accelerometer_y', ctypes.c_float),
+        ('high_g_accelerometer_z', ctypes.c_float),
 
-        # altitude
-        ('altitude_1', ctypes.c_float),
-        ('altitude_2', ctypes.c_float),
-
-        # acceleration
-        ('acceleration_x', ctypes.c_float),
-        ('acceleration_y', ctypes.c_float),
-        ('acceleration_z', ctypes.c_float),
-
-        # gps coordinates
-        ('gps_latitude', ctypes.c_float),
-        ('gps_longitude', ctypes.c_float),
-
-        # board temperature
-        ('board_1_temperature', ctypes.c_float),
-        ('board_2_temperature', ctypes.c_float),
-        ('board_3_temperature', ctypes.c_float),
-        ('board_4_temperature', ctypes.c_float),
-
-        # board voltage
-        ('board_1_voltage', ctypes.c_float),
-        ('board_2_voltage', ctypes.c_float),
-        ('board_3_voltage', ctypes.c_float),
-        ('board_4_voltage', ctypes.c_float),
-
-        # board current
-        ('board_1_current', ctypes.c_float),
-        ('board_2_current', ctypes.c_float),
-        ('board_3_current', ctypes.c_float),
-        ('board_4_current', ctypes.c_float),
-
-        # battery voltage
-        ('battery_1_voltage', ctypes.c_float),
-        ('battery_2_voltage', ctypes.c_float),
-        ('battery_3_voltage', ctypes.c_float),
-
-        # magnetometer
-        ('magnetometer_1', ctypes.c_float),
-        ('magnetometer_2', ctypes.c_float),
-        ('magnetometer_3', ctypes.c_float),
-
-        # gyroscope
+        # Gyroscope
         ('gyroscope_x', ctypes.c_float),
         ('gyroscope_y', ctypes.c_float),
         ('gyroscope_z', ctypes.c_float),
 
-        # gps satellite count
-        ('gps_satellites', ctypes.c_short),
+        # Accelerometer
+        ('accelerometer_x', ctypes.c_float),
+        ('accelerometer_y', ctypes.c_float),
+        ('accelerometer_z', ctypes.c_float),
 
-        # gps ground speed
+        # Barometer
+        ('barometer_altitude', ctypes.c_float),
+
+        # GPS
+        ('gps_altitude', ctypes.c_float),
+        ('gps_satellite_count', ctypes.c_ubyte),
+        ('gps_latitude', ctypes.c_float),
+        ('gps_longitude', ctypes.c_float),
+        ('gps_ascent', ctypes.c_float),
         ('gps_ground_speed', ctypes.c_float),
+
+        # Telemetrum Status
+        ('telemetrum_status', ctypes.c_ubyte),
+        ('telemetrum_current', ctypes.c_float),
+        ('telemetrum_voltage', ctypes.c_float),
+
+        # Stratologger Status
+        ('stratologger_status', ctypes.c_ubyte),
+        ('stratologger_current', ctypes.c_float),
+        ('stratologger_voltage', ctypes.c_float),
+
+        # Camera Status
+        ('camera_status', ctypes.c_ubyte),
+        ('camera_current', ctypes.c_float),
+        ('camera_voltage', ctypes.c_float),
+
+        # Battery Status
+        ('battery_voltage', ctypes.c_float),
+        ('battery_temperature', ctypes.c_float),
     ]
 
 class Buffer(ctypes.Structure):

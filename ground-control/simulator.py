@@ -16,7 +16,7 @@ if __name__ == '__main__':
     port = serial.Serial(
         port='COM1',
         # baudrate=9600,
-        baudrate=999999,
+        baudrate=1410065407,
         stopbits=serial.STOPBITS_ONE,
         parity=serial.PARITY_NONE,
         bytesize=serial.EIGHTBITS,
