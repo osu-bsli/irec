@@ -50,18 +50,18 @@ def test_receive_arm_status(camera_status: bool, srad_fc_status: bool, cots_fc_s
     )
 
     # Do the test
+    assert arm_control.is_telemetrum_armed == False
+    assert arm_control.is_stratologger_armed == False
     assert arm_control.is_camera_armed == False
-    assert arm_control.is_srad_fc_armed == False
-    assert arm_control.is_cots_fc_armed == False
     port.write(
         packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, time.time(), (camera_status, srad_fc_status, cots_fc_status))
     )
     for i in range(100):
         iliad.update()
         arm_control.update()
-    assert arm_control.is_camera_armed == camera_status
-    assert arm_control.is_srad_fc_armed == srad_fc_status
-    assert arm_control.is_cots_fc_armed == cots_fc_status
+    assert arm_control.is_telemetrum_armed == camera_status
+    assert arm_control.is_stratologger_armed == srad_fc_status
+    assert arm_control.is_camera_armed == cots_fc_status
 
     # Clean up
     iliad.close()
@@ -140,9 +140,9 @@ def test_receive_multiple_arm_status(arm_statuses: list[tuple[bool, bool, bool]]
         for i in range(100):
             iliad.update()
             arm_control.update()
-        assert arm_control.is_camera_armed == status_tuple[0]
-        assert arm_control.is_srad_fc_armed == status_tuple[1]
-        assert arm_control.is_cots_fc_armed == status_tuple[2]
+        assert arm_control.is_telemetrum_armed == status_tuple[0]
+        assert arm_control.is_stratologger_armed == status_tuple[1]
+        assert arm_control.is_camera_armed == status_tuple[2]
 
     # Clean up
     iliad.close()
@@ -180,15 +180,15 @@ def test_receive_no_arm_status() -> None:
     )
 
     # Do the test
+    assert arm_control.is_telemetrum_armed == False
+    assert arm_control.is_stratologger_armed == False
     assert arm_control.is_camera_armed == False
-    assert arm_control.is_srad_fc_armed == False
-    assert arm_control.is_cots_fc_armed == False
     for i in range(100):
         iliad.update()
         arm_control.update()
+    assert arm_control.is_telemetrum_armed == False
+    assert arm_control.is_stratologger_armed == False
     assert arm_control.is_camera_armed == False
-    assert arm_control.is_srad_fc_armed == False
-    assert arm_control.is_cots_fc_armed == False
 
     # Clean up
     iliad.close()
