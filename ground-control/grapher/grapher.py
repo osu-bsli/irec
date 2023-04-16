@@ -158,11 +158,14 @@ def displayTracking():
                         # Plot Altitude
                         with gui.group(horizontal=True):
                             create_plot('Altitude', 'Altitude_y_axis', 'Altitude_x_axis', 'Time(s)', 'Altitude (meters)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'Altitude_tag', 'Altitude', 'Altitude_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'barometer_altitude_tag', 'Barometer Altitude', 'Altitude_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'gps_altitude_tag', 'GPS Altitude', 'Altitude_y_axis')
+
                     # Plot Acceleration data
 
                             create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'AccelerationZ_tag', 'AccelerationZ', 'Acceleration_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'accelerationZ_tag', 'Acceleration Z ', 'Acceleration_y_axis')
+                            add_line_series_custom(original_x_axis, original_y_axis, 'highGaccelerationZ_tag', 'High G Acceleration Z', 'Acceleration_y_axis')
                             
 
 
@@ -201,42 +204,26 @@ def displayTracking():
                             gui.add_text(")")
                 with gui.table_row( height=VIEWPORT_HEIGHT/9):
                     with gui.table_cell():
-                        gui.add_text("Board 1 Voltage:")
-                        gui.add_text("0.00", id="board1Voltage")
-                        gui.add_text("Board 2 Voltage:")
-                        gui.add_text("0.00", id="board2Voltage")
-                        gui.add_text("Board 3 Voltage:")
-                        gui.add_text("0.00", id="board3Voltage")
-                        gui.add_text("Board 4 Voltage:")
-                        gui.add_text("0.00", id="board4Voltage")
+                        gui.add_text("Telemetrum Voltage:")
+                        gui.add_text("0.00", id="telemetrumVoltage")
+                        gui.add_text("Stratologger Voltage:")
+                        gui.add_text("0.00", id="stratologgerVoltage")
+                        gui.add_text("Camera Voltage:")
+                        gui.add_text("0.00", id="cameraVoltage")
+                        gui.add_text("Battery Voltage:")
+                        gui.add_text("0.00", id="batteryVoltage")
                 with gui.table_row( height=VIEWPORT_HEIGHT/9):
                     with gui.table_cell():
-                        gui.add_text("Board 1 Current:")
-                        gui.add_text("0.00", id="board1Current")
-                        gui.add_text("Board 2 Current")
-                        gui.add_text("0.00", id="board2Current")
-                        gui.add_text("Board 3 Current:")
-                        gui.add_text("0.00", id="board3Current")
-                        gui.add_text("Board 4 Current:")
-                        gui.add_text("0.00", id="board4Current")
+                        gui.add_text("Telemetrum Current:")
+                        gui.add_text("0.00", id="telemetrumCurrent")
+                        gui.add_text("Stratologger Current")
+                        gui.add_text("0.00", id="stratologgerCurrent")
+                        gui.add_text("Camera Current:")
+                        gui.add_text("0.00", id="cameraCurrent")
                 with gui.table_row( height=VIEWPORT_HEIGHT/10):
                     with gui.table_cell():
-                        gui.add_text("Board Temperature 1:")
-                        gui.add_text("0.00", id="board1Temperature")
-                        gui.add_text("Board Temperature 2:")
-                        gui.add_text("0.00", id="board2Temperature")
-                        gui.add_text("Board Temperature 3:")
-                        gui.add_text("0.00", id="board3Temperature")
-                        gui.add_text("Board Temperature 4:")
-                        gui.add_text("0.00", id="board4Temperature")
-                with gui.table_row( height=VIEWPORT_HEIGHT/10):
-                    with gui.table_cell():
-                        gui.add_text("Battery Voltage 1:")
-                        gui.add_text("0.00", id="battery1Voltage")
-                        gui.add_text("Battery Voltage 2:")
-                        gui.add_text("0.00", id="battery2Voltage")
-                        gui.add_text("Battery Voltage 3:")
-                        gui.add_text("0.00", id="battery3Voltage")
+                        gui.add_text("Battery Temperature:")
+                        gui.add_text("0.00", id="batteryTemperature")
 
 
 
@@ -386,8 +373,10 @@ class Grapher(AppComponent):
 
                         with gui.table_row(height=VIEWPORT_HEIGHT/100):
                             with gui.table_cell():
-                                gui.add_text("Altitude:")
-                                gui.add_text("0.00", id="altitude")
+                                gui.add_text("Altitude Barometer:")
+                                gui.add_text("0.00", id="altitudeBarometer")
+                                gui.add_text("Altitude GPS:")
+                                gui.add_text("0.00", id="altitudeGPS")
                         with gui.table_row(height=VIEWPORT_HEIGHT/100):
                             with gui.table_cell():
                                 gui.add_text("Acceleration X:")
@@ -396,6 +385,14 @@ class Grapher(AppComponent):
                                 gui.add_text("0.00", id="accelerationY")
                                 gui.add_text("Acceleration Z:")
                                 gui.add_text("0.00", id="accelerationZ")
+                        with gui.table_row(height=VIEWPORT_HEIGHT/100):
+                            with gui.table_cell():
+                                gui.add_text("High G Acceleration X:")
+                                gui.add_text("0.00", id="highGaccelerationX")
+                                gui.add_text("High G Acceleration Y:")
+                                gui.add_text("0.00", id="highGaccelerationY")
+                                gui.add_text("High G Acceleration Z:")
+                                gui.add_text("0.00", id="highGaccelerationZ")
                         with gui.table_row(height=VIEWPORT_HEIGHT/100):
                             with gui.table_cell():
                                 gui.add_text("GPS Ground Speed:")
@@ -463,7 +460,26 @@ class Grapher(AppComponent):
                     
 
             ###Arming Status###
-            if(self.iliad.arm_status_1_data.y_data):
+            
+            if(self.iliad.telemetrum_status.y_data):
+                gui.configure_item(item="Telemetrum_fc_armed_tag", show=True)
+                gui.configure_item(item="Telemetrum_fc_unarmed_tag", show=False)
+
+            else:
+                gui.configure_item(item="Telemetrum_fc_armed_tag", show=False)
+                gui.configure_item(item="Telemetrum_fc_unarmed_tag", show=True)
+
+            if(self.iliad.stratologger_status.y_data):
+                gui.configure_item(item="Stratologger_fc_armed_tag", show=True)
+                gui.configure_item(item="Stratologger_fc_unarmed_tag", show=False)
+
+            else:
+                gui.configure_item(item="Stratologger_fc_armed_tag", show=False)
+                gui.configure_item(item="Stratologger_fc_unarmed_tag", show=True)
+
+
+
+            if(self.iliad.camera_status.y_data):
                 gui.configure_item(item="camera_armed_tag", show=True)
                 gui.configure_item(item="camera_unarmed_tag", show=False)
 
@@ -471,111 +487,89 @@ class Grapher(AppComponent):
                 gui.configure_item(item="camera_armed_tag", show=False)
                 gui.configure_item(item="camera_unarmed_tag", show=True)
 
-            if(self.iliad.arm_status_2_data.y_data):
-                gui.configure_item(item="SRAD_fc_armed_tag", show=True)
-                gui.configure_item(item="SRAD_fc_unarmed_tag", show=False)
-
-            else:
-                gui.configure_item(item="SRAD_fc_armed_tag", show=False)
-                gui.configure_item(item="SRAD_fc_unarmed_tag", show=True)
-
-            if(self.iliad.arm_status_3_data.y_data):
-                gui.configure_item(item="COTS_fc_armed_tag", show=True)
-                gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
-
-            else:
-                gui.configure_item(item="COTS_fc_armed_tag", show=False)
-                gui.configure_item(item="COTS_fc_unarmed_tag", show=True)
-
             ###LEFT SIDE BAR###
 
             #set altitude variable value
-            if(len(self.iliad.altitude_1_data.y_data) >= 1):
-                gui.set_value('altitude', round((self.iliad.altitude_1_data.y_data[len(self.iliad.altitude_1_data.y_data)-1]),2))
+            if(len(self.iliad.barometer_altitude.y_data) >= 1):
+                gui.set_value('altitudeBarometer', round((self.iliad.barometer_altitude.y_data[len(self.iliad.barometer_altitude.y_data)-1]),2))
 
-            #set acceleration variable values
-            if(len(self.iliad.acceleration_x_data.y_data) >= 1):
-                gui.set_value('accelerationX', round((self.iliad.acceleration_x_data.y_data[len(self.iliad.acceleration_x_data.y_data)-1]),2))
+            if(len(self.iliad.barometer_altitude.y_data) >= 1):
+                gui.set_value('altitudeGPS', round((self.iliad.gps_altitude.y_data[len(self.iliad.gps_altitude.y_data)-1]),2))
 
-            if(len(self.iliad.acceleration_y_data.y_data) >= 1):
-                gui.set_value('accelerationY', round((self.iliad.acceleration_y_data.y_data[len(self.iliad.acceleration_y_data.y_data)-1]),2))
+            #set regular acceleration variable values
+            if(len(self.iliad.accelerometer_x.y_data) >= 1):
+                gui.set_value('accelerationX', round((self.iliad.accelerometer_x.y_data[len(self.iliad.accelerometer_x.y_data)-1]),2))
 
-            if(len(self.iliad.acceleration_z_data.y_data) >= 1):
-                gui.set_value('accelerationZ', round((self.iliad.acceleration_z_data.y_data[len(self.iliad.acceleration_z_data.y_data)-1]),2))
+            if(len(self.iliad.accelerometer_y.y_data) >= 1):
+                gui.set_value('accelerationY', round((self.iliad.accelerometer_y.y_data[len(self.iliad.accelerometer_y.y_data)-1]),2))
+
+            if(len(self.iliad.accelerometer_z.y_data) >= 1):
+                gui.set_value('accelerationZ', round((self.iliad.accelerometer_z.y_data[len(self.iliad.accelerometer_z.y_data)-1]),2))
+
+            #set high g acceleration variable values
+            if(len(self.iliad.high_g_accelerometer_x.y_data) >= 1):
+                gui.set_value('highGaccelerationX', round((self.iliad.high_g_accelerometer_x.y_data[len(self.iliad.high_g_accelerometer_x.y_data)-1]),2))
+
+            if(len(self.iliad.high_g_accelerometer_y.y_data) >= 1):
+                gui.set_value('highGaccelerationY', round((self.iliad.high_g_accelerometer_y.y_data[len(self.iliad.high_g_accelerometer_y.y_data)-1]),2))
+
+            if(len(self.iliad.high_g_accelerometer_z.y_data) >= 1):
+                gui.set_value('highGaccelerationZ', round((self.iliad.high_g_accelerometer_z.y_data[len(self.iliad.high_g_accelerometer_z.y_data)-1]),2))
+            
 
             #set ground speed data variable value
-            if(len(self.iliad.gps_ground_speed_data.y_data) >= 1):
-                gui.set_value('GPSGroundSpeed', round((self.iliad.gps_ground_speed_data.y_data[len(self.iliad.gps_ground_speed_data.y_data)-1]),2))
+            if(len(self.iliad.gps_ground_speed.y_data) >= 1):
+                gui.set_value('GPSGroundSpeed', round((self.iliad.gps_ground_speed.y_data[len(self.iliad.gps_ground_speed.y_data)-1]),2))
 
             #set gyroscope variable values
-            if(len(self.iliad.gyroscope_x_data.y_data) >= 1):
-                gui.set_value('gyroscopeX', round((self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]),2))
+            if(len(self.iliad.gyroscope_x.y_data) >= 1):
+                gui.set_value('gyroscopeX', round((self.iliad.gyroscope_x.y_data[len(self.iliad.gyroscope_x.y_data)-1]),2))
 
-            if(len(self.iliad.gyroscope_y_data.y_data) >= 1):
-                gui.set_value('gyroscopeY', round((self.iliad.gyroscope_y_data.y_data[len(self.iliad.gyroscope_y_data.y_data)-1]),2))
+            if(len(self.iliad.gyroscope_y.y_data) >= 1):
+                gui.set_value('gyroscopeY', round((self.iliad.gyroscope_y.y_data[len(self.iliad.gyroscope_y.y_data)-1]),2))
 
-            if(len(self.iliad.gyroscope_z_data.y_data) >= 1):
-                gui.set_value('gyroscopeZ', round((self.iliad.gyroscope_z_data.y_data[len(self.iliad.gyroscope_z_data.y_data)-1]),2))
+            if(len(self.iliad.gyroscope_z.y_data) >= 1):
+                gui.set_value('gyroscopeZ', round((self.iliad.gyroscope_z.y_data[len(self.iliad.gyroscope_z.y_data)-1]),2))
 
                 
 
             ###RIGHT SIDE BAR###
                 #set latitude/longitude variable values
-                if(len(self.iliad.gps_latitude_data.y_data) >= 1):
-                    gui.set_value('latitude', round((self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1]),2))
+                if(len(self.iliad.gps_latitude.y_data) >= 1):
+                    gui.set_value('latitude', round((self.iliad.gps_latitude.y_data[len(self.iliad.gps_latitude.y_data)-1]),2))
                 
-                if(len(self.iliad.gps_longitude_data.y_data) >= 1):
-                    gui.set_value('longitude', round((self.iliad.gps_longitude_data.y_data[len(self.iliad.gps_longitude_data.y_data)-1]),2))
+                if(len(self.iliad.gps_longitude.y_data) >= 1):
+                    gui.set_value('longitude', round((self.iliad.gps_longitude.y_data[len(self.iliad.gps_longitude.y_data)-1]),2))
 
-                #set board voltage variable values
-                if(len(self.iliad.board_1_voltage_data.y_data) >= 1):
-                    gui.set_value('board1Voltage', round((self.iliad.board_1_voltage_data.y_data[len(self.iliad.board_1_voltage_data.y_data)-1]),2))
+                #set voltage variable values
+                if(len(self.iliad.telemetrum_voltage.y_data) >= 1):
+                    gui.set_value('telemetrumVoltage', round((self.iliad.telemetrum_voltage.y_data[len(self.iliad.telemetrum_voltage.y_data)-1]),2))
 
-                if(len(self.iliad.board_2_voltage_data.y_data) >= 1):
-                    gui.set_value('board2Voltage', round((self.iliad.board_2_voltage_data.y_data[len(self.iliad.board_2_voltage_data.y_data)-1]),2))
+                if(len(self.iliad.stratologger_voltage.y_data) >= 1):
+                    gui.set_value('stratologgerVoltage', round((self.iliad.stratologger_voltage.y_data[len(self.iliad.stratologger_voltage.y_data)-1]),2))
 
-                if(len(self.iliad.board_3_voltage_data.y_data) >= 1):
-                    gui.set_value('board3Voltage', round((self.iliad.board_3_voltage_data.y_data[len(self.iliad.board_3_voltage_data.y_data)-1]),2))
+                if(len(self.iliad.camera_voltage.y_data) >= 1):
+                    gui.set_value('cameraVoltage', round((self.iliad.camera_voltage.y_data[len(self.iliad.camera_voltage.y_data)-1]),2))
 
-                if(len(self.iliad.board_4_voltage_data.y_data) >= 1):
-                    gui.set_value('board4Voltage', round((self.iliad.board_4_voltage_data.y_data[len(self.iliad.board_4_voltage_data.y_data)-1]),2))
+                if(len(self.iliad.battery_voltage.y_data) >= 1):
+                    gui.set_value('batteryVoltage', round((self.iliad.battery_voltage.y_data[len(self.iliad.battery_voltage.y_data)-1]),2))
 
                 #set board current variable values
-                if(len(self.iliad.board_1_current_data.y_data) >= 1):
-                    gui.set_value('board1Current', round((self.iliad.board_1_current_data.y_data[len(self.iliad.board_1_current_data.y_data)-1]),2))
+                if(len(self.iliad.telemetrum_current.y_data) >= 1):
+                    gui.set_value('telemetrumCurrent', round((self.iliad.telemetrum_current.y_data[len(self.iliad.telemetrum_current.y_data)-1]),2))
 
-                if(len(self.iliad.board_2_current_data.y_data) >= 1):
-                    gui.set_value('board2Current', round((self.iliad.board_2_current_data.y_data[len(self.iliad.board_2_current_data.y_data)-1]),2))
+                if(len(self.iliad.stratologger_current.y_data) >= 1):
+                    gui.set_value('stratologgerCurrent', round((self.iliad.stratologger_current.y_data[len(self.iliad.stratologger_current.y_data)-1]),2))
 
-                if(len(self.iliad.board_3_current_data.y_data) >= 1):
-                    gui.set_value('board3Current', round((self.iliad.board_3_current_data.y_data[len(self.iliad.board_3_current_data.y_data)-1]),2))
+                if(len(self.iliad.camera_current.y_data) >= 1):
+                    gui.set_value('cameraCurrent', round((self.iliad.camera_current.y_data[len(self.iliad.camera_current.y_data)-1]),2))
 
-                if(len(self.iliad.board_4_current_data.y_data) >= 1):
-                    gui.set_value('board4Current', round((self.iliad.board_4_current_data.y_data[len(self.iliad.board_4_current_data.y_data)-1]),2))
-
-                #set board temperature variable values
-                if(len(self.iliad.board_1_temperature_data.y_data) >= 1):
-                    gui.set_value('board1Temperature', round((self.iliad.board_1_temperature_data.y_data[len(self.iliad.board_1_temperature_data.y_data)-1]),2))
-
-                if(len(self.iliad.board_2_temperature_data.y_data) >= 1):
-                    gui.set_value('board2Temperature', round((self.iliad.board_2_temperature_data.y_data[len(self.iliad.board_2_temperature_data.y_data)-1]),2))
-
-                if(len(self.iliad.board_3_temperature_data.y_data) >= 1):
-                    gui.set_value('board3Temperature', round((self.iliad.board_3_temperature_data.y_data[len(self.iliad.board_3_temperature_data.y_data)-1]),2))
-
-                if(len(self.iliad.board_4_temperature_data.y_data) >= 1):
-                    gui.set_value('board4Temperature', round((self.iliad.board_4_temperature_data.y_data[len(self.iliad.board_4_temperature_data.y_data)-1]),2))
                 
-                #set battery voltage variable values
-                if(len(self.iliad.battery_1_voltage_data.y_data) >= 1):
-                    gui.set_value('battery1Voltage', round((self.iliad.battery_1_voltage_data.y_data[len(self.iliad.battery_1_voltage_data.y_data)-1]),2))
+                #set board temperature variable values
+                if(len(self.iliad.battery_temperature.y_data) >= 1):
+                    gui.set_value('batteryTemperature', round((self.iliad.battery_temperature.y_data[len(self.iliad.battery_temperature.y_data)-1]),2))
 
-                if(len(self.iliad.battery_2_voltage_data.y_data) >= 1):
-                    gui.set_value('battery2Voltage', round((self.iliad.battery_2_voltage_data.y_data[len(self.iliad.battery_2_voltage_data.y_data)-1]),2))
-
-                if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                    gui.set_value('battery3Voltage', round((self.iliad.battery_3_voltage_data.y_data[len(self.iliad.battery_3_voltage_data.y_data)-1]),2))
-
+                
         # Get new data sample. Note we need both x and y values
         # if we want a meaningful axis unit.
         #t = time.time() - t0
@@ -592,7 +586,11 @@ class Grapher(AppComponent):
             
             #set the series x and y to the last nsamples
             # Set altitude data:
-            gui.set_value('Altitude_tag', [self.iliad.altitude_1_data.x_data, self.iliad.altitude_1_data.y_data])
+            gui.set_value('barometer_altitude_tag', [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
+            gui.fit_axis_data('Altitude_x_axis')
+            gui.fit_axis_data('Altitude_y_axis')
+
+            gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data, self.iliad.gps_altitude.y_data])
             gui.fit_axis_data('Altitude_x_axis')
             gui.fit_axis_data('Altitude_y_axis')
 
@@ -608,7 +606,12 @@ class Grapher(AppComponent):
             #gui.fit_axis_data('Acceleration_y_axis')
 
             #set acceleration Z data:
-            gui.set_value('AccelerationZ_tag', [self.iliad.acceleration_z_data.x_data, self.iliad.acceleration_x_data.y_data])
+            gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
+            gui.fit_axis_data('Acceleration_x_axis')
+            gui.fit_axis_data('Acceleration_y_axis')
+
+            #set high G acceleration Z data:
+            gui.set_value('highGaccelerationZ_tag', [self.iliad.high_g_accelerometer_z.x_data, self.iliad.high_g_accelerometer_z.y_data])
             gui.fit_axis_data('Acceleration_x_axis')
             gui.fit_axis_data('Acceleration_y_axis')
 
@@ -715,17 +718,17 @@ class Grapher(AppComponent):
             #gui.fit_axis_data('Magnetometer_y_axis')
 
             #set gyroscope X data:
-            gui.set_value('Gyroscope_X_tag', [self.iliad.gyroscope_x_data.x_data, self.iliad.gyroscope_x_data.y_data])
+            gui.set_value('Gyroscope_X_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
             gui.fit_axis_data('Gyroscope_x_axis')
             gui.fit_axis_data('Gyroscope_y_axis')
 
             #set gyroscope Y data:
-            gui.set_value('Gyroscope_Y_tag', [self.iliad.gyroscope_y_data.x_data, self.iliad.gyroscope_y_data.y_data])
+            gui.set_value('Gyroscope_Y_tag', [self.iliad.gyroscope_y.x_data, self.iliad.gyroscope_y.y_data])
             gui.fit_axis_data('Gyroscope_x_axis')
             gui.fit_axis_data('Gyroscope_y_axis')
 
             #set gyroscope Z data:
-            gui.set_value('Gyroscope_Z_tag', [self.iliad.gyroscope_z_data.x_data, self.iliad.gyroscope_z_data.y_data])
+            gui.set_value('Gyroscope_Z_tag', [self.iliad.gyroscope_z.x_data, self.iliad.gyroscope_z.y_data])
             gui.fit_axis_data('Gyroscope_x_axis')
             gui.fit_axis_data('Gyroscope_y_axis')
 
@@ -736,7 +739,7 @@ class Grapher(AppComponent):
 
             #set gps ground speed data:
             
-            gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed_data.x_data, self.iliad.gps_ground_speed_data.y_data])
+            gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
             gui.fit_axis_data('GPS_Ground_Speed_x_axis')
             gui.fit_axis_data('GPS_Ground_Speed_y_axis')
 
