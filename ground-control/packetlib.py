@@ -68,7 +68,7 @@ if sys.platform.startswith('linux') or sys.platform.startswith('linux2'):
 elif sys.platform.startswith('freebsd'):
     _lib_path = './libparser_shared.so'
 elif sys.platform.startswith('darwin'):
-    _lib_path = './libparser_shared.so'
+    _lib_path = './libparser_shared.dylib'
 elif sys.platform.startswith('win32'):
     _lib_path = './libparser_shared.dll'
 else:
