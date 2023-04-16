@@ -2,6 +2,7 @@ import dearpygui.dearpygui as gui
 import tomli
 from data_controllers.iliad_data_controller import IliadDataController
 from grapher.grapher import *
+from grapher.grapher import Grapher
 from iliad.arm_control import ArmControl
 from grapher import grapher
 from typing import List, Any, Callable, Union, Tuple
@@ -142,9 +143,12 @@ class App:
                 with gui.menu(label='Help'):
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
+            # with gui.group(horizontal=True):
             with gui.group(horizontal=True):
-                displaySidebar()
+                gui.add_group(tag='app.sidebar')
                 gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
+
+                # gui.add_group(horizontal=True, tag='app.sidebar')
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
 
