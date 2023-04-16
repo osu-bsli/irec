@@ -70,25 +70,30 @@ def update_data():
 # arrays to hold data to plot
 sindatax = []
 sindatay = []
+sindatay2 = []
 # populate plot data arrays
 for i in range(0,1000):
     sindatax.append(i/100)
     sindatay.append(.5+.5*sin(50*i/1000))
+    sindatay2.append(1/2*(.5+.5*sin(50*i/1000)))
 
 # store current time
 currentTime = time.mktime(time.gmtime())
 
 # create plot in the current section
-def plot(labelText, x_data, y_data, tagy, tagx, series_tag, label_text):
+def create_plot(labelText, tagy, tagx):
     dpg.window(label=labelText)
     pass
     with dpg.plot(label=labelText, height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
         dpg.add_plot_legend()
         dpg.add_plot_axis(dpg.mvXAxis, label="x", tag=tagx)
         dpg.add_plot_axis(dpg.mvYAxis, label="y", tag=tagy)
+
+def add_line_series_custom(x_data, y_data,  series_tag, label_text,  tagy):
         dpg.add_line_series(x=list(x_data),y=list(y_data), 
                             label=label_text, parent=tagy, 
                             tag=series_tag)
+
 
 def displaySidebar():
     # bind buttons to an initial named theme.
@@ -148,7 +153,11 @@ def displayTracking():
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="altitude_column")
                         with dpg.table_row():
-                            plot('Altitude', Altitude, AY_axis, 'y_axis', 'x_axis', 'Altitude_tag', 'Altitude (m)')
+                            create_plot('Acceleration', 'y_axis', 'x_axis')
+                            add_line_series_custom(sindatax, sindatay, 'tag', 'text', 'y_axis')
+                            add_line_series_custom(sindatax, sindatay2, 'tag2', 'text', 'y_axis')
+                            add_line_series_custom(sindatax, sindatay, 'tag3', 'text', 'y_axis')
+                            add_line_series_custom(sindatax, sindatay, 'tag4', 'text', 'y_axis')
                     # Plot B
                     with dpg.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
@@ -156,8 +165,9 @@ def displayTracking():
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="acceleration_column")
                         with dpg.table_row():
-                            plot("Acceleration", Acceleration, BY_axis, 'y_axis2', 'x_axis2', 'Acceleration_tag',  'Acceleration (m/s^2)')
-
+                            create_plot("Acceleration", 'y_axis2', 'x_axis2')
+            
+            
             # Row for Plots C and D
             with dpg.table_row():
                 with dpg.group(horizontal=True):
@@ -168,7 +178,7 @@ def displayTracking():
                         height=C.PLOT_HEIGHT, width=C.PLOT_WIDTH):
                         dpg.add_table_column(label="acceleration_column")
                         with dpg.table_row():
-                            plot("Velocity", Velocity, CY_axis, 'y_axis3', 'x_axis3', 'Velocity_tag',  'Velocity (m/s)')
+                            create_plot("Velocity",'y_axis3', 'x_axis3')
                     # Plot D
                     with dpg.table(header_row=False, no_host_extendX=True, delay_search=True,
                         borders_innerH=False, borders_outerH=True, borders_innerV=True,
@@ -236,7 +246,7 @@ def displayPackets():
     with dpg.tab(label="Packets"):
         dpg.add_text("tabulated packet data and packet health info go here")
 
-# sebd abd recieve commands here
+# send and recieve commands here
 def displayArming():
     with dpg.tab(label="Arming"):
         dpg.add_text("Send commands and change arming status here")
