@@ -6,7 +6,7 @@ import crc
 import time
 import dearpygui.dearpygui as gui
 import ctypes as ct
-import packetlib
+import packetlib.packetlib as packetlib
 
 class IliadDataController(serial_data_controller.SerialDataController):
     
