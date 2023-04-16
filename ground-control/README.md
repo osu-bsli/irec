@@ -1,4 +1,4 @@
-# ground-system
+# ground-control
 
 Rocket ground control software for the [Buckeye Space Launch Initiative](https://bsli.space/) at the Ohio State University.
 
