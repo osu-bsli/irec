@@ -18,8 +18,11 @@ PACKET_TYPE_GPS_SATELLITES = 11
 PACKET_TYPE_GPS_GROUND_SPEED = 12
 # Arm commands. These are only to be sent from ground, so we don't need to parse them in IliadDataController.
 PACKET_TYPE_ARM_CAMERA = 4096
-PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER = 8192
-PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER = 16384
+PACKET_TYPE_DISARM_CAMERA = 4096
+PACKET_TYPE_ARM_PRIMARY_FC = 8192
+PACKET_TYPE_DISARM_PRIMARY_FC = 8192
+PACKET_TYPE_ARM_SECONDARY_FC = 16384
+PACKET_TYPE_DISARM_SECONDARY_FC = 16384
 
 PAYLOAD_SIZE = {
     PACKET_TYPE_ARM_STATUS: 3,
@@ -34,9 +37,12 @@ PAYLOAD_SIZE = {
     PACKET_TYPE_GYROSCOPE: 12,
     PACKET_TYPE_GPS_SATELLITES: 2,
     PACKET_TYPE_GPS_GROUND_SPEED: 4,
-    PACKET_TYPE_ARM_CAMERA: 1,
-    PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER: 1,
-    PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER: 1
+    PACKET_TYPE_ARM_CAMERA: 0,
+    PACKET_TYPE_DISARM_CAMERA: 0,
+    PACKET_TYPE_ARM_PRIMARY_FC: 0,
+    PACKET_TYPE_DISARM_PRIMARY_FC: 0,
+    PACKET_TYPE_ARM_SECONDARY_FC: 0,
+    PACKET_TYPE_DISARM_SECONDARY_FC: 0,
 }
 
 PAYLOAD_FORMAT = {
@@ -52,9 +58,12 @@ PAYLOAD_FORMAT = {
     PACKET_TYPE_GYROSCOPE: '>fff',
     PACKET_TYPE_GPS_SATELLITES: '>h',
     PACKET_TYPE_GPS_GROUND_SPEED: '>f',
-    PACKET_TYPE_ARM_CAMERA: '?',
-    PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER: '?',
-    PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER: '?'
+    PACKET_TYPE_ARM_CAMERA: '',
+    PACKET_TYPE_DISARM_CAMERA: '',
+    PACKET_TYPE_ARM_PRIMARY_FC: '',
+    PACKET_TYPE_DISARM_PRIMARY_FC: '',
+    PACKET_TYPE_ARM_SECONDARY_FC: '',
+    PACKET_TYPE_DISARM_SECONDARY_FC: '',
 }
 
 # Splits a packet type bitflag into multiple packet types.
@@ -147,64 +156,70 @@ def create_packet_mixed(types: int, time: float, data: tuple) -> bytes:
     idx_data = 0
     for type_flag in type_flags:
         if type_flag == PACKET_TYPE_ARM_STATUS:
-            body = body + struct.pack('>???', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            body = body + struct.pack('<???', data[idx_data], data[idx_data + 1], data[idx_data + 2])
             idx_data += 3
 
         elif type_flag == PACKET_TYPE_ALTITUDE:
-            body = body + struct.pack('>ff', data[idx_data], data[idx_data + 1])
+            body = body + struct.pack('<ff', data[idx_data], data[idx_data + 1])
             idx_data += 2
 
         elif type_flag == PACKET_TYPE_ACCELERATION:
-            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            body = body + struct.pack('<fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
             idx_data += 3
         
         elif type_flag == PACKET_TYPE_GPS_COORDINATES:
-            body = body + struct.pack('>ff', data[idx_data], data[idx_data + 1])
+            body = body + struct.pack('<ff', data[idx_data], data[idx_data + 1])
             idx_data += 2
         
         elif type_flag == PACKET_TYPE_BOARD_TEMPERATURE:
-            body = body + struct.pack('>ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
+            body = body + struct.pack('<ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
             idx_data += 4
 
         elif type_flag == PACKET_TYPE_BOARD_VOLTAGE:
-            body = body + struct.pack('>ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
+            body = body + struct.pack('<ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
             idx_data += 4
 
         elif type_flag == PACKET_TYPE_BOARD_CURRENT:
-            body = body + struct.pack('>ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
+            body = body + struct.pack('<ffff', data[idx_data], data[idx_data + 1], data[idx_data + 2], data[idx_data + 3])
             idx_data += 4
 
         elif type_flag == PACKET_TYPE_BATTERY_VOLTAGE:
-            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            body = body + struct.pack('<fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
             idx_data += 3
 
         elif type_flag == PACKET_TYPE_MAGNETOMETER:
-            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            body = body + struct.pack('<fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
             idx_data += 3
 
         elif type_flag == PACKET_TYPE_GYROSCOPE:
-            body = body + struct.pack('>fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
+            body = body + struct.pack('<fff', data[idx_data], data[idx_data + 1], data[idx_data + 2])
             idx_data += 3
 
         elif type_flag == PACKET_TYPE_GPS_SATELLITES:
-            body = body + struct.pack('>h', data[idx_data])
+            body = body + struct.pack('<h', data[idx_data])
             idx_data += 1
 
         elif type_flag == PACKET_TYPE_GPS_GROUND_SPEED:
-            body = body + struct.pack('>f', data[idx_data])
+            body = body + struct.pack('<f', data[idx_data])
             idx_data += 1
         
         elif type_flag == PACKET_TYPE_ARM_CAMERA:
-            body = body + struct.pack('>?', data[idx_data])
-            idx_data += 1
+            pass
         
-        elif type_flag == PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
-            body = body + struct.pack('>?', data[idx_data])
-            idx_data += 1
+        elif type_flag == PACKET_TYPE_DISARM_CAMERA:
+            pass
         
-        elif type_flag == PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
-            body = body + struct.pack('>?', data[idx_data])
-            idx_data += 1
+        elif type_flag == PACKET_TYPE_ARM_PRIMARY_FC:
+            pass
+
+        elif type_flag == PACKET_TYPE_DISARM_PRIMARY_FC:
+            pass
+        
+        elif type_flag == PACKET_TYPE_ARM_SECONDARY_FC:
+            pass
+        
+        elif type_flag == PACKET_TYPE_DISARM_SECONDARY_FC:
+            pass
     
     packet_checksum = crc_calculator.checksum(header + header_checksum + body)
     footer = struct.pack('>i', packet_checksum)

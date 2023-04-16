@@ -13,7 +13,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
     
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
-
+        
         # Create a gui for opening / closing the connection
         with gui.tab(label='Telemetry Connection', parent='app.main_tab_bar'):
             with gui.group(horizontal=True):
@@ -401,31 +401,31 @@ class IliadDataController(serial_data_controller.SerialDataController):
             gui.set_value(f'{self.identifier}.connection.name', self.port_name)
     
     def arm_camera(self) -> None:
-        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (True,))
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), ())
         self.port.write(packet)
         print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} True')
     
     def disarm_camera(self) -> None:
-        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), (False,))
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_DISARM_CAMERA, time.time(), ())
         self.port.write(packet)
-        print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} False')
+        print(f'-> PACKET_TYPE_DISARM_CAMERA')
     
     def arm_srad_flight_computer(self) -> None:
-        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (True,))
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_PRIMARY_FC, time.time(), ())
         self.port.write(packet)
         print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} True')
     
     def disarm_srad_flight_computer(self) -> None:
-        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER, time.time(), (False,))
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_DISARM_RPIMARY_FC, time.time(), ())
         self.port.write(packet)
-        print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} False')
+        print(f'-> PACKET_TYPE_DISARM_PRIMARY_FC')
     
     def arm_cots_flight_computer(self) -> None:
-        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (True,))
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SECONDARY_FC, time.time(), ())
         self.port.write(packet)
         print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} True')
     
     def disarm_cots_flight_computer(self) -> None:
-        packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER, time.time(), (False,))
+        packet = packet_util.create_packet(packet_util.PACKET_TYPE_DISARM_SECONDARY_FC, time.time(), ())
         self.port.write(packet)
         print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} False')
