@@ -5,9 +5,12 @@ import utils.packet_util as packet_util
 import crc
 import time
 import dearpygui.dearpygui as gui
+import ctypes as ct
+import packetlib
 
 class IliadDataController(serial_data_controller.SerialDataController):
-
+    
+    
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
         
@@ -23,6 +26,18 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.Calculator(crc.Crc16.CCITT)
+
+
+
+        # ~~~ Connection with C ~~~
+        packetlib.initialize()
+        self.packetPtr = packetlib.get_packet()
+        self.packet = self.packetPtr.contents
+        self.bufferPtr = packetlib.get_buffer()
+        self.buffer = self.bufferPtr.contents
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 
         self.arm_status_1_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
         self.arm_status_2_data =        DataSeries('time', 'Board 1 Arm Status')    # float, bool
@@ -57,42 +72,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.gyroscope_z_data =         DataSeries('time', 'Gyroscope Z')           # float, float
         self.gps_satellites_data =      DataSeries('time', 'GPS Satellite Count')   # float, int
         self.gps_ground_speed_data =    DataSeries('time', 'GPS Ground Speed')      # float, float
-
-        # Temporary variables to store data while we check the packet's checksum.
-        self._current_packet_types: int = None
-        self._current_arm_status_1_data: tuple[float, bool] = None
-        self._current_arm_status_2_data: tuple[float, bool] = None
-        self._current_arm_status_3_data: tuple[float, bool] = None
-        self._current_altitude_1_data: tuple[float, float] = None
-        self._current_altitude_2_data: tuple[float, float] = None
-        self._current_acceleration_x_data: tuple[float, float] = None
-        self._current_acceleration_y_data: tuple[float, float] = None
-        self._current_acceleration_z_data: tuple[float, float] = None
-        self._current_gps_latitude_data: tuple[float, float] = None
-        self._current_gps_longitude_data: tuple[float, float] = None
-        self._current_board_1_temperature_data: tuple[float, float] = None
-        self._current_board_2_temperature_data: tuple[float, float] = None
-        self._current_board_3_temperature_data: tuple[float, float] = None
-        self._current_board_4_temperature_data: tuple[float, float] = None
-        self._current_board_1_voltage_data: tuple[float, float] = None
-        self._current_board_2_voltage_data: tuple[float, float] = None
-        self._current_board_3_voltage_data: tuple[float, float] = None
-        self._current_board_4_voltage_data: tuple[float, float] = None
-        self._current_board_1_current_data: tuple[float, float] = None
-        self._current_board_2_current_data: tuple[float, float] = None
-        self._current_board_3_current_data: tuple[float, float] = None
-        self._current_board_4_current_data: tuple[float, float] = None
-        self._current_battery_1_voltage_data: tuple[float, float] = None
-        self._current_battery_2_voltage_data: tuple[float, float] = None
-        self._current_battery_3_voltage_data: tuple[float, float] = None
-        self._current_magnetometer_data_1: tuple[float, float] = None
-        self._current_magnetometer_data_2: tuple[float, float] = None
-        self._current_magnetometer_data_3: tuple[float, float] = None
-        self._current_gyroscope_x_data: tuple[float, float] = None
-        self._current_gyroscope_y_data: tuple[float, float] = None
-        self._current_gyroscope_z_data: tuple[float, float] = None
-        self._current_gps_satellites_data: tuple[float, int] = None
-        self._current_gps_ground_speed_data: tuple[float, float] = None
     
     def _on_connect_button_clicked(self) -> None:
         try:
@@ -105,6 +84,7 @@ class IliadDataController(serial_data_controller.SerialDataController):
             gui.set_value(f'{self.identifier}.connection.error', str(e))
             gui.show_item(f'{self.identifier}.connection.error')
             gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+    
     def _on_disconnect_button_clicked(self) -> None:
         gui.hide_item(f'{self.identifier}.connection.error')
         self.close()
@@ -112,7 +92,106 @@ class IliadDataController(serial_data_controller.SerialDataController):
         gui.show_item(f'{self.identifier}.connection.connect')
         gui.hide_item(f'{self.identifier}.connection.disconnect')
 
+    # Before calling, make sure self.packet has valid data!
+    def extract_packet_data(self):
+        if self.packet.type == packet_util.PACKET_TYPE_ARM_STATUS:
+            self.arm_status_1_data.add_point([self.packet.timestamp,self.packet.arm_status_1])
+            self.arm_status_2_data.add_point([self.packet.timestamp,self.packet.arm_status_2])
+            self.arm_status_3_data.add_point([self.packet.timestamp,self.packet.arm_status_3])
+        elif self.packet.type == packet_util.PACKET_TYPE_ALTITUDE:
+            self.altitude_1_data.add_point([self.packet.timestamp,self.packet.altitude_1])
+            self.altitude_2_data.add_point([self.packet.timestamp,self.packet.altitude_2])
+            if self.packet.timestamp < 1:
+                print(self.packet.type, self.packet.timestamp, self.packet.altitude_1, self.packet.altitude_2)
+            #print("NO")
+        elif self.packet.type == packet_util.PACKET_TYPE_ACCELERATION:
+            self.acceleration_x_data.add_point([self.packet.timestamp,self.packet.acceleration_x])
+            self.acceleration_y_data.add_point([self.packet.timestamp,self.packet.acceleration_y])
+            self.acceleration_z_data.add_point([self.packet.timestamp,self.packet.acceleration_z])
+        elif self.packet.type == packet_util.PACKET_TYPE_GPS_COORDINATES:
+            self.gps_latitude_data.add_point([self.packet.timestamp,self.packet.gps_latitude])
+            self.gps_longitude_data.add_point([self.packet.timestamp,self.packet.gps_longitude])
+            #print(self.packet.timestamp,self.packet.gps_latitude, self.packet.gps_longitude)
+        elif self.packet.type == packet_util.PACKET_TYPE_BOARD_TEMPERATURE:
+            self.board_1_temperature_data.add_point([self.packet.timestamp,self.packet.board_1_temperature])
+            self.board_2_temperature_data.add_point([self.packet.timestamp,self.packet.board_2_temperature])
+            self.board_3_temperature_data.add_point([self.packet.timestamp,self.packet.board_3_temperature])
+            self.board_4_temperature_data.add_point([self.packet.timestamp,self.packet.board_4_temperature])
+        elif self.packet.type == packet_util.PACKET_TYPE_BOARD_VOLTAGE:
+            self.board_1_voltage_data.add_point([self.packet.timestamp,self.packet.board_1_voltage])
+            self.board_2_voltage_data.add_point([self.packet.timestamp,self.packet.board_2_voltage])
+            self.board_3_voltage_data.add_point([self.packet.timestamp,self.packet.board_3_voltage])
+            self.board_4_voltage_data.add_point([self.packet.timestamp,self.packet.board_4_voltage])
+        elif self.packet.type == packet_util.PACKET_TYPE_BOARD_CURRENT:
+            self.board_1_current_data.add_point([self.packet.timestamp,self.packet.board_1_current])
+            self.board_2_current_data.add_point([self.packet.timestamp,self.packet.board_2_current])
+            self.board_3_current_data.add_point([self.packet.timestamp,self.packet.board_3_current])
+            self.board_4_current_data.add_point([self.packet.timestamp,self.packet.board_4_current])
+        elif self.packet.type == packet_util.PACKET_TYPE_BATTERY_VOLTAGE:
+            self.battery_1_voltage_data.add_point([self.packet.timestamp,self.packet.battery_1_voltage])
+            self.battery_2_voltage_data.add_point([self.packet.timestamp,self.packet.battery_2_voltage])
+            self.battery_3_voltage_data.add_point([self.packet.timestamp,self.packet.battery_3_voltage])
+        elif self.packet.type == packet_util.PACKET_TYPE_MAGNETOMETER:
+            self.magnetometer_data_1.add_point([self.packet.timestamp,self.packet.magnetometer_1])
+            self.magnetometer_data_2.add_point([self.packet.timestamp,self.packet.magnetometer_2])
+            self.magnetometer_data_3.add_point([self.packet.timestamp,self.packet.magnetometer_3])
+        elif self.packet.type == packet_util.PACKET_TYPE_GYROSCOPE:
+            self.gyroscope_x_data.add_point([self.packet.timestamp,self.packet.gyroscope_x])
+            self.gyroscope_y_data.add_point([self.packet.timestamp,self.packet.gyroscope_y])
+            self.gyroscope_z_data.add_point([self.packet.timestamp,self.packet.gyroscope_z])
+        elif self.packet.type == packet_util.PACKET_TYPE_GPS_SATELLITES:
+            self.gps_satellites_data.add_point([self.packet.timestamp,self.packet.gps_satellites])
+        elif self.packet.type == packet_util.PACKET_TYPE_GPS_GROUND_SPEED:
+            self.gps_ground_speed_data.add_point([self.packet.timestamp,self.packet.gps_ground_speed])
+
     def update(self) -> None:
+        if self.is_open():
+            # Poll serial port and put anything there into data_buffer
+            if self.port.in_waiting > 0:
+                # print('data')
+                self.data_buffer += self.port.read_all()
+            # else:
+            #     print('no data')
+            bytesToQ = max(0, min(len(self.data_buffer), packetlib._BUFFER_SIZE - self.buffer.size - 1))
+            for i in range(bytesToQ):
+                packetlib.enqueue(ct.c_ubyte(self.data_buffer[i]))
+            self.data_buffer = self.data_buffer[bytesToQ:]
+
+            # Update the packet
+            oldSize = 0
+            while oldSize - self.buffer.size != 0:
+                #self.packet = self.packetPtr.contents
+                oldSize = self.buffer.size
+                packetlib.process()
+                if self.packet.is_ready == 1:
+                    self.extract_packet_data()
+                self.packet.is_ready = 0
+                #packetlib.process()
+
+            # for i in range(100):
+            #     packetlib.process()
+            #     if self.packet.is_ready == 1:
+            #         self.extract_packet_data()
+            #     self.packet.is_ready = 0
+
+            # packetlib.process()
+            # # print(self.buffer.size)
+            # if self.packet.is_ready == 1:
+            #     self.extract_packet_data()
+            # self.packet.is_ready = 0
+
+        # Update GUI
+        if self.is_open():
+            gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
+            gui.hide_item(f'{self.identifier}.connection.connect')
+            gui.show_item(f'{self.identifier}.connection.disconnect')
+        else:
+            gui.set_value(f'{self.identifier}.connection.status', 'DISCONNECTED')
+            gui.show_item(f'{self.identifier}.connection.connect')
+            gui.hide_item(f'{self.identifier}.connection.disconnect')
+
+
+    def updatePython(self) -> None:
         if self.is_open():
             
             # Poll serial port and put anything there into data_buffer
@@ -324,7 +403,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
     def arm_camera(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_CAMERA, time.time(), ())
         self.port.write(packet)
-        print(f'-> PACKET_TYPE_ARM_CAMERA')
+        print(f'-> PACKET_TYPE_ARM_CAMERA {time.time()} True')
+    
     def disarm_camera(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_DISARM_CAMERA, time.time(), ())
         self.port.write(packet)
@@ -333,7 +413,8 @@ class IliadDataController(serial_data_controller.SerialDataController):
     def arm_srad_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_PRIMARY_FC, time.time(), ())
         self.port.write(packet)
-        print(f'-> PACKET_TYPE_ARM_PRIMARY_FC')
+        print(f'-> PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {time.time()} True')
+    
     def disarm_srad_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_DISARM_RPIMARY_FC, time.time(), ())
         self.port.write(packet)
@@ -342,9 +423,9 @@ class IliadDataController(serial_data_controller.SerialDataController):
     def arm_cots_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_ARM_SECONDARY_FC, time.time(), ())
         self.port.write(packet)
-        print(f'-> PACKET_TYPE_ARM_SECONDARY_FC')
+        print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} True')
+    
     def disarm_cots_flight_computer(self) -> None:
         packet = packet_util.create_packet(packet_util.PACKET_TYPE_DISARM_SECONDARY_FC, time.time(), ())
         self.port.write(packet)
-        print(f'-> PACKET_TYPE_DISARM_SECONDARY_FC')
-
+        print(f'-> PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {time.time()} False')

@@ -3,23 +3,38 @@ Simulates launch using telmetry data from summer 2022.
 
 Uses data/flight_data_2.csv which you'll need to get from Peter.
 """
-
+from datetime import datetime
 from utils import packet_util
 import serial
 import csv
 import time
+import ctypes as ct
 
 if __name__ == '__main__':
+    start_time = datetime.now()
 
     # Setup sender port.
     port = serial.Serial(
         port='COM1',
         # baudrate=9600,
-        baudrate=999999999999999,
+        baudrate=999999,
         stopbits=serial.STOPBITS_ONE,
         parity=serial.PARITY_NONE,
         bytesize=serial.EIGHTBITS,
     )
+
+    _lib_path = '.\libpacket_shared.dll'
+    _lib = ct.CDLL(_lib_path)
+    _lib.write_altitude_packet.argtypes = [ct.POINTER(ct.c_ubyte*64), ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_acceleration_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_gps_position_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_board_voltage_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_board_current_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_battery_voltage_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_magnetometer_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_gyroscope_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
+    _lib.write_gps_satellite_count_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_int]
+    _lib.write_gps_ground_speed_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float]
 
     with open('data/flight_data_2.csv') as csv_file:
         reader = csv.DictReader(csv_file)
@@ -31,6 +46,18 @@ if __name__ == '__main__':
             altitude_2: float = float(row['gps_height'])
             altitude_payload = (altitude_1, altitude_2)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, altitude_payload))
+            # packet = ct.c_ubyte*64
+            # packetC = packet()
+            # bytesWritten = _lib.write_altitude_packet(ct.byref(packetC), timestamp, altitude_1, altitude_2)
+            # #print(bytesWritten)
+            #if timestamp >227.32 and timestamp<228.9:
+                #print(timestamp, altitude_1, altitude_2)
+            # for i in range(0,bytesWritten):
+            #     print(packetC[i])
+                #port.write(packetC)
+            # port.write(packetC)
+
+            
 
             # Acceleration packets
             acceleration_x: float = float(row['bmx_x_accel'])
@@ -49,7 +76,7 @@ if __name__ == '__main__':
             board_1_voltage: float = float(row['telemetrum_board.voltage'])
             board_2_voltage: float = float(row['stratologger_board.voltage'])
             board_3_voltage: float = float(row['camera_board.voltage'])
-            board_4_voltage: float = 0.0
+            board_4_voltage: float = 1.5
             board_voltage_payload = (board_1_voltage, board_2_voltage, board_3_voltage, board_4_voltage)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_VOLTAGE, timestamp, board_voltage_payload))
             
@@ -57,14 +84,14 @@ if __name__ == '__main__':
             board_1_current: float = float(row['telemetrum_board.current'])
             board_2_current: float = float(row['stratologger_board.current'])
             board_3_current: float = float(row['camera_board.current'])
-            board_4_current: float = 0.0
+            board_4_current: float = 1.5
             board_current_payload = (board_1_current, board_2_current, board_3_current, board_4_current)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_CURRENT, timestamp, board_current_payload))
 
             # Battery voltage packets
             battery_1_voltage: float = float(row['mainBatteryVoltage'])
-            battery_2_voltage: float = 0.0
-            battery_3_voltage: float = 0.0
+            battery_2_voltage: float = 1.5
+            battery_3_voltage: float = 1.5
             battery_voltage_payload = (battery_1_voltage, battery_2_voltage, battery_3_voltage)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BATTERY_VOLTAGE, timestamp, battery_voltage_payload))
 
@@ -81,7 +108,7 @@ if __name__ == '__main__':
             gyroscope_z: float = float(row['bmx_z_gyro'])
             gyroscope_payload = (gyroscope_x, gyroscope_y, gyroscope_z)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GYROSCOPE, timestamp, gyroscope_payload))
-            
+                        
             # GPS satellites data
             gps_satellites: int = int(row['gps_satCount'])
             gps_satellites_payload = (gps_satellites,)
@@ -91,10 +118,21 @@ if __name__ == '__main__':
             gps_ground_speed: float = float(row['gps_groundSpeed'])
             gps_ground_speed_payload = (gps_ground_speed,)
             port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, gps_ground_speed_payload))
-
             print(f'[{timestamp}]')
-            #time.sleep(0.190540169) # Average time per packet in data.
+
+            #time.sleep(0.05) # Average time per packet in data.
+
+        # for i in [0x01, 0x21, 0x10, 0x6D, 0xE7, 0xFB, 0x3D, 0x01, 0x00, 0x01, 0x90, 0xE5]:
+        #     b = ct.c_ubyte(i)
+        #     port.write(b)
+        # test = packet_util.create_packet(2,.123,(.123,.123,.123))
+        # for byte in test:
+        #     print(hex(byte))
     # Wait until the buffer has been written to COM1
     while(port.out_waiting > 0):
         time.sleep(.1)
+    
     port.close()
+
+    stop_time = datetime.now()
+    print(f'elapsed time: {stop_time - start_time}')
