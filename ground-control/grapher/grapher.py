@@ -92,26 +92,6 @@ for i in range(0,1000):
 currentTime = time.mktime(time.gmtime())
 
 
-
-#open csv file
-def startWritingToFile() :
-    with open("packetData.csv", "w", newline='') as f:
-        thewriter = csv.writer(f)
-
-        thewriter.writerow(['col1', 'col2', 'col3'])
-        
-
-#write packet to csv file
-def writePacketToFile() :
-        with open("packetData.csv", "w", newline='') as f:
-            thewriter = csv.writer(f)
-            firstRowList = ('PacketNumber', 'hour')
-            thewriter.writerow(firstRowList)
-            thewriter.writerows(rowList)
-
-
-
-
    
 
 # create plot in the current section
@@ -233,10 +213,10 @@ def displayHealth():
         gui.add_text("General system diagnostic info goes here")
 
 # raw packet/signal data
-def displayPackets():
-    with gui.tab(label="Packets", parent='app.main_tab_bar'):
+#def displayPackets():
+    #with gui.tab(label="Packets", parent='app.main_tab_bar'):
         #startWritingToFile()
-        writePacketToFile()
+        #writePacketToFile()
         #gui.add_button(label="Click",  callback=writePacketToFile())
         #gui.add_button(label="Click",  callback=writePacketToFile())
 
@@ -287,7 +267,7 @@ class Grapher(AppComponent):
         #health tab
         #displayHealth()
         #packets tab
-        displayPackets()
+        #displayPackets()
         #recovery tab
         #displayRecovery()
 
