@@ -52,16 +52,6 @@ if __name__ == '__main__':
             ))
             
             port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_BAROMETER,
-                timestamp,
-                (
-                    float(row['bmx_x_magn']),
-                    float(row['bmx_y_magn']),
-                    float(row['bmx_z_magn']),
-                )
-            ))
-            
-            port.write(packet_util.create_packet(
                 packet_util.PACKET_TYPE_GYROSCOPE,
                 timestamp,
                 (
