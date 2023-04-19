@@ -177,17 +177,19 @@ def displayTracking():
                                 gui.add_button(label = "Manual Fit", callback = manualFitAltitude)
                                 gui.add_button(label = "Auto Fit", callback = autoFitAltitude)
                             create_plot('Altitude', 'Altitude_y_axis', 'Altitude_x_axis', 'Time(s)', 'Altitude (meters)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'barometer_altitude_tag', 'Barometer Altitude', 'Altitude_y_axis')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'gps_altitude_tag', 'GPS Altitude', 'Altitude_y_axis')
+                            with gui.group(horizontal=False):
+                                add_line_series_custom(original_x_axis, original_y_axis, 'barometer_altitude_tag', 'Barometer Altitude', 'Altitude_y_axis')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'gps_altitude_tag', 'GPS Altitude', 'Altitude_y_axis')
 
                     # Plot Acceleration data
                             with gui.group(horizontal=True):
                                 gui.add_button(label = "Manual Fit", callback = manualFitAcceleration)
                                 gui.add_button(label = "Auto Fit", callback = autoFitAcceleration)
-                            create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'accelerationZ_tag', 'Acceleration Z ', 'Acceleration_y_axis')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'highGaccelerationZ_tag', 'High G Acceleration Z', 'Acceleration_y_axis')
-                            
+                            with gui.group(horizontal=False):
+                                create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'accelerationZ_tag', 'Acceleration Z ', 'Acceleration_y_axis')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'highGaccelerationZ_tag', 'High G Acceleration Z', 'Acceleration_y_axis')
+                                
 
 
                 # New Row 
@@ -199,17 +201,19 @@ def displayTracking():
                             with gui.group(horizontal=True):
                                 gui.add_button(label = "Manual Fit", callback = manualFitGPSGroundSpeed)
                                 gui.add_button(label = "Auto Fit", callback = autoFitGPSGroundSpeed)
-                            create_plot("GPS Ground Speed", 'GPS_Ground_Speed_y_axis', 'GPS_Ground_Speed_x_axis', 'Time(s)', 'Velocity (m/s)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed', 'GPS_Ground_Speed_y_axis')
+                            with gui.group(horizontal=False):
+                                create_plot("GPS Ground Speed", 'GPS_Ground_Speed_y_axis', 'GPS_Ground_Speed_x_axis', 'Time(s)', 'Velocity (m/s)')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed', 'GPS_Ground_Speed_y_axis')
 
                     # Plot gyroscope data
                             with gui.group(horizontal=True):
                                         gui.add_button(label = "Manual Fit", callback = manualFitGyroscope)
                                         gui.add_button(label = "Auto Fit", callback = autoFitGyroscope)
-                            create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_X_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
-                            add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Z_tag', "Gyroscope Z Data", 'Gyroscope_y_axis')
+                            with gui.group(horizontal=False):
+                                create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_X_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
+                                add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Z_tag', "Gyroscope Z Data", 'Gyroscope_y_axis')
 
             with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
             borders_innerH=False, borders_outerH=True, borders_innerV=True,
@@ -614,12 +618,12 @@ class Grapher(AppComponent):
             #set the series x and y to the last nsamples
             # Set altitude data:
             gui.set_value('barometer_altitude_tag', [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
-            gui.fit_axis_data('Altitude_x_axis')
-            gui.fit_axis_data('Altitude_y_axis')
+            #gui.fit_axis_data('Altitude_x_axis')
+            #gui.fit_axis_data('Altitude_y_axis')
 
             gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data, self.iliad.gps_altitude.y_data])
-            gui.fit_axis_data('Altitude_x_axis')
-            gui.fit_axis_data('Altitude_y_axis')
+            #gui.fit_axis_data('Altitude_x_axis')
+            #gui.fit_axis_data('Altitude_y_axis')
 
         
             #set acceleration X data:
@@ -634,13 +638,13 @@ class Grapher(AppComponent):
 
             #set acceleration Z data:
             gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
-            gui.fit_axis_data('Acceleration_x_axis')
-            gui.fit_axis_data('Acceleration_y_axis')
+            #gui.fit_axis_data('Acceleration_x_axis')
+            #gui.fit_axis_data('Acceleration_y_axis')
 
             #set high G acceleration Z data:
             gui.set_value('highGaccelerationZ_tag', [self.iliad.high_g_accelerometer_z.x_data, self.iliad.high_g_accelerometer_z.y_data])
-            gui.fit_axis_data('Acceleration_x_axis')
-            gui.fit_axis_data('Acceleration_y_axis')
+            #gui.fit_axis_data('Acceleration_x_axis')
+            #gui.fit_axis_data('Acceleration_y_axis')
 
             #if(len(self.iliad.gps_latitude_data.y_data) >= 1):
                 #print(self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1])
@@ -746,18 +750,18 @@ class Grapher(AppComponent):
 
             #set gyroscope X data:
             gui.set_value('Gyroscope_X_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
-            gui.fit_axis_data('Gyroscope_x_axis')
-            gui.fit_axis_data('Gyroscope_y_axis')
+            #gui.fit_axis_data('Gyroscope_x_axis')
+            #gui.fit_axis_data('Gyroscope_y_axis')
 
             #set gyroscope Y data:
             gui.set_value('Gyroscope_Y_tag', [self.iliad.gyroscope_y.x_data, self.iliad.gyroscope_y.y_data])
-            gui.fit_axis_data('Gyroscope_x_axis')
-            gui.fit_axis_data('Gyroscope_y_axis')
+            #gui.fit_axis_data('Gyroscope_x_axis')
+            #gui.fit_axis_data('Gyroscope_y_axis')
 
             #set gyroscope Z data:
             gui.set_value('Gyroscope_Z_tag', [self.iliad.gyroscope_z.x_data, self.iliad.gyroscope_z.y_data])
-            gui.fit_axis_data('Gyroscope_x_axis')
-            gui.fit_axis_data('Gyroscope_y_axis')
+            #gui.fit_axis_data('Gyroscope_x_axis')
+            #gui.fit_axis_data('Gyroscope_y_axis')
 
             """#set gps satellites data:
             gui.set_value('GPS_Satellites_tag', [self.iliad.gps_satellites_data.x_data, self.iliad.gps_satellites_data.y_data])
@@ -767,8 +771,8 @@ class Grapher(AppComponent):
             #set gps ground speed data:
             
             gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
-            gui.fit_axis_data('GPS_Ground_Speed_x_axis')
-            gui.fit_axis_data('GPS_Ground_Speed_y_axis')
+            #gui.fit_axis_data('GPS_Ground_Speed_x_axis')
+            #gui.fit_axis_data('GPS_Ground_Speed_y_axis')
 
             ''''#CSV File Stuff
             if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
