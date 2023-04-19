@@ -10,7 +10,7 @@ import csv
 import data_controllers.serial_data_controller as serial_data_controller
 from components.data_series import DataSeries
 import struct
-import utils.packet_util as packet_util
+import packetlib.packet as bytes
 import crc
 
 

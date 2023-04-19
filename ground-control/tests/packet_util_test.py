@@ -1,9 +1,9 @@
-from utils import packet_util
+import packetlib.packet as packet
 
 def test_get_packet_types():
-    assert list(packet_util.get_packet_types(
-        packet_util.PACKET_TYPE_ACCELERATION + packet_util.PACKET_TYPE_ALTITUDE
+    assert list(packet.get_packet_types(
+        packet.PACKET_TYPE_ACCELERATION + packet.PACKET_TYPE_ALTITUDE
     )) == [
-        packet_util.PACKET_TYPE_ALTITUDE,
-        packet_util.PACKET_TYPE_ACCELERATION,
+        packet.PACKET_TYPE_ALTITUDE,
+        packet.PACKET_TYPE_ACCELERATION,
     ]

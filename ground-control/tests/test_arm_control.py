@@ -1,6 +1,6 @@
 from data_controllers.iliad_data_controller import IliadDataController
 from iliad.arm_control import ArmControl
-from utils import packet_util
+import packetlib.packet as packet
 import serial
 import pytest
 import dearpygui.dearpygui as gui
@@ -54,7 +54,7 @@ def test_receive_arm_status(camera_status: bool, srad_fc_status: bool, cots_fc_s
     assert arm_control.is_stratologger_armed == False
     assert arm_control.is_camera_armed == False
     port.write(
-        packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, time.time(), (camera_status, srad_fc_status, cots_fc_status))
+        packet.create_packet(packet.PACKET_TYPE_ARM_STATUS, time.time(), (camera_status, srad_fc_status, cots_fc_status))
     )
     for i in range(100):
         iliad.update()
@@ -135,7 +135,7 @@ def test_receive_multiple_arm_status(arm_statuses: list[tuple[bool, bool, bool]]
     # Do the test
     for status_tuple in arm_statuses:
         port.write(
-            packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, time.time(), (status_tuple[0], status_tuple[1], status_tuple[2]))
+            packet.create_packet(packet.PACKET_TYPE_ARM_STATUS, time.time(), (status_tuple[0], status_tuple[1], status_tuple[2]))
         )
         for i in range(100):
             iliad.update()

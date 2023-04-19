@@ -4,7 +4,7 @@ Simulates launch using telmetry data from summer 2022.
 Uses data/flight_data_2.csv which you'll need to get from Peter.
 """
 from datetime import datetime
-from utils import packet_util
+import packetlib.packet as bytes
 import serial
 import csv
 import time
@@ -41,8 +41,8 @@ if __name__ == '__main__':
         for row in reader:
             timestamp: float = float(row['time'])
 
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_HIGH_G_ACCELEROMETER,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_HIGH_G_ACCELEROMETER,
                 timestamp,
                 (
                     float(row['high_g_x']),
@@ -51,8 +51,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_GYROSCOPE,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_GYROSCOPE,
                 timestamp,
                 (
                     float(row['bmx_x_gyro']),
@@ -61,8 +61,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_ACCELEROMETER,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_ACCELEROMETER,
                 timestamp,
                 (
                     float(row['bmx_x_accel']),
@@ -71,8 +71,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_ACCELEROMETER,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_ACCELEROMETER,
                 timestamp,
                 (
                     float(row['bmx_x_accel']),
@@ -81,16 +81,16 @@ if __name__ == '__main__':
                 )
             ))
 
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_BAROMETER,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_BAROMETER,
                 timestamp,
                 (
                     float(row['baro_height']),
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_GPS,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_GPS,
                 timestamp,
                 (
                     float(row['gps_height']),
@@ -102,8 +102,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_TELEMETRUM,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_TELEMETRUM,
                 timestamp,
                 (
                     bool(row['telemetrum_board.arm_status']),
@@ -112,8 +112,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_STRATOLOGGER,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_STRATOLOGGER,
                 timestamp,
                 (
                     bool(row['stratologger_board.arm_status']),
@@ -122,8 +122,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_CAMERA,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_CAMERA,
                 timestamp,
                 (
                     bool(row['camera_board.arm_status']),
@@ -132,8 +132,8 @@ if __name__ == '__main__':
                 )
             ))
             
-            port.write(packet_util.create_packet(
-                packet_util.PACKET_TYPE_BATTERY,
+            port.write(bytes.create_packet(
+                bytes.PACKET_TYPE_BATTERY,
                 timestamp,
                 (
                     float(row['mainBatteryVoltage']),
