@@ -1,7 +1,7 @@
 import serial
 import serial.tools.list_ports
 import struct
-from utils import packet_util
+import packetlib.packet as packet
 import crc
 
 def is_front(item, list: list) -> bool:
@@ -83,40 +83,40 @@ with serial.Serial(
             stream = stream[2:]
             packet['type']: int = struct.unpack('>h', header_bytes)[0]
 
-            packet_types = list(packet_util.get_packet_types(packet['type']))
+            packet_types = list(packet.get_packet_types(packet['type']))
 
             checksum_target.clear()
             checksum_target += bytearray(header_bytes)
             
-        elif is_front(packet_util.PACKET_TYPE_ALTITUDE, packet_types) and len(stream) > 4:
+        elif is_front(packet.PACKET_TYPE_ALTITUDE, packet_types) and len(stream) > 4:
             packet_types.pop(0)
             data_bytes = stream[:4]
             stream = stream[4:]
-            packet[packet_util.PACKET_TYPE_ALTITUDE] = struct.unpack('>f', data_bytes)
+            packet[packet.PACKET_TYPE_ALTITUDE] = struct.unpack('>f', data_bytes)
 
             checksum_target += bytearray(data_bytes)
 
-        elif is_front(packet_util.PACKET_TYPE_COORDINATES, packet_types) and len(stream) > 8:
+        elif is_front(packet.PACKET_TYPE_COORDINATES, packet_types) and len(stream) > 8:
             packet_types.pop(0)
             data_bytes = stream[:8]
             stream = stream[8:]
-            packet[packet_util.PACKET_TYPE_COORDINATES] = struct.unpack('>ff', data_bytes)
+            packet[packet.PACKET_TYPE_COORDINATES] = struct.unpack('>ff', data_bytes)
 
             checksum_target += bytearray(data_bytes)
         
-        elif is_front(packet_util.PACKET_TYPE_C, packet_types) and len(stream) > 4:
+        elif is_front(packet.PACKET_TYPE_C, packet_types) and len(stream) > 4:
             packet_types.pop(0)
             data_bytes = stream[:4]
             stream = stream[4:]
-            packet[packet_util.PACKET_TYPE_C] = struct.unpack('>i', data_bytes)
+            packet[packet.PACKET_TYPE_C] = struct.unpack('>i', data_bytes)
 
             checksum_target += bytearray(data_bytes)
         
-        elif is_front(packet_util.PACKET_TYPE_D, packet_types) and len(stream) > 1:
+        elif is_front(packet.PACKET_TYPE_D, packet_types) and len(stream) > 1:
             packet_types.pop(0)
             data_bytes = stream[:1]
             stream = stream[1:]
-            packet[packet_util.PACKET_TYPE_D] = struct.unpack('>?', data_bytes)   
+            packet[packet.PACKET_TYPE_D] = struct.unpack('>?', data_bytes)   
 
             checksum_target += bytearray(data_bytes)     
 

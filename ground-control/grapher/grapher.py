@@ -10,7 +10,7 @@ import csv
 import data_controllers.serial_data_controller as serial_data_controller
 from components.data_series import DataSeries
 import struct
-import utils.packet_util as packet_util
+import packetlib.packet as packet
 import crc
 
 
@@ -341,54 +341,54 @@ class Grapher(AppComponent):
                     
 
             # Button for Telemetry status
-            gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCameraPopupID"):
-                gui.add_text("Would you like to unarm the camera?")
+            gui.add_button(label='Telemetrum Armed', tag='telemetrum_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarm_telemetrum_popup"):
+                gui.add_text("Disarm Telemetrum?")
                 gui.add_button(label="Yes",  callback=self.disarmCamera)
-            gui.bind_item_theme('camera_armed_tag', "theme_armed")
-            gui.configure_item("disarmCameraPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme('telemetrum_armed_tag', "theme_armed")
+            gui.configure_item("disarm_telemetrum_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-            gui.add_button(label='SRAD FC Armed', tag='SRAD_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmSRADfcPopupID"):
-                gui.add_text("Would you like to unarm the SRAD flight computer?")
+            gui.add_button(label='Stratologger Armed', tag='stratologger_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarm_stratologger_popup"):
+                gui.add_text("Arm Stratologger?")
                 gui.add_button(label="Yes",  callback=self.disarmSRADfc)
-            gui.bind_item_theme('SRAD_fc_armed_tag', "theme_armed")
-            gui.configure_item("disarmSRADfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme('stratologger_armed_tag', "theme_armed")
+            gui.configure_item("disarm_stratologger_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-            gui.add_button(label='COTS FC Armed', tag='COTS_fc_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarmCOTSfcPopupID"):
-                gui.add_text("Would you like to unarm the COTS flight computer?")
+            gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarm_camera_popup"):
+                gui.add_text("Arm Camera?")
                 gui.add_button(label="Yes",  callback=self.disarmCOTSfc)
-            gui.bind_item_theme('COTS_fc_armed_tag', "theme_armed")
-            gui.configure_item("disarmCOTSfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme('camera_armed_tag', "theme_armed")
+            gui.configure_item("disarm_camera_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
             
             
 
             #make Unarmed buttons
-            gui.add_button(label='Camera Unarmed', tag='camera_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCameraPopupID"):
+            gui.add_button(label='Telemetrum Disarmed', tag='telemetrum_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_telemetrum_popup"):
                 #print("I AM HERE!!!")
-                gui.add_text("Would you like to arm the rocket?")
+                gui.add_text("Arm Stratologger?")
                 gui.add_button(label="Yes",  callback=self.armCamera)
-            gui.bind_item_theme('camera_unarmed_tag', "theme_unarmed")
-            gui.configure_item("armCameraPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme('telemetrum_disarmed_tag', "theme_unarmed")
+            gui.configure_item("arm_telemetrum_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-            gui.add_button(label='SRAD FC Unarmed', tag='SRAD_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armSRADfcPopupID"):
-                gui.add_text("Would you like to arm the rocket?")
+            gui.add_button(label='Stratologger Disarmed', tag='stratologger_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_stratologger_popup"):
+                gui.add_text("Disarm Stratologger?")
                 gui.add_button(label="Yes",  callback=self.armSRADfc)
-            gui.bind_item_theme('SRAD_fc_unarmed_tag', "theme_unarmed")
-            gui.configure_item("armSRADfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme('stratologger_disarmed_tag', "theme_unarmed")
+            gui.configure_item("arm_stratologger_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-            gui.add_button(label='COTS FC Unarmed', tag='COTS_fc_unarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="armCOTSfcPopupID"):
-                gui.add_text("Would you like to arm the rocket?")
+            gui.add_button(label='Camera Disarmed', tag='camera_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_camera_popup"):
+                gui.add_text("Disarm Camera?")
                 gui.add_button(label="Yes",  callback=self.armCOTSfc)
-            gui.bind_item_theme('COTS_fc_unarmed_tag', "theme_unarmed")
-            gui.configure_item("armCOTSfcPopupID", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme('camera_disarmed_tag', "theme_unarmed")
+            gui.configure_item("arm_camera_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
             #start without showing unarmed button
-            gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
+            # gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
 
 
             with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
@@ -435,34 +435,34 @@ class Grapher(AppComponent):
 
 
     def armCamera(self) -> None:
-        self.iliad.arm_camera()
-        gui.configure_item("armCameraPopupID", show=False)
+        self.iliad.arm_telemetrum()
+        gui.configure_item("arm_telemetrum_popup", show=False)
         return
 
     def armSRADfc(self):
-        self.iliad.arm_srad_flight_computer()
-        gui.configure_item("armSRADfcPopupID", show=False)
+        self.iliad.arm_stratologger()
+        gui.configure_item("arm_stratologger_popup", show=False)
         return
 
     def armCOTSfc(self):
         self.iliad.arm_cots_flight_computer()
-        gui.configure_item("armCOTSfcPopupID", show=False)
+        gui.configure_item("arm_camera_popup", show=False)
         return
 
 
     def disarmCamera(self):
-        self.iliad.disarm_camera()
-        gui.configure_item("disarmCameraPopupID", show=False)
+        self.iliad.disarm_telemetrum()
+        gui.configure_item("disarm_telemetrum_popup", show=False)
         return
 
     def disarmSRADfc(self):
-        self.iliad.disarm_srad_flight_computer()
-        gui.configure_item("disarmSRADfcPopupID", show=False)
+        self.iliad.disarm_stratologger()
+        gui.configure_item("disarm_stratologger_popup", show=False)
         return
 
     def disarmCOTSfc(self):
         self.iliad.disarm_cots_flight_computer()
-        gui.configure_item("disarmCOTSfcPopupID", show=False)
+        gui.configure_item("disarm_camera_popup", show=False)
         return
 
     # Returns a dictionary with different config options.
@@ -489,30 +489,30 @@ class Grapher(AppComponent):
             ###Arming Status###
             
             if(self.iliad.telemetrum_status.y_data):
-                gui.configure_item(item="Telemetrum_fc_armed_tag", show=True)
-                gui.configure_item(item="Telemetrum_fc_unarmed_tag", show=False)
+                gui.configure_item(item="telemetrum_armed_tag", show=True)
+                gui.configure_item(item="telemetrum_disarmed_tag", show=False)
 
             else:
-                gui.configure_item(item="Telemetrum_fc_armed_tag", show=False)
-                gui.configure_item(item="Telemetrum_fc_unarmed_tag", show=True)
+                gui.configure_item(item="telemetrum_armed_tag", show=False)
+                gui.configure_item(item="telemetrum_disarmed_tag", show=True)
 
             if(self.iliad.stratologger_status.y_data):
-                gui.configure_item(item="Stratologger_fc_armed_tag", show=True)
-                gui.configure_item(item="Stratologger_fc_unarmed_tag", show=False)
+                gui.configure_item(item="stratologger_armed_tag", show=True)
+                gui.configure_item(item="stratologger_disarmed_tag", show=False)
 
             else:
-                gui.configure_item(item="Stratologger_fc_armed_tag", show=False)
-                gui.configure_item(item="Stratologger_fc_unarmed_tag", show=True)
+                gui.configure_item(item="stratologger_armed_tag", show=False)
+                gui.configure_item(item="stratologger_disarmed_tag", show=True)
 
 
 
             if(self.iliad.camera_status.y_data):
                 gui.configure_item(item="camera_armed_tag", show=True)
-                gui.configure_item(item="camera_unarmed_tag", show=False)
+                gui.configure_item(item="camera_disarmed_tag", show=False)
 
             else:
                 gui.configure_item(item="camera_armed_tag", show=False)
-                gui.configure_item(item="camera_unarmed_tag", show=True)
+                gui.configure_item(item="camera_disarmed_tag", show=True)
 
             ###LEFT SIDE BAR###
 

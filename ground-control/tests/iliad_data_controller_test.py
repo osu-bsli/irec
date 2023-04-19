@@ -1,5 +1,5 @@
 from data_controllers.iliad_data_controller import IliadDataController
-import utils.packet_util as packet_util
+import packetlib.packet as packet
 import utils.math_util as math_util
 import serial
 import math
@@ -74,7 +74,7 @@ def setup_packet_test() -> tuple[IliadDataController, serial.Serial]:
 def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, status_3: bool):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ARM_STATUS, timestamp, (status_1, status_2, status_3)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_ARM_STATUS, timestamp, (status_1, status_2, status_3)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.arm_status_1_data.x_data, [timestamp])
@@ -98,7 +98,7 @@ def test_arm_status_packet(timestamp: float, status_1: bool, status_2: bool, sta
 def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ALTITUDE, timestamp, (altitude_1, altitude_2)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_ALTITUDE, timestamp, (altitude_1, altitude_2)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.altitude_1_data.x_data, [timestamp])
@@ -120,7 +120,7 @@ def test_altitude_packet(timestamp: float, altitude_1: float, altitude_2: float)
 def test_acceleration_packet(timestamp: float, acceleration_x: float, acceleration_y: float, acceleration_z: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_ACCELERATION, timestamp, (acceleration_x, acceleration_y, acceleration_z)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_ACCELERATION, timestamp, (acceleration_x, acceleration_y, acceleration_z)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.acceleration_x_data.x_data, [timestamp])
@@ -144,7 +144,7 @@ def test_acceleration_packet(timestamp: float, acceleration_x: float, accelerati
 def test_gps_coordinate_packet(timestamp: float, latitude: float, longitude: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_COORDINATES, timestamp, (latitude, longitude)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_COORDINATES, timestamp, (latitude, longitude)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_latitude_data.x_data, [timestamp])
@@ -166,7 +166,7 @@ def test_gps_coordinate_packet(timestamp: float, latitude: float, longitude: flo
 def test_board_temperature_packet(timestamp: float, temp_1: float, temp_2: float, temp_3: float, temp_4: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_TEMPERATURE, timestamp, (temp_1, temp_2, temp_3, temp_4)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_BOARD_TEMPERATURE, timestamp, (temp_1, temp_2, temp_3, temp_4)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.board_1_temperature_data.x_data, [timestamp])
@@ -192,7 +192,7 @@ def test_board_temperature_packet(timestamp: float, temp_1: float, temp_2: float
 def test_board_voltage_packet(timestamp: float, voltage_1: float, voltage_2: float, voltage_3: float, voltage_4: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3, voltage_4)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_BOARD_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3, voltage_4)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.board_1_voltage_data.x_data, [timestamp])
@@ -218,7 +218,7 @@ def test_board_voltage_packet(timestamp: float, voltage_1: float, voltage_2: flo
 def test_board_current_packet(timestamp: float, current_1: float, current_2: float, current_3: float, current_4: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BOARD_CURRENT, timestamp, (current_1, current_2, current_3, current_4)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_BOARD_CURRENT, timestamp, (current_1, current_2, current_3, current_4)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.board_1_current_data.x_data, [timestamp])
@@ -244,7 +244,7 @@ def test_board_current_packet(timestamp: float, current_1: float, current_2: flo
 def test_battery_voltage_packet(timestamp: float, voltage_1: float, voltage_2: float, voltage_3: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_BATTERY_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_BATTERY_VOLTAGE, timestamp, (voltage_1, voltage_2, voltage_3)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.battery_1_voltage_data.x_data, [timestamp])
@@ -268,7 +268,7 @@ def test_battery_voltage_packet(timestamp: float, voltage_1: float, voltage_2: f
 def test_magnetometer_packet(timestamp: float, magnetometer_1: float, magnetometer_2: float, magnetometer_3: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_MAGNETOMETER, timestamp, (magnetometer_1, magnetometer_2, magnetometer_3)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_MAGNETOMETER, timestamp, (magnetometer_1, magnetometer_2, magnetometer_3)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.magnetometer_data_1.x_data, [timestamp])
@@ -292,7 +292,7 @@ def test_magnetometer_packet(timestamp: float, magnetometer_1: float, magnetomet
 def test_gyroscope_packet(timestamp: float, gyroscope_x: float, gyroscope_y: float, gyroscope_z: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GYROSCOPE, timestamp, (gyroscope_x, gyroscope_y, gyroscope_z)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GYROSCOPE, timestamp, (gyroscope_x, gyroscope_y, gyroscope_z)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gyroscope_x_data.x_data, [timestamp])
@@ -316,7 +316,7 @@ def test_gyroscope_packet(timestamp: float, gyroscope_x: float, gyroscope_y: flo
 def test_gps_satellites_packet(timestamp: float, satellites: int):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_SATELLITES, timestamp, (satellites,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_SATELLITES, timestamp, (satellites,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_satellites_data.x_data, [timestamp])
@@ -336,7 +336,7 @@ def test_gps_satellites_packet(timestamp: float, satellites: int):
 def test_gps_ground_speed_packet(timestamp: float, speed: float):
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, (speed,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, timestamp, (speed,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [timestamp])
@@ -348,9 +348,9 @@ def test_gps_ground_speed_packet(timestamp: float, speed: float):
 def test_multiple_packets():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (123.456,)))
     for i in range(100):
         test.update()
     math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.2])
@@ -362,8 +362,8 @@ def test_multiple_packets():
 def test_mixed_packets():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(
-        packet_util.PACKET_TYPE_GPS_SATELLITES + packet_util.PACKET_TYPE_GPS_GROUND_SPEED,
+    port.write(packet.create_packet(
+        packet.PACKET_TYPE_GPS_SATELLITES + packet.PACKET_TYPE_GPS_GROUND_SPEED,
         0.0,
         (0, 123.456)))
     for i in range(100):
@@ -379,29 +379,29 @@ def test_mixed_packets():
 def test_resync_on_corrupted_packet():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet = corrupted_packet[1:]
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.5, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.6, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.7, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.8, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.9, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.0, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.1, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.2, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.3, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.4, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.5, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.6, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.7, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.8, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 1.9, (567.890,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 2.0, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.4, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.5, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.6, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.7, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.8, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.9, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.0, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.1, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.2, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.3, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.4, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.5, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.6, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.7, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.8, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 1.9, (567.890,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 2.0, (567.890,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [
@@ -455,12 +455,12 @@ def test_resync_on_corrupted_packet():
 def test_resync_speed():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet = corrupted_packet[1:]
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
@@ -472,12 +472,12 @@ def test_resync_speed():
 def test_resync_on_corrupted_header():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[1] = 11
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
@@ -489,12 +489,12 @@ def test_resync_on_corrupted_header():
 def test_resync_on_corrupted_body():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[11] = 255
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
@@ -506,15 +506,15 @@ def test_resync_on_corrupted_body():
 def test_resync_on_double_corrupted_head():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[1] = 11
     port.write(corrupted_packet)
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[1] = 11
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
@@ -526,15 +526,15 @@ def test_resync_on_double_corrupted_head():
 def test_resync_on_double_corrupted_body():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[11] = 255
     port.write(corrupted_packet)
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[11] = 255
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
@@ -546,15 +546,15 @@ def test_resync_on_double_corrupted_body():
 def test_resync_on_double_corrupted_mixed():
     start_headless_gui()
     (test, port) = setup_packet_test()
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.0, (123.456,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.1, (789.012,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[1] = 11
     port.write(corrupted_packet)
-    corrupted_packet = bytearray(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
+    corrupted_packet = bytearray(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.2, (345.678,)))
     corrupted_packet[11] = 255
     port.write(corrupted_packet)
-    port.write(packet_util.create_packet(packet_util.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
+    port.write(packet.create_packet(packet.PACKET_TYPE_GPS_GROUND_SPEED, 0.3, (901.234,)))
     for i in range(100):
         test.update()
     assert math_util.is_list_close(test.gps_ground_speed_data.x_data, [0.0, 0.1, 0.3])
