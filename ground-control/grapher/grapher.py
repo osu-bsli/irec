@@ -64,7 +64,10 @@ global CY_axis
 
 global latitude
 
-
+variableAltitude = True
+variableAcceleration = True
+variableGPSGroundSpeed = True
+variableGyroscope = True
 
 
 
@@ -93,6 +96,39 @@ currentTime = time.mktime(time.gmtime())
 
 
    
+
+
+#scrolling functions
+def manualFitAltitude():
+    global variableAltitude
+    variableAltitude = False
+def autoFitAltitude():
+    global variableAltitude
+    variableAltitude = True
+
+def manualFitAcceleration():
+    global variableAcceleration
+    variableAcceleration = False
+def autoFitAcceleration():
+    global variableAcceleration
+    variableAcceleration = True
+
+def manualFitGPSGroundSpeed():
+    global variableGPSGroundSpeed
+    variableGPSGroundSpeed = False
+def autoFitGPSGroundSpeed():
+    global variableGPSGroundSpeed
+    variableGPSGroundSpeed = True
+
+def manualFitGyroscope():
+    global variableGyroscope
+    variableGyroscope = False
+def autoFitGyroscope():
+    global variableGyroscope
+    variableGyroscope = True
+
+    
+
 
 # create plot in the current section
 def create_plot(labelText, tagy, tagx, xAxisLabel, yAxisLabel):
@@ -135,30 +171,41 @@ def displayTracking():
                 with gui.table_row( height=VIEWPORT_HEIGHT/2):
                     with gui.table_cell():
                 
-                        # Plot Altitude
+                        # Plot Altitude data
                         with gui.group(horizontal=True):
+                            with gui.group(horizontal=True):
+                                gui.add_button(label = "Manual Fit", callback = manualFitAltitude)
+                                gui.add_button(label = "Auto Fit", callback = autoFitAltitude)
                             create_plot('Altitude', 'Altitude_y_axis', 'Altitude_x_axis', 'Time(s)', 'Altitude (meters)')
                             add_line_series_custom(original_x_axis, original_y_axis, 'barometer_altitude_tag', 'Barometer Altitude', 'Altitude_y_axis')
                             add_line_series_custom(original_x_axis, original_y_axis, 'gps_altitude_tag', 'GPS Altitude', 'Altitude_y_axis')
 
                     # Plot Acceleration data
-
+                            with gui.group(horizontal=True):
+                                gui.add_button(label = "Manual Fit", callback = manualFitAcceleration)
+                                gui.add_button(label = "Auto Fit", callback = autoFitAcceleration)
                             create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
                             add_line_series_custom(original_x_axis, original_y_axis, 'accelerationZ_tag', 'Acceleration Z ', 'Acceleration_y_axis')
                             add_line_series_custom(original_x_axis, original_y_axis, 'highGaccelerationZ_tag', 'High G Acceleration Z', 'Acceleration_y_axis')
                             
 
 
-                # Row for Plots Latitude and Longitude and Board temperature data
+                # New Row 
                 #gui.add_table_column(label="secondary_column")
                 #with gui.table_row():
-                    # Plot GPS Latitude and Longitude
+                    # Plot GPS Ground Speed data
                 #with gui.table_row( height=VIEWPORT_HEIGHT/2):
                         with gui.group(horizontal=True):
+                            with gui.group(horizontal=True):
+                                gui.add_button(label = "Manual Fit", callback = manualFitGPSGroundSpeed)
+                                gui.add_button(label = "Auto Fit", callback = autoFitGPSGroundSpeed)
                             create_plot("GPS Ground Speed", 'GPS_Ground_Speed_y_axis', 'GPS_Ground_Speed_x_axis', 'Time(s)', 'Velocity (m/s)')
                             add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed', 'GPS_Ground_Speed_y_axis')
 
-                    # Plot Board temperature data
+                    # Plot gyroscope data
+                            with gui.group(horizontal=True):
+                                        gui.add_button(label = "Manual Fit", callback = manualFitGyroscope)
+                                        gui.add_button(label = "Auto Fit", callback = autoFitGyroscope)
                             create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
                             add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_X_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
                             add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_Y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
@@ -808,8 +855,37 @@ class Grapher(AppComponent):
         # gui.fit_axis_data('y_axis2') 
         # gui.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
         # gui.fit_axis_data('x_axis3')
-        # gui.fit_axis_data('y_axis3')          
+        # gui.fit_axis_data('y_axis3')       
+        
+           
 
+            if(variableAltitude):
+                gui.fit_axis_data("Altitude_x_axis")
+                gui.fit_axis_data("Altitude_y_axis")
+            if(not(variableAltitude)):
+                gui.set_axis_limits_auto("Altitude_x_axis")
+                gui.set_axis_limits_auto("Altitude_y_axis")
+
+            if(variableAcceleration):
+                gui.fit_axis_data("Acceleration_x_axis")
+                gui.fit_axis_data("Acceleration_y_axis")
+            if(not(variableAcceleration)):
+                gui.set_axis_limits_auto("Acceleration_x_axis")
+                gui.set_axis_limits_auto("Acceleration_y_axis")
+
+            if(variableGPSGroundSpeed):
+                gui.fit_axis_data("GPS_Ground_Speed_x_axis")
+                gui.fit_axis_data("GPS_Ground_Speed_y_axis")
+            if(not(variableGPSGroundSpeed)):
+                gui.set_axis_limits_auto("GPS_Ground_Speed_x_axis")
+                gui.set_axis_limits_auto("GPS_Ground_Speed_y_axis")
+
+            if(variableGyroscope):
+                gui.fit_axis_data("Gyroscope_x_axis")
+                gui.fit_axis_data("Gyroscope_y_axis")
+            if(not(variableGyroscope)):
+                gui.set_axis_limits_auto("Gyroscope_x_axis")
+                gui.set_axis_limits_auto("Gyroscope_y_axis")
         
             time.sleep(0.01)
             sample=sample+1
