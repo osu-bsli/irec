@@ -883,12 +883,12 @@ class Grapher(AppComponent):
         
            
             #Altitude
-            if(variableAltitude == 0):
+            if(variableAltitude == 1):
                 gui.fit_axis_data("Altitude_x_axis")
                 gui.fit_axis_data("Altitude_y_axis")
                 gui.set_value('barometer_altitude_tag', [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
                 gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data, self.iliad.gps_altitude.y_data])
-            if(variableAltitude == 1):
+            if(variableAltitude == 0):
                 gui.set_axis_limits_auto("Altitude_x_axis")
                 gui.set_axis_limits_auto("Altitude_y_axis")
                 gui.set_value('barometer_altitude_tag', [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
@@ -900,12 +900,12 @@ class Grapher(AppComponent):
                 gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data[-nsamples:], self.iliad.gps_altitude.y_data[-nsamples:]])
 
             #Acceleration
-            if(variableAcceleration == 0):
+            if(variableAcceleration == 1):
                 gui.fit_axis_data("Acceleration_x_axis")
                 gui.fit_axis_data("Acceleration_y_axis")
                 gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
                 gui.set_value('highGaccelerationZ_tag', [self.iliad.high_g_accelerometer_z.x_data, self.iliad.high_g_accelerometer_z.y_data])
-            if(variableAcceleration == 1):
+            if(variableAcceleration == 0):
                 gui.set_axis_limits_auto("Acceleration_x_axis")
                 gui.set_axis_limits_auto("Acceleration_y_axis")
                 gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
@@ -917,11 +917,11 @@ class Grapher(AppComponent):
                 gui.set_value('highGaccelerationZ_tag', [self.iliad.high_g_accelerometer_z.x_data[-nsamples:], self.iliad.high_g_accelerometer_z.y_data[-nsamples:]])
 
             #GPS Ground Speed
-            if(variableGPSGroundSpeed == 0):
+            if(variableGPSGroundSpeed == 1):
                 gui.fit_axis_data("GPS_Ground_Speed_x_axis")
                 gui.fit_axis_data("GPS_Ground_Speed_y_axis")
                 gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
-            if(variableGPSGroundSpeed == 1):
+            if(variableGPSGroundSpeed == 0):
                 gui.set_axis_limits_auto("GPS_Ground_Speed_x_axis")
                 gui.set_axis_limits_auto("GPS_Ground_Speed_y_axis")
                 gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
@@ -932,13 +932,13 @@ class Grapher(AppComponent):
                 
 
             #Gyroscope
-            if(variableGyroscope == 0):
+            if(variableGyroscope == 1):
                 gui.fit_axis_data("Gyroscope_x_axis")
                 gui.fit_axis_data("Gyroscope_y_axis")
                 gui.set_value('Gyroscope_x_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
                 gui.set_value('Gyroscope_y_tag', [self.iliad.gyroscope_y.x_data, self.iliad.gyroscope_y.y_data])
                 gui.set_value('Gyroscope_z_tag', [self.iliad.gyroscope_z.x_data, self.iliad.gyroscope_z.y_data])
-            if(variableGyroscope == 1):
+            if(variableGyroscope == 0):
                 gui.set_axis_limits_auto("Gyroscope_x_axis")
                 gui.set_axis_limits_auto("Gyroscope_y_axis")
                 gui.set_value('Gyroscope_x_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
