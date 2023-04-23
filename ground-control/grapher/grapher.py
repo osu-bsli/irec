@@ -224,16 +224,16 @@ def displayTracking():
                                     add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed', 'GPS_Ground_Speed_y_axis')
 
                         # Plot gyroscope data
-                        with gui.group(horizontal=False):
-                            with gui.group(horizontal=True):
-                                gui.add_button(label = "Manual Fit", callback = manualFitGyroscope)
-                                gui.add_button(label = "Auto Fit", callback = autoFitGyroscope)
-                                gui.add_button(label = "Sliding Window", callback = slidingWindowGyroscope)
                             with gui.group(horizontal=False):
-                                create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
-                                add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_x_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
-                                add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
-                                add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_z_tag', "Gyroscope Z Data", 'Gyroscope_y_axis')
+                                with gui.group(horizontal=True):
+                                    gui.add_button(label = "Manual Fit", callback = manualFitGyroscope)
+                                    gui.add_button(label = "Auto Fit", callback = autoFitGyroscope)
+                                    gui.add_button(label = "Sliding Window", callback = slidingWindowGyroscope)
+                                with gui.group(horizontal=False):
+                                    create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
+                                    add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_x_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
+                                    add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
+                                    add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_z_tag', "Gyroscope Z Data", 'Gyroscope_y_axis')
 
             with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
             borders_innerH=False, borders_outerH=True, borders_innerV=True,
