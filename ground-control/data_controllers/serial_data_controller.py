@@ -4,6 +4,8 @@ import dearpygui.dearpygui as gui
 import data_controllers.data_controller as data_controller
 from utils import config_util
 import bidict
+import sys
+import glob
 
 class SerialDataController(data_controller.DataController):
 
@@ -85,10 +87,22 @@ class SerialDataController(data_controller.DataController):
     def add_config_menu(self) -> None:
         self.available_ports = []
         def rescan_ports() -> None:
-            ports = serial.tools.list_ports.comports()
             self.available_ports = []
-            for port, description, hardware_id in ports:
-                self.available_ports.append(port)
+            
+            # https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
+            if sys.platform.startswith('win'):
+                ports = serial.tools.list_ports.comports()
+                for port, description, hardware_id in ports:
+                    self.available_ports.append(port)
+            elif sys.platform.startswith('linux'):
+                self.available_ports.extend(glob.glob('/dev/pts/*'))
+                self.available_ports.extend(glob.glob('/dev/tty[A-Za-z]*'))
+            elif sys.platform.startswith('darwin'):
+                self.available_ports.extend(glob.glob('/dev/pts/*'))
+                self.available_ports.extend(glob.glob('/dev/tty.*'))
+            else:
+                raise EnvironmentError('Unsupported platform')
+
             gui.configure_item(self.CONFIG_MENU_PORT_NAME, items=self.available_ports)
 
         with gui.group(horizontal=True):
