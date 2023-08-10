@@ -3,7 +3,7 @@ This is a simulator that receives arming commands and sends corresponding arm_st
 Also implements a parser for arming command packets.
 """
 
-from utils import packet_util
+from utils import packet
 import serial
 import struct
 import crc
@@ -56,7 +56,7 @@ if __name__ == '__main__':
                 if len(data_buffer) - idx_cursor >= 10:
                     packet_types_bytes = data_buffer[idx_cursor:(idx_cursor + 2)]
                     (packet_types_raw,) = struct.unpack('>h', packet_types_bytes)
-                    packet_types: list[int] = list(packet_util.get_packet_types(packet_types_raw))
+                    packet_types: list[int] = list(packet.get_packet_types(packet_types_raw))
                     idx_cursor += 2
 
                     packet_timestamp_bytes = data_buffer[idx_cursor:(idx_cursor + 4)]
@@ -80,13 +80,13 @@ if __name__ == '__main__':
                 
                         # Parse body:
                         for packet_type in [
-                            packet_util.PACKET_TYPE_ARM_CAMERA,
-                            packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER,
-                            packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER,
+                            packet.PACKET_TYPE_ARM_CAMERA,
+                            packet.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER,
+                            packet.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER,
                         ]:
                             if packet_type in packet_types:
-                                payload_size = packet_util.PAYLOAD_SIZE[packet_type]
-                                payload_format = packet_util.PAYLOAD_FORMAT[packet_type]
+                                payload_size = packet.PAYLOAD_SIZE[packet_type]
+                                payload_format = packet.PAYLOAD_FORMAT[packet_type]
                                 if len(data_buffer) - idx_cursor >= payload_size:
                                     payload_bytes = data_buffer[idx_cursor:(idx_cursor + payload_size)]
                                     payload = struct.unpack(payload_format, payload_bytes)
@@ -95,13 +95,13 @@ if __name__ == '__main__':
                                     packet_payload_bytes += payload_bytes
                                     packet_payload[packet_type] = payload
                                     
-                                    if packet_type == packet_util.PACKET_TYPE_ARM_CAMERA:
+                                    if packet_type == packet.PACKET_TYPE_ARM_CAMERA:
                                         print(f'<- PACKET_TYPE_ARM_CAMERA {packet_timestamp} {payload[0]}')
                                         _current_arm_camera_data = (packet_timestamp, payload[0])
-                                    elif packet_type == packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
+                                    elif packet_type == packet.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
                                         _current_arm_srad_fc_data = (packet_timestamp, payload[0])
                                         print(f'<- PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER {packet_timestamp} {payload[0]}')
-                                    elif packet_type == packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
+                                    elif packet_type == packet.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
                                         _current_arm_cots_fc_data = (packet_timestamp, payload[0])
                                         print(f'<- PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER {packet_timestamp} {payload[0]}')
                         
@@ -125,18 +125,18 @@ if __name__ == '__main__':
                                 idx_cursor = 0
 
                                 # Save the packet's data.
-                                for current_packet_type in packet_util.get_packet_types(_current_packet_types):
-                                    if current_packet_type == packet_util.PACKET_TYPE_ARM_CAMERA:
+                                for current_packet_type in packet.get_packet_types(_current_packet_types):
+                                    if current_packet_type == packet.PACKET_TYPE_ARM_CAMERA:
                                         arm_statuses[0] = _current_arm_camera_data[1]
-                                    elif current_packet_type == packet_util.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
+                                    elif current_packet_type == packet.PACKET_TYPE_ARM_SRAD_FLIGHT_COMPUTER:
                                         arm_statuses[1] = _current_arm_srad_fc_data[1]
-                                    elif current_packet_type == packet_util.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
+                                    elif current_packet_type == packet.PACKET_TYPE_ARM_COTS_FLIGHT_COMPUTER:
                                         arm_statuses[2] = _current_arm_cots_fc_data[1]
     
             time.sleep(1) # We send arm_status packets every second.
             port.write(
-                packet_util.create_packet(
-                    packet_util.PACKET_TYPE_ARM_STATUS,
+                packet.create_packet(
+                    packet.PACKET_TYPE_ARM_STATUS,
                     time.time(),
                     (arm_statuses[0], arm_statuses[1], arm_statuses[2])
                 )
