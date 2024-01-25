@@ -178,122 +178,41 @@ def display_checklist():
                 # demo change
 
                 # Rows for Checklist Left Side
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Inspect for damages from travel", tag="R28")
+                items = [
+                    "Inspect for damages from travel",
+                    "Check TeleMetrum battery voltage",
+                    "Check StratoLogger battery voltage",
+                    "Check Stratologger settings",
+                    "Check TeleGPS battery voltage",
+                    "Check that TeleMentrum battery is secure",
+                    "Check TeleMetrum to bulkhead connections",
+                    "Check that StratoLogger battery is secure",
+                    "Check that 9V is plugged in",
+                    "Check that all cables are inside bay and will not interfere with ISB rails",
+                    "Check StratoLogger to cable connection",
+                    "slide avionics bay into ISB",
+                    "Ensure cables are not snagged",
+                    "Let Payload Integrate",
+                    "Connect TeleMetrum to recovery bulkhead",
+                    "Inspect TeleMetrum connection on recovery bulkhead",
+                    "Connect StratoLogger to recovery bulkhead",
+                    "Inspect Stratologger connection on recovery bulkhead",
+                    "Slide ISB partially into coupler",
+                    "Feed arming switches down through coupler",
+                    "Slide ISB fully into coupler",
+                    "Adhere arming switches to coupler",
+                    "Let Structures and Recovery Integrate",
+                    "Connect charges",
+                    "Turn on TeleGPS and confirm connection",
+                    "Turn on camera",
+                    "Arm ejection charges",
+                    "Listen for continuity beeps"
+                ];
 
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check TeleMetrum battery voltage", tag="R27")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check StratoLogger battery voltage", tag="R26")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check Stratologger settings", tag="R25")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check TeleGPS battery voltage", tag="R24")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check that TeleMentrum battery is secure", tag="R23")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check TeleMetrum to bulkhead connections", tag="R22")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check that StratoLogger battery is secure", tag="R21")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check that 9V is plugged in", tag="R20")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(
-                            label="Check that all cables are inside bay and will not interfere with ISB rails",
-                            tag="R19")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Check StratoLogger to cable connection", tag="R18")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="slide avionics bay into ISB", tag="R17")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Ensure cables are not snagged", tag="R16")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Let Payload Integrate", tag="R15")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Connect TeleMetrum to recovery bulkhead", tag="R14")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Inspect TeleMetrum connection on recovery bulkhead", tag="R13")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Connect StratoLogger to recovery bulkhead", tag="R12")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Inspect Stratologger connection on recovery bulkhead", tag="R11")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Slide ISB partially into coupler", tag="R10")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Feed arming switches down through coupler", tag="R9")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Slide ISB fully into coupler", tag="R8")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Adhere arming switches to coupler", tag="R7")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Let Structures and Recovery Integrate", tag="R6")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Connect charges", tag="R5")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Turn on TeleGPS and confirm connection", tag="R4")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Turn on camera", tag="R3")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Arm ejection charges", tag="R2")
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_checkbox(label="Listen for continuity beeps", tag="R1")
-
-                # create table column to hold plot rows
-
+                for idx, item in enumerate(items):
+                    with gui.table_row():
+                        with gui.table_cell():
+                            gui.add_checkbox(label=item, tag=f'ChecklistItem{idx}')
 
 # display the 'tracking' tab of the main GUI
 def display_tracking():
