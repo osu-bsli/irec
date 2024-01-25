@@ -8,9 +8,9 @@ class DataSeries[X, Y]:
         self.x_data: list[X] = []
         self.y_data: list[Y] = []
 
-    def add_point(self, xy_tuple: tuple[X, Y]):
-        self.x_data.append(xy_tuple[0])
-        self.y_data.append(xy_tuple[1])
+    def add_point(self, x, y):
+        self.x_data.append(x)
+        self.y_data.append(y)
     
     def latest(self) -> Optional[Y]:
         if not self.y_data:
