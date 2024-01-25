@@ -133,6 +133,7 @@ class LineSeries:
         self.series_tag = series_tag
         self.label_text = label_text
 
+
 class Plot:
     class Fit(Enum):
         MANUAL = 0,
@@ -154,6 +155,7 @@ class Plot:
                 def set_fit_callback(sender, app_data, user_data):
                     self.fit = user_data
 
+                # "self" in set_fit_callback will be bound to this Plot instance
                 gui.add_button(label="Manual Fit", callback=set_fit_callback, user_data=Plot.Fit.MANUAL)
                 gui.add_button(label="Auto Fit", callback=set_fit_callback, user_data=Plot.Fit.AUTO)
                 gui.add_button(label="Sliding Window", callback=set_fit_callback, user_data=Plot.Fit.SLIDING_WINDOW)
