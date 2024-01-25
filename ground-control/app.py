@@ -1,11 +1,9 @@
 import dearpygui.dearpygui as gui
-import tomli
+from typing import Union
 from data_controllers.iliad_data_controller import IliadDataController
-from grapher.grapher import *
 from grapher.grapher import Grapher
 from iliad.arm_control import ArmControl
-from grapher import grapher
-from typing import List, Any, Callable, Union, Tuple
+
 
 class App:
 
@@ -15,10 +13,8 @@ class App:
     TAG_MAIN_TAB_BAR = 'app.main_tab_bar'
     TAG_CONFIG_WINDOW = 'app.config_window'
 
-
-
     def __init__(self) -> None:
-
+        # noinspection PyTypeChecker
         def create_theme_imgui_light() -> Union[str, int]:
             
             with gui.theme() as theme_id:
@@ -128,7 +124,6 @@ class App:
         with gui.font_registry():
             primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16)
             gui.bind_font(primary_font)
-
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())
