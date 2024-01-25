@@ -76,59 +76,6 @@ for i in range(0, 1000):
 # store current time
 currentTime = time.mktime(time.gmtime())
 
-
-def display_checklist():
-    with gui.tab(label="Checklist", parent='app.main_tab_bar'):
-        gui.add_text("SAC Avionics Checklist 2024 Test Launch")
-
-        with gui.group(horizontal=False):
-            # add checklist table
-            with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
-                           borders_innerH=False, borders_outerH=True, borders_innerV=True,
-                           borders_outerV=True, context_menu_in_body=True, row_background=True):
-                # create table column to hold checklist
-                gui.add_table_column(label="tasks", width=VIEWPORT_WIDTH // 3)
-
-                # demo change
-
-                # Rows for Checklist Left Side
-                items = [
-                    "Inspect for damages from travel",
-                    "Check TeleMetrum battery voltage",
-                    "Check StratoLogger battery voltage",
-                    "Check Stratologger settings",
-                    "Check TeleGPS battery voltage",
-                    "Check that TeleMentrum battery is secure",
-                    "Check TeleMetrum to bulkhead connections",
-                    "Check that StratoLogger battery is secure",
-                    "Check that 9V is plugged in",
-                    "Check that all cables are inside bay and will not interfere with ISB rails",
-                    "Check StratoLogger to cable connection",
-                    "slide avionics bay into ISB",
-                    "Ensure cables are not snagged",
-                    "Let Payload Integrate",
-                    "Connect TeleMetrum to recovery bulkhead",
-                    "Inspect TeleMetrum connection on recovery bulkhead",
-                    "Connect StratoLogger to recovery bulkhead",
-                    "Inspect Stratologger connection on recovery bulkhead",
-                    "Slide ISB partially into coupler",
-                    "Feed arming switches down through coupler",
-                    "Slide ISB fully into coupler",
-                    "Adhere arming switches to coupler",
-                    "Let Structures and Recovery Integrate",
-                    "Connect charges",
-                    "Turn on TeleGPS and confirm connection",
-                    "Turn on camera",
-                    "Arm ejection charges",
-                    "Listen for continuity beeps"
-                ]
-
-                for idx, item in enumerate(items):
-                    with gui.table_row():
-                        with gui.table_cell():
-                            gui.add_checkbox(label=item, tag=f'checklist_item_{idx}')
-
-
 # This class doesn't have support for dynamically adding axes and series.
 # If you need to, feel free to refactor it so it does!
 class Plot:
@@ -145,6 +92,7 @@ class Plot:
         self.x_axis_label = x_axis_label
         self.y_axis_label = y_axis_label
         self.series_list = series_list
+        self.series_tags: dict[str, int | str] = {}
 
     def add(self):
         with gui.group(horizontal=False):
@@ -164,20 +112,19 @@ class Plot:
                     self.x_axis_tag = gui.add_plot_axis(gui.mvXAxis, label=self.x_axis_label)
                     self.y_axis_tag = gui.add_plot_axis(gui.mvYAxis, label=self.y_axis_label)
 
-                    for tag, label in self.series_list.items():
-                        gui.add_line_series(x=[0.0] * nsamples, y=[0.0] * nsamples,
-                                            label=label, parent=self.y_axis_tag,
-                                            tag=tag)
+                    for id, label in self.series_list.items():
+                        series_tag = gui.add_line_series(x=[0.0] * nsamples, y=[0.0] * nsamples, label=label, parent=self.y_axis_tag)
+                        self.series_tags[id] = series_tag
 
     def update(self, **data_series: DataSeries):
-        for tag, ds in data_series.items():
+        for id, ds in data_series.items():
             match self.fit:
                 case Plot.Fit.AUTO:
-                    gui.set_value(tag, [ds.x_data, ds.y_data])
+                    gui.set_value(self.series_tags[id], [ds.x_data, ds.y_data])
                 case Plot.Fit.MANUAL:
-                    gui.set_value(tag, [ds.x_data, ds.y_data])
+                    gui.set_value(self.series_tags[id], [ds.x_data, ds.y_data])
                 case Plot.Fit.SLIDING_WINDOW:
-                    gui.set_value(tag, [ds.x_data[-nsamples:], ds.y_data[-nsamples:]])
+                    gui.set_value(self.series_tags[id], [ds.x_data[-nsamples:], ds.y_data[-nsamples:]])
 
         match self.fit:
             case Plot.Fit.SLIDING_WINDOW | Plot.Fit.AUTO:
@@ -203,70 +150,6 @@ gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
                       gyroscope_x="Gyroscope X Data",
                       gyroscope_y="Gyroscope Y Data",
                       gyroscope_z="Gyroscope Z Data")
-
-
-# display the 'tracking' tab of the main GUI
-def display_tracking():
-    with (gui.tab(label="Tracking", parent='app.main_tab_bar')):
-        with gui.group(horizontal=True):
-            with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
-                           borders_innerH=False, borders_outerH=True, borders_innerV=True,
-                           borders_outerV=True, context_menu_in_body=True, row_background=True,
-                           height=VIEWPORT_HEIGHT, width=VIEWPORT_WIDTH - 20):
-                # create table column to hold plot rows
-                gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH * 2)
-
-                # Row for Altitude and Acceleration Plots
-                with gui.table_row(height=VIEWPORT_HEIGHT // 2):
-                    with gui.table_cell():
-                        # Plot Altitude data
-                        with gui.group(horizontal=True):
-                            altitude_plot.add()
-                            acceleration_plot.add()
-
-                        with gui.group(horizontal=True):
-                            gps_ground_speed_plot.add()
-                            gyroscope_plot.add()
-
-            with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
-                           borders_innerH=False, borders_outerH=True, borders_innerV=True,
-                           borders_outerV=True, context_menu_in_body=True, row_background=True):
-                # create table column to hold plot rows
-                gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH * 2)
-
-                # Row for Right Table
-                with gui.table_row(height=VIEWPORT_HEIGHT // 100):
-                    with gui.table_cell():
-                        gui.add_text("Latitude/Longitude:")
-                        with gui.group(horizontal=True):
-                            gui.add_text("(")
-                            gui.add_text("0.00", id='latitude')
-                            gui.add_text(",")
-                            gui.add_text("0.00", id='longitude')
-                            gui.add_text(")")
-                with gui.table_row(height=VIEWPORT_HEIGHT // 9):
-                    with gui.table_cell():
-                        gui.add_text("Telemetrum Voltage:")
-                        gui.add_text("0.00", id="telemetrumVoltage")
-                        gui.add_text("Stratologger Voltage:")
-                        gui.add_text("0.00", id="stratologgerVoltage")
-                        gui.add_text("Camera Voltage:")
-                        gui.add_text("0.00", id="cameraVoltage")
-                        gui.add_text("Battery Voltage:")
-                        gui.add_text("0.00", id="batteryVoltage")
-                with gui.table_row(height=VIEWPORT_HEIGHT // 9):
-                    with gui.table_cell():
-                        gui.add_text("Telemetrum Current:")
-                        gui.add_text("0.00", id="telemetrumCurrent")
-                        gui.add_text("Stratologger Current")
-                        gui.add_text("0.00", id="stratologgerCurrent")
-                        gui.add_text("Camera Current:")
-                        gui.add_text("0.00", id="cameraCurrent")
-                with gui.table_row(height=VIEWPORT_HEIGHT // 10):
-                    with gui.table_cell():
-                        gui.add_text("Battery Temperature:")
-                        gui.add_text("0.00", id="batteryTemperature")
-
 
 # diagnostic info goes here
 def display_health():
@@ -312,17 +195,49 @@ class Grapher(AppComponent):
     def __init__(self, identifier: str, iliad: IliadDataController) -> None:
         super().__init__(identifier)
 
+        # Initialize GUI variables
+        self.altitude_barometer = None
+        self.altitude_gps = None
+        self.acceleration_x = None
+        self.acceleration_y = None
+        self.acceleration_z = None
+        self.high_g_acceleration_x = None
+        self.high_g_acceleration_y = None
+        self.high_g_acceleration_z = None
+        self.gps_ground_speed = None
+        self.gyroscope_x = None
+        self.gyroscope_y = None
+        self.gyroscope_z = None
+
+        self.telemetrum_armed = None
+        self.telemetrum_disarmed = None
+        self.stratologger_armed = None
+        self.stratologger_disarmed = None
+        self.camera_armed = None
+        self.camera_disarmed = None
+
+        self.latitude = None
+        self.longitude = None
+        self.telemetrum_voltage = None
+        self.stratologger_voltage = None
+        self.camera_voltage = None
+        self.battery_voltage = None
+        self.telemetrum_current = None
+        self.stratologger_current = None
+        self.camera_current = None
+        self.battery_temperature = None
+
         # Store a reference to the IliadDataController so we can get data from it later.
         self.iliad = iliad
         # displaySidebar()
         # with gui.group(horizontal=True):
 
-        self.display_sidebar()
+        self.add_sidebar()
 
         # with gui.tab_bar(pos=(200, 200)) as tb:
         # tracking tab
-        display_tracking()
-        display_checklist()
+        self.add_tracking()
+        self.add_checklist()
         # health tab
         # displayHealth()
         # packets tab
@@ -332,9 +247,58 @@ class Grapher(AppComponent):
 
         # with gui.tab(label='Telemetry', parent='app.main_tab_bar'):
 
-    # Create the gui stuff:
+    def add_checklist(self):
+        with gui.tab(label="Checklist", parent='app.main_tab_bar'):
+            gui.add_text("SAC Avionics Checklist 2024 Test Launch")
 
-    def display_sidebar(self):
+            with gui.group(horizontal=False):
+                # add checklist table
+                with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                               borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                               borders_outerV=True, context_menu_in_body=True, row_background=True):
+                    # create table column to hold checklist
+                    gui.add_table_column(label="tasks", width=VIEWPORT_WIDTH // 3)
+
+                    # demo change
+
+                    # Rows for Checklist Left Side
+                    items = [
+                        "Inspect for damages from travel",
+                        "Check TeleMetrum battery voltage",
+                        "Check StratoLogger battery voltage",
+                        "Check Stratologger settings",
+                        "Check TeleGPS battery voltage",
+                        "Check that TeleMentrum battery is secure",
+                        "Check TeleMetrum to bulkhead connections",
+                        "Check that StratoLogger battery is secure",
+                        "Check that 9V is plugged in",
+                        "Check that all cables are inside bay and will not interfere with ISB rails",
+                        "Check StratoLogger to cable connection",
+                        "slide avionics bay into ISB",
+                        "Ensure cables are not snagged",
+                        "Let Payload Integrate",
+                        "Connect TeleMetrum to recovery bulkhead",
+                        "Inspect TeleMetrum connection on recovery bulkhead",
+                        "Connect StratoLogger to recovery bulkhead",
+                        "Inspect Stratologger connection on recovery bulkhead",
+                        "Slide ISB partially into coupler",
+                        "Feed arming switches down through coupler",
+                        "Slide ISB fully into coupler",
+                        "Adhere arming switches to coupler",
+                        "Let Structures and Recovery Integrate",
+                        "Connect charges",
+                        "Turn on TeleGPS and confirm connection",
+                        "Turn on camera",
+                        "Arm ejection charges",
+                        "Listen for continuity beeps"
+                    ]
+
+                    for idx, item in enumerate(items):
+                        with gui.table_row():
+                            with gui.table_cell():
+                                gui.add_checkbox(label=item)
+
+    def add_sidebar(self):
         # bind buttons to an initial named theme.
         # modify the theme and re-bind button to change appearance.
         # TODO button click redirects to relevant diagnostics
@@ -349,58 +313,48 @@ class Grapher(AppComponent):
                     gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
 
             # Button for Telemetry status
-            gui.add_button(label='Telemetrum Armed', tag='telemetrum_armed_tag', width=SIDEBAR_BUTTON_WIDTH,
-                           height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True,
-                           tag="disarm_telemetrum_popup"):
+            self.telemetrum_armed = gui.add_button(label='Telemetrum Armed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.disarm_telemetrum_popup:
                 gui.add_text("Disarm Telemetrum?")
                 gui.add_button(label="Yes", callback=self.disarm_camera)
-            gui.bind_item_theme('telemetrum_armed_tag', "theme_armed")
-            gui.configure_item("disarm_telemetrum_popup", pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+                gui.configure_item(self.disarm_telemetrum_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme(self.telemetrum_armed, "theme_armed")
 
-            gui.add_button(label='Stratologger Armed', tag='stratologger_armed_tag', width=SIDEBAR_BUTTON_WIDTH,
-                           height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True,
-                           tag="disarm_stratologger_popup"):
+            self.stratologger_armed = gui.add_button(label='Stratologger Armed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.disarm_stratologger_popup:
                 gui.add_text("Arm Stratologger?")
                 gui.add_button(label="Yes", callback=self.disarm_srad_fc)
-            gui.bind_item_theme('stratologger_armed_tag', "theme_armed")
-            gui.configure_item("disarm_stratologger_popup", pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+                gui.configure_item(self.disarm_stratologger_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme(self.stratologger_armed, "theme_armed")
 
-            gui.add_button(label='Camera Armed', tag='camera_armed_tag', width=SIDEBAR_BUTTON_WIDTH,
-                           height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="disarm_camera_popup"):
+            self.camera_armed = gui.add_button(label='Camera Armed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.disarm_camera_popup:
                 gui.add_text("Arm Camera?")
                 gui.add_button(label="Yes", callback=self.disarm_cots_fc)
-            gui.bind_item_theme('camera_armed_tag', "theme_armed")
-            gui.configure_item("disarm_camera_popup", pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+                gui.configure_item(self.disarm_camera_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme(self.camera_armed, "theme_armed")
 
             # make Unarmed buttons
-            gui.add_button(label='Telemetrum Disarmed', tag='telemetrum_disarmed_tag', width=SIDEBAR_BUTTON_WIDTH,
-                           height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_telemetrum_popup"):
-                # print("I AM HERE!!!")
+            self.telemetrum_disarmed = gui.add_button(label='Telemetrum Disarmed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.arm_telemetrum_popup:
                 gui.add_text("Arm Stratologger?")
                 gui.add_button(label="Yes", callback=self.arm_camera)
-            gui.bind_item_theme('telemetrum_disarmed_tag', "theme_unarmed")
-            gui.configure_item("arm_telemetrum_popup", pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+                gui.configure_item(self.arm_telemetrum_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme(self.telemetrum_disarmed, "theme_unarmed")
 
-            gui.add_button(label='Stratologger Disarmed', tag='stratologger_disarmed_tag', width=SIDEBAR_BUTTON_WIDTH,
-                           height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True,
-                           tag="arm_stratologger_popup"):
+            self.stratologger_disarmed = gui.add_button(label='Stratologger Disarmed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.arm_stratologger_popup:
                 gui.add_text("Disarm Stratologger?")
                 gui.add_button(label="Yes", callback=self.arm_srad_fc)
-            gui.bind_item_theme('stratologger_disarmed_tag', "theme_unarmed")
-            gui.configure_item("arm_stratologger_popup", pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+                gui.configure_item(self.arm_stratologger_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme(self.stratologger_disarmed, "theme_unarmed")
 
-            gui.add_button(label='Camera Disarmed', tag='camera_disarmed_tag', width=SIDEBAR_BUTTON_WIDTH,
-                           height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_camera_popup"):
+            self.camera_disarmed = gui.add_button(label='Camera Disarmed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.arm_camera_popup:
                 gui.add_text("Disarm Camera?")
                 gui.add_button(label="Yes", callback=self.arm_cots_fc)
-            gui.bind_item_theme('camera_disarmed_tag', "theme_unarmed")
-            gui.configure_item("arm_camera_popup", pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+                gui.configure_item(self.arm_camera_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
+            gui.bind_item_theme(self.camera_disarmed, "theme_unarmed")
 
             # start without showing unarmed button
             # gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
@@ -415,66 +369,128 @@ class Grapher(AppComponent):
                 with gui.table_row(height=VIEWPORT_HEIGHT // 100):
                     with gui.table_cell():
                         gui.add_text("Altitude Barometer:")
-                        gui.add_text("0.00", id="altitudeBarometer")
+                        self.altitude_barometer = gui.add_text("0.00")
                         gui.add_text("Altitude GPS:")
-                        gui.add_text("0.00", id="altitudeGPS")
+                        self.altitude_gps = gui.add_text("0.00")
                 with gui.table_row(height=VIEWPORT_HEIGHT // 100):
                     with gui.table_cell():
                         gui.add_text("Acceleration X:")
-                        gui.add_text("0.00", id="accelerationX")
+                        self.acceleration_x = gui.add_text("0.00")
                         gui.add_text("Acceleration Y:")
-                        gui.add_text("0.00", id="accelerationY")
+                        self.acceleration_y = gui.add_text("0.00")
                         gui.add_text("Acceleration Z:")
-                        gui.add_text("0.00", id="accelerationZ")
+                        self.acceleration_z = gui.add_text("0.00")
                 with gui.table_row(height=VIEWPORT_HEIGHT // 100):
                     with gui.table_cell():
                         gui.add_text("High G Acceleration X:")
-                        gui.add_text("0.00", id="highGaccelerationX")
+                        self.high_g_acceleration_x = gui.add_text("0.00")
                         gui.add_text("High G Acceleration Y:")
-                        gui.add_text("0.00", id="highGaccelerationY")
+                        self.high_g_acceleration_y = gui.add_text("0.00")
                         gui.add_text("High G Acceleration Z:")
-                        gui.add_text("0.00", id="highGaccelerationZ")
+                        self.high_g_acceleration_z = gui.add_text("0.00")
                 with gui.table_row(height=VIEWPORT_HEIGHT // 100):
                     with gui.table_cell():
                         gui.add_text("GPS Ground Speed:")
-                        gui.add_text("0.00", id="GPSGroundSpeed")
+                        self.gps_ground_speed = gui.add_text("0.00")
                 with gui.table_row(height=VIEWPORT_HEIGHT // 25):
                     with gui.table_cell():
                         gui.add_text("Gyroscope X data:")
-                        gui.add_text("0.00", id="gyroscopeX")
+                        self.gyroscope_x = gui.add_text("0.00")
                         gui.add_text("Gyroscope Y data:")
-                        gui.add_text("0.00", id="gyroscopeY")
+                        self.gyroscope_y = gui.add_text("0.00")
                         gui.add_text("Gyroscope Z data:")
-                        gui.add_text("0.00", id="gyroscopeZ")
+                        self.gyroscope_z = gui.add_text("0.00")
+
+    # add the 'tracking' tab of the main GUI
+    def add_tracking(self):
+        with (gui.tab(label="Tracking", parent='app.main_tab_bar')):
+            with gui.group(horizontal=True):
+                with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                               borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                               borders_outerV=True, context_menu_in_body=True, row_background=True,
+                               height=VIEWPORT_HEIGHT, width=VIEWPORT_WIDTH - 20):
+                    # create table column to hold plot rows
+                    gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH * 2)
+
+                    # Row for Altitude and Acceleration Plots
+                    with gui.table_row(height=VIEWPORT_HEIGHT // 2):
+                        with gui.table_cell():
+                            # Plot Altitude data
+                            with gui.group(horizontal=True):
+                                altitude_plot.add()
+                                acceleration_plot.add()
+
+                            with gui.group(horizontal=True):
+                                gps_ground_speed_plot.add()
+                                gyroscope_plot.add()
+
+                with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
+                               borders_innerH=False, borders_outerH=True, borders_innerV=True,
+                               borders_outerV=True, context_menu_in_body=True, row_background=True):
+                    # create table column to hold plot rows
+                    gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH * 2)
+
+                    # Row for Right Table
+                    with gui.table_row(height=VIEWPORT_HEIGHT // 100):
+                        with gui.table_cell():
+                            gui.add_text("Latitude/Longitude:")
+                            with gui.group(horizontal=True):
+                                gui.add_text("(")
+                                self.latitude = gui.add_text("0.00")
+                                gui.add_text(",")
+                                self.longitude = gui.add_text("0.00")
+                                gui.add_text(")")
+                    with gui.table_row(height=VIEWPORT_HEIGHT // 9):
+                        with gui.table_cell():
+                            gui.add_text("Telemetrum Voltage:")
+                            self.telemetrum_voltage = gui.add_text("0.00")
+                            gui.add_text("Stratologger Voltage:")
+                            self.stratologger_voltage = gui.add_text("0.00")
+                            gui.add_text("Camera Voltage:")
+                            self.camera_voltage = gui.add_text("0.00")
+                            gui.add_text("Battery Voltage:")
+                            self.battery_voltage = gui.add_text("0.00")
+                    with gui.table_row(height=VIEWPORT_HEIGHT // 9):
+                        with gui.table_cell():
+                            gui.add_text("Telemetrum Current:")
+                            self.telemetrum_current = gui.add_text("0.00")
+                            gui.add_text("Stratologger Current")
+                            self.stratologger_current = gui.add_text("0.00")
+                            gui.add_text("Camera Current:")
+                            self.camera_current = gui.add_text("0.00")
+                    with gui.table_row(height=VIEWPORT_HEIGHT // 10):
+                        with gui.table_cell():
+                            gui.add_text("Battery Temperature:")
+                            self.battery_temperature = gui.add_text("0.00")
 
     def arm_camera(self) -> None:
         self.iliad.arm_telemetrum()
-        gui.configure_item("arm_telemetrum_popup", show=False)
+        gui.configure_item(self.arm_telemetrum_popup, show=False)
         return
 
     def arm_srad_fc(self):
         self.iliad.arm_stratologger()
-        gui.configure_item("arm_stratologger_popup", show=False)
+        gui.configure_item(self.arm_stratologger_popup, show=False)
         return
 
     def arm_cots_fc(self):
         self.iliad.arm_cots_flight_computer()
-        gui.configure_item("arm_camera_popup", show=False)
+        gui.configure_item(self.arm_camera_popup, show=False)
         return
 
     def disarm_camera(self):
         self.iliad.disarm_telemetrum()
-        gui.configure_item("disarm_telemetrum_popup", show=False)
+        gui.configure_item(self.disarm_telemetrum_popup, show=False)
         return
 
     def disarm_srad_fc(self):
         self.iliad.disarm_stratologger()
-        gui.configure_item("disarm_stratologger_popup", show=False)
+        gui.configure_item(self.disarm_stratologger_popup, show=False)
         return
 
     def disarm_cots_fc(self):
         self.iliad.disarm_cots_flight_computer()
-        gui.configure_item("disarm_camera_popup", show=False)
+        gui.configure_item(self.disarm_camera_popup, show=False)
         return
 
     # Returns a dictionary with different config options.
@@ -496,128 +512,125 @@ class Grapher(AppComponent):
         # ARMING STATUS #
 
         if self.iliad.telemetrum_status.y_data:
-            gui.configure_item(item="telemetrum_armed_tag", show=True)
-            gui.configure_item(item="telemetrum_disarmed_tag", show=False)
-
+            gui.configure_item(self.telemetrum_armed, show=True)
+            gui.configure_item(self.telemetrum_disarmed, show=False)
         else:
-            gui.configure_item(item="telemetrum_armed_tag", show=False)
-            gui.configure_item(item="telemetrum_disarmed_tag", show=True)
+            gui.configure_item(self.telemetrum_armed, show=False)
+            gui.configure_item(self.telemetrum_disarmed, show=True)
 
         if self.iliad.stratologger_status.y_data:
-            gui.configure_item(item="stratologger_armed_tag", show=True)
-            gui.configure_item(item="stratologger_disarmed_tag", show=False)
-
+            gui.configure_item(self.stratologger_armed, show=True)
+            gui.configure_item(self.stratologger_disarmed, show=False)
         else:
-            gui.configure_item(item="stratologger_armed_tag", show=False)
-            gui.configure_item(item="stratologger_disarmed_tag", show=True)
+            gui.configure_item(self.stratologger_armed, show=False)
+            gui.configure_item(self.stratologger_disarmed, show=True)
 
         if self.iliad.camera_status.y_data:
-            gui.configure_item(item="camera_armed_tag", show=True)
-            gui.configure_item(item="camera_disarmed_tag", show=False)
-
+            gui.configure_item(self.camera_armed, show=True)
+            gui.configure_item(self.camera_disarmed, show=False)
         else:
-            gui.configure_item(item="camera_armed_tag", show=False)
-            gui.configure_item(item="camera_disarmed_tag", show=True)
+            gui.configure_item(self.camera_armed, show=False)
+            gui.configure_item(self.camera_disarmed, show=True)
 
         # LEFT SIDE BAR #
 
         # set altitude variable value
         if len(self.iliad.barometer_altitude.y_data) >= 1:
-            gui.set_value('altitudeBarometer',
+            gui.set_value(self.altitude_barometer,
                           round((self.iliad.barometer_altitude.y_data[len(self.iliad.barometer_altitude.y_data) - 1]),
                                 2))
 
         if len(self.iliad.gps_altitude.y_data) >= 1:
-            gui.set_value('altitudeGPS',
+            gui.set_value(self.altitude_gps,
                           round((self.iliad.gps_altitude.y_data[len(self.iliad.gps_altitude.y_data) - 1]), 2))
 
         # set regular acceleration variable values
         if len(self.iliad.accelerometer_x.y_data) >= 1:
-            gui.set_value('accelerationX',
+            gui.set_value(self.acceleration_x,
                           round((self.iliad.accelerometer_x.y_data[len(self.iliad.accelerometer_x.y_data) - 1]), 2))
 
         if len(self.iliad.accelerometer_y.y_data) >= 1:
-            gui.set_value('accelerationY',
+            gui.set_value(self.acceleration_y,
                           round((self.iliad.accelerometer_y.y_data[len(self.iliad.accelerometer_y.y_data) - 1]), 2))
 
         if len(self.iliad.accelerometer_z.y_data) >= 1:
-            gui.set_value('accelerationZ',
+            gui.set_value(self.acceleration_z,
                           round((self.iliad.accelerometer_z.y_data[len(self.iliad.accelerometer_z.y_data) - 1]), 2))
 
         # set high g acceleration variable values
         if len(self.iliad.high_g_accelerometer_x.y_data) >= 1:
-            gui.set_value('highGaccelerationX', round(
+            gui.set_value(self.high_g_acceleration_x, round(
                 (self.iliad.high_g_accelerometer_x.y_data[len(self.iliad.high_g_accelerometer_x.y_data) - 1]), 2))
 
         if len(self.iliad.high_g_accelerometer_y.y_data) >= 1:
-            gui.set_value('highGaccelerationY', round(
+            gui.set_value(self.high_g_acceleration_y, round(
                 (self.iliad.high_g_accelerometer_y.y_data[len(self.iliad.high_g_accelerometer_y.y_data) - 1]), 2))
 
         if len(self.iliad.high_g_accelerometer_z.y_data) >= 1:
-            gui.set_value('highGaccelerationZ', round(
+            gui.set_value(self.high_g_acceleration_z, round(
                 (self.iliad.high_g_accelerometer_z.y_data[len(self.iliad.high_g_accelerometer_z.y_data) - 1]), 2))
 
         # set ground speed data variable value
         if len(self.iliad.gps_ground_speed.y_data) >= 1:
-            gui.set_value('GPSGroundSpeed',
+            gui.set_value(self.gps_ground_speed,
                           round((self.iliad.gps_ground_speed.y_data[len(self.iliad.gps_ground_speed.y_data) - 1]), 2))
 
         # set gyroscope variable values
         if len(self.iliad.gyroscope_x.y_data) >= 1:
-            gui.set_value('gyroscopeX',
+            gui.set_value(self.gyroscope_x,
                           round((self.iliad.gyroscope_x.y_data[len(self.iliad.gyroscope_x.y_data) - 1]), 2))
 
         if len(self.iliad.gyroscope_y.y_data) >= 1:
-            gui.set_value('gyroscopeY',
+            gui.set_value(self.gyroscope_y,
                           round((self.iliad.gyroscope_y.y_data[len(self.iliad.gyroscope_y.y_data) - 1]), 2))
 
         if len(self.iliad.gyroscope_z.y_data) >= 1:
-            gui.set_value('gyroscopeZ',
+            gui.set_value(self.gyroscope_z,
                           round((self.iliad.gyroscope_z.y_data[len(self.iliad.gyroscope_z.y_data) - 1]), 2))
 
             # RIGHT SIDE BAR #
             # set latitude/longitude variable values
             if len(self.iliad.gps_latitude.y_data) >= 1:
-                gui.set_value('latitude',
+                gui.set_value(self.latitude,
                               round((self.iliad.gps_latitude.y_data[len(self.iliad.gps_latitude.y_data) - 1]), 2))
 
             if len(self.iliad.gps_longitude.y_data) >= 1:
-                gui.set_value('longitude',
+                gui.set_value(self.longitude,
                               round((self.iliad.gps_longitude.y_data[len(self.iliad.gps_longitude.y_data) - 1]), 2))
 
             # set voltage variable values
             if len(self.iliad.telemetrum_voltage.y_data) >= 1:
-                gui.set_value('telemetrumVoltage', round(
+                gui.set_value(self.telemetrum_voltage, round(
                     (self.iliad.telemetrum_voltage.y_data[len(self.iliad.telemetrum_voltage.y_data) - 1]), 2))
 
             if len(self.iliad.stratologger_voltage.y_data) >= 1:
-                gui.set_value('stratologgerVoltage', round(
+                gui.set_value(self.stratologger_voltage, round(
                     (self.iliad.stratologger_voltage.y_data[len(self.iliad.stratologger_voltage.y_data) - 1]), 2))
 
             if len(self.iliad.camera_voltage.y_data) >= 1:
-                gui.set_value('cameraVoltage',
+                gui.set_value(self.camera_voltage,
                               round((self.iliad.camera_voltage.y_data[len(self.iliad.camera_voltage.y_data) - 1]), 2))
 
             if len(self.iliad.battery_voltage.y_data) >= 1:
-                gui.set_value('batteryVoltage',
+                gui.set_value(self.battery_voltage,
                               round((self.iliad.battery_voltage.y_data[len(self.iliad.battery_voltage.y_data) - 1]), 2))
 
             # set board current variable values
             if len(self.iliad.telemetrum_current.y_data) >= 1:
-                gui.set_value('telemetrumCurrent', round(
+                gui.set_value(self.telemetrum_current, round(
                     (self.iliad.telemetrum_current.y_data[len(self.iliad.telemetrum_current.y_data) - 1]), 2))
 
             if len(self.iliad.stratologger_current.y_data) >= 1:
-                gui.set_value('stratologgerCurrent', round(
+                gui.set_value(self.stratologger_current, round(
                     (self.iliad.stratologger_current.y_data[len(self.iliad.stratologger_current.y_data) - 1]), 2))
 
             if len(self.iliad.camera_current.y_data) >= 1:
-                gui.set_value('cameraCurrent',
+                gui.set_value(self.camera_current,
                               round((self.iliad.camera_current.y_data[len(self.iliad.camera_current.y_data) - 1]), 2))
 
             # set board temperature variable values
             if len(self.iliad.battery_temperature.y_data) >= 1:
-                gui.set_value('batteryTemperature', round(
+                gui.set_value(self.battery_temperature, round(
                     (self.iliad.battery_temperature.y_data[len(self.iliad.battery_temperature.y_data) - 1]), 2))
 
         # GRAPHS #
