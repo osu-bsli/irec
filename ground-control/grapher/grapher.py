@@ -140,8 +140,8 @@ class Plot:
     def __init__(self, label_text, x_axis_label, y_axis_label, **series_list: str):
         self.fit = Plot.Fit.SLIDING_WINDOW
         self.label_text = label_text
-        self.tag_y: Optional[int | str] = None
-        self.tag_x: Optional[int | str] = None
+        self.x_axis_tag: Optional[int | str] = None
+        self.y_axis_tag: Optional[int | str] = None
         self.x_axis_label = x_axis_label
         self.y_axis_label = y_axis_label
         self.series_list = series_list
@@ -161,12 +161,12 @@ class Plot:
 
                 with gui.plot(label=self.label_text, height=PLOT_HEIGHT, width=PLOT_WIDTH):
                     gui.add_plot_legend()
-                    self.tag_x = gui.add_plot_axis(gui.mvXAxis, label=self.x_axis_label)
-                    self.tag_y = gui.add_plot_axis(gui.mvYAxis, label=self.y_axis_label)
+                    self.x_axis_tag = gui.add_plot_axis(gui.mvXAxis, label=self.x_axis_label)
+                    self.y_axis_tag = gui.add_plot_axis(gui.mvYAxis, label=self.y_axis_label)
 
                     for tag, label in self.series_list.items():
                         gui.add_line_series(x=[0.0] * nsamples, y=[0.0] * nsamples,
-                                            label=label, parent=self.tag_y,
+                                            label=label, parent=self.y_axis_tag,
                                             tag=tag)
 
     def update(self, **data_series: DataSeries):
@@ -181,11 +181,11 @@ class Plot:
 
         match self.fit:
             case Plot.Fit.SLIDING_WINDOW | Plot.Fit.AUTO:
-                gui.fit_axis_data(self.tag_x)
-                gui.fit_axis_data(self.tag_y)
+                gui.fit_axis_data(self.x_axis_tag)
+                gui.fit_axis_data(self.y_axis_tag)
             case Plot.Fit.MANUAL:
-                gui.set_axis_limits_auto(self.tag_x)
-                gui.set_axis_limits_auto(self.tag_y)
+                gui.set_axis_limits_auto(self.x_axis_tag)
+                gui.set_axis_limits_auto(self.y_axis_tag)
 
 
 altitude_plot = Plot('Altitude', 'Time(s)', 'Altitude (meters)',
@@ -625,7 +625,7 @@ class Grapher(AppComponent):
         altitude_plot.update(barometer_altitude=self.iliad.barometer_altitude, gps_altitude=self.iliad.gps_altitude)
         acceleration_plot.update(acceleration_z=self.iliad.accelerometer_z, high_g_acceleration_z=self.iliad.high_g_accelerometer_z)
         gps_ground_speed_plot.update(gps_ground_speed=self.iliad.gps_ground_speed)
-        gyroscope_plot.update(gyroscope_x=self.iliad.gyroscope_x, gyroscope_y=self.iliad.gyroscope_y, gyroscope_z=self.iliad.gyroscope_z, )
+        gyroscope_plot.update(gyroscope_x=self.iliad.gyroscope_x, gyroscope_y=self.iliad.gyroscope_y, gyroscope_z=self.iliad.gyroscope_z)
 
         time.sleep(0.01)
 
