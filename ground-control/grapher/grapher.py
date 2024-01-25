@@ -128,33 +128,25 @@ def display_checklist():
                             gui.add_checkbox(label=item, tag=f'ChecklistItem{idx}')
 
 
+class LineSeries:
+    def __init__(self, series_tag, label_text):
+        self.series_tag = series_tag
+        self.label_text = label_text
+
 class Plot:
     class Fit(Enum):
         MANUAL = 0,
         AUTO = 1,
         SLIDING_WINDOW = 2
 
-    class LineSeriesData:
-        def __init__(self, series_tag, label_text):
-            self.series_tag = series_tag
-            self.label_text = label_text
-
-    def __init__(self, label_text, x_axis_label, y_axis_label):
+    def __init__(self, label_text, x_axis_label, y_axis_label, *line_series_list: LineSeries):
         self.fit = Plot.Fit.SLIDING_WINDOW
         self.label_text = label_text
         self.tag_y: Optional[int | str] = None
         self.tag_x: Optional[int | str] = None
         self.x_axis_label = x_axis_label
         self.y_axis_label = y_axis_label
-        self.line_series_list: list[Plot.LineSeriesData] = []
-
-    def line_series(self, series_tag, label_text):
-        self.line_series_list.append(Plot.LineSeriesData(
-            series_tag,
-            label_text,
-        ))
-
-        return self
+        self.line_series_list = line_series_list
 
     def add(self):
         with gui.group(horizontal=False):
@@ -189,23 +181,21 @@ class Plot:
                 gui.set_axis_limits_auto(self.tag_y)
 
 
-altitude_plot = Plot('Altitude', 'Time(s)',
-                     'Altitude (meters)') \
-    .line_series('barometer_altitude_tag', 'Barometer Altitude') \
-    .line_series('gps_altitude_tag', 'GPS Altitude')
+altitude_plot = Plot('Altitude', 'Time(s)', 'Altitude (meters)',
+                     LineSeries('barometer_altitude_tag', 'Barometer Altitude'),
+                     LineSeries('gps_altitude_tag', 'GPS Altitude'))
 
-acceleration_plot = Plot("Acceleration", 'Time(s)',
-                         'Acceleration (m/s^2)') \
-    .line_series('accelerationZ_tag', 'Acceleration Z') \
-    .line_series('highGaccelerationZ_tag', 'High G Acceleration Z')
+acceleration_plot = Plot("Acceleration", 'Time(s)', 'Acceleration (m/s^2)',
+                         LineSeries('accelerationZ_tag', 'Acceleration Z'),
+                         LineSeries('highGaccelerationZ_tag', 'High G Acceleration Z'))
 
-gps_ground_speed_plot = Plot("GPS Ground Speed", 'Time(s)', 'Velocity (m/s)') \
-    .line_series('GPS_Ground_Speed_tag', 'GPS Ground Speed')
+gps_ground_speed_plot = Plot("GPS Ground Speed", 'Time(s)', 'Velocity (m/s)',
+                             LineSeries('GPS_Ground_Speed_tag', 'GPS Ground Speed'))
 
-gyroscope_plot = Plot("Gyroscope",  'Time(s)', '(RPS)') \
-    .line_series('Gyroscope_x_tag', "Gyroscope X Data") \
-    .line_series('Gyroscope_y_tag', "Gyroscope Y Data") \
-    .line_series('Gyroscope_z_tag', "Gyroscope Z Data")
+gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
+                      LineSeries('Gyroscope_x_tag', "Gyroscope X Data"),
+                      LineSeries('Gyroscope_y_tag', "Gyroscope Y Data"),
+                      LineSeries('Gyroscope_z_tag', "Gyroscope Z Data"))
 
 
 # display the 'tracking' tab of the main GUI
