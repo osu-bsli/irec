@@ -1,6 +1,6 @@
 import time
 import tkinter as tk  # screen dimensions
-from enum import Enum, auto
+from enum import Enum
 from math import sin
 from typing import Optional
 
@@ -60,11 +60,6 @@ global latitude
 latitude = 0
 l1 = 50.4321
 
-# Use a list if you need all the data. 
-# Empty list of nsamples should exist at the beginning.
-# Theres a cleaner way to do this probably.
-original_x_axis = [0.0] * nsamples
-original_y_axis = [0.0] * nsamples
 t0 = time.time()
 
 # TODO plot data from serial in
@@ -125,7 +120,7 @@ def display_checklist():
                     "Turn on camera",
                     "Arm ejection charges",
                     "Listen for continuity beeps"
-                ];
+                ]
 
                 for idx, item in enumerate(items):
                     with gui.table_row():
@@ -140,9 +135,7 @@ class Plot:
         SLIDING_WINDOW = 2
 
     class LineSeriesData:
-        def __init__(self, x_data, y_data, series_tag, label_text):
-            self.x_data = x_data
-            self.y_data = y_data
+        def __init__(self, series_tag, label_text):
             self.series_tag = series_tag
             self.label_text = label_text
 
@@ -155,10 +148,8 @@ class Plot:
         self.y_axis_label = y_axis_label
         self.line_series_list: list[Plot.LineSeriesData] = []
 
-    def line_series(self, x_data, y_data, series_tag, label_text):
+    def line_series(self, series_tag, label_text):
         self.line_series_list.append(Plot.LineSeriesData(
-            x_data,
-            y_data,
             series_tag,
             label_text,
         ))
@@ -176,7 +167,6 @@ class Plot:
                 gui.add_button(label="Sliding Window", callback=set_fit_callback, user_data=Plot.Fit.SLIDING_WINDOW)
 
             with gui.group(horizontal=False):
-                # TODO: create_plot
                 gui.window(label=self.label_text)
 
                 with gui.plot(label=self.label_text, height=PLOT_HEIGHT, width=PLOT_WIDTH):
@@ -184,9 +174,8 @@ class Plot:
                     self.tag_x = gui.add_plot_axis(gui.mvXAxis, label=self.x_axis_label)
                     self.tag_y = gui.add_plot_axis(gui.mvYAxis, label=self.y_axis_label)
 
-                    # TODO: add_line_series_custom
                     for s in self.line_series_list:
-                        gui.add_line_series(x=list(s.x_data), y=list(s.y_data),
+                        gui.add_line_series(x=[0.0] * nsamples, y=[0.0] * nsamples,
                                             label=s.label_text, parent=self.tag_y,
                                             tag=s.series_tag)
 
@@ -202,35 +191,26 @@ class Plot:
 
 altitude_plot = Plot('Altitude', 'Time(s)',
                      'Altitude (meters)') \
-    .line_series(original_x_axis, original_y_axis, 'barometer_altitude_tag',
-                 'Barometer Altitude') \
-    .line_series(original_x_axis, original_y_axis, 'gps_altitude_tag',
-                 'GPS Altitude')
+    .line_series('barometer_altitude_tag', 'Barometer Altitude') \
+    .line_series('gps_altitude_tag', 'GPS Altitude')
 
 acceleration_plot = Plot("Acceleration", 'Time(s)',
                          'Acceleration (m/s^2)') \
-    .line_series(original_x_axis, original_y_axis, 'accelerationZ_tag',
-                 'Acceleration Z ') \
-    .line_series(original_x_axis, original_y_axis, 'highGaccelerationZ_tag',
-                 'High G Acceleration Z')
+    .line_series('accelerationZ_tag', 'Acceleration Z') \
+    .line_series('highGaccelerationZ_tag', 'High G Acceleration Z')
 
 gps_ground_speed_plot = Plot("GPS Ground Speed", 'Time(s)', 'Velocity (m/s)') \
-    .line_series(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag',
-                 'GPS Ground Speed')
+    .line_series('GPS_Ground_Speed_tag', 'GPS Ground Speed')
 
 gyroscope_plot = Plot("Gyroscope",  'Time(s)', '(RPS)') \
-    .line_series(original_x_axis, original_y_axis, 'Gyroscope_x_tag',
-                 "Gyroscope X Data") \
-    .line_series(original_x_axis, original_y_axis, 'Gyroscope_y_tag',
-                 "Gyroscope Y Data") \
-    .line_series(original_x_axis, original_y_axis, 'Gyroscope_z_tag',
-                 "Gyroscope Z Data")
+    .line_series('Gyroscope_x_tag', "Gyroscope X Data") \
+    .line_series('Gyroscope_y_tag', "Gyroscope Y Data") \
+    .line_series('Gyroscope_z_tag', "Gyroscope Z Data")
 
 
 # display the 'tracking' tab of the main GUI
 def display_tracking():
     with (gui.tab(label="Tracking", parent='app.main_tab_bar')):
-        # TODO: OLD
         with gui.group(horizontal=True):
             with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
                            borders_innerH=False, borders_outerH=True, borders_innerV=True,
