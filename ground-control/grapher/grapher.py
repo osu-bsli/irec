@@ -7,6 +7,7 @@ from typing import Optional
 import dearpygui.dearpygui as gui
 
 from components.app_component import AppComponent
+from components.data_series import DataSeries
 from data_controllers.iliad_data_controller import IliadDataController
 
 # layout constants
@@ -125,29 +126,25 @@ def display_checklist():
                 for idx, item in enumerate(items):
                     with gui.table_row():
                         with gui.table_cell():
-                            gui.add_checkbox(label=item, tag=f'ChecklistItem{idx}')
+                            gui.add_checkbox(label=item, tag=f'checklist_item_{idx}')
 
 
-class LineSeries:
-    def __init__(self, series_tag, label_text):
-        self.series_tag = series_tag
-        self.label_text = label_text
-
-
+# This class doesn't have support for dynamically adding axes and series.
+# If you need to, feel free to refactor it so it does!
 class Plot:
     class Fit(Enum):
         MANUAL = 0,
         AUTO = 1,
         SLIDING_WINDOW = 2
 
-    def __init__(self, label_text, x_axis_label, y_axis_label, *line_series_list: LineSeries):
+    def __init__(self, label_text, x_axis_label, y_axis_label, **series_list: str):
         self.fit = Plot.Fit.SLIDING_WINDOW
         self.label_text = label_text
         self.tag_y: Optional[int | str] = None
         self.tag_x: Optional[int | str] = None
         self.x_axis_label = x_axis_label
         self.y_axis_label = y_axis_label
-        self.line_series_list = line_series_list
+        self.series_list = series_list
 
     def add(self):
         with gui.group(horizontal=False):
@@ -155,7 +152,6 @@ class Plot:
                 def set_fit_callback(sender, app_data, user_data):
                     self.fit = user_data
 
-                # "self" in set_fit_callback will be bound to this Plot instance
                 gui.add_button(label="Manual Fit", callback=set_fit_callback, user_data=Plot.Fit.MANUAL)
                 gui.add_button(label="Auto Fit", callback=set_fit_callback, user_data=Plot.Fit.AUTO)
                 gui.add_button(label="Sliding Window", callback=set_fit_callback, user_data=Plot.Fit.SLIDING_WINDOW)
@@ -168,12 +164,21 @@ class Plot:
                     self.tag_x = gui.add_plot_axis(gui.mvXAxis, label=self.x_axis_label)
                     self.tag_y = gui.add_plot_axis(gui.mvYAxis, label=self.y_axis_label)
 
-                    for s in self.line_series_list:
+                    for tag, label in self.series_list.items():
                         gui.add_line_series(x=[0.0] * nsamples, y=[0.0] * nsamples,
-                                            label=s.label_text, parent=self.tag_y,
-                                            tag=s.series_tag)
+                                            label=label, parent=self.tag_y,
+                                            tag=tag)
 
-    def update(self):
+    def update(self, **data_series: DataSeries):
+        for tag, ds in data_series.items():
+            match self.fit:
+                case Plot.Fit.AUTO:
+                    gui.set_value(tag, [ds.x_data, ds.y_data])
+                case Plot.Fit.MANUAL:
+                    gui.set_value(tag, [ds.x_data, ds.y_data])
+                case Plot.Fit.SLIDING_WINDOW:
+                    gui.set_value(tag, [ds.x_data[-nsamples:], ds.y_data[-nsamples:]])
+
         match self.fit:
             case Plot.Fit.SLIDING_WINDOW | Plot.Fit.AUTO:
                 gui.fit_axis_data(self.tag_x)
@@ -184,20 +189,20 @@ class Plot:
 
 
 altitude_plot = Plot('Altitude', 'Time(s)', 'Altitude (meters)',
-                     LineSeries('barometer_altitude_tag', 'Barometer Altitude'),
-                     LineSeries('gps_altitude_tag', 'GPS Altitude'))
+                     barometer_altitude='Barometer Altitude',
+                     gps_altitude='GPS Altitude')
 
 acceleration_plot = Plot("Acceleration", 'Time(s)', 'Acceleration (m/s^2)',
-                         LineSeries('accelerationZ_tag', 'Acceleration Z'),
-                         LineSeries('highGaccelerationZ_tag', 'High G Acceleration Z'))
+                         acceleration_z='Acceleration Z',
+                         high_g_acceleration_z='High G Acceleration Z')
 
 gps_ground_speed_plot = Plot("GPS Ground Speed", 'Time(s)', 'Velocity (m/s)',
-                             LineSeries('GPS_Ground_Speed_tag', 'GPS Ground Speed'))
+                             gps_ground_speed='GPS Ground Speed')
 
 gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
-                      LineSeries('Gyroscope_x_tag', "Gyroscope X Data"),
-                      LineSeries('Gyroscope_y_tag', "Gyroscope Y Data"),
-                      LineSeries('Gyroscope_z_tag', "Gyroscope Z Data"))
+                      gyroscope_x="Gyroscope X Data",
+                      gyroscope_y="Gyroscope Y Data",
+                      gyroscope_z="Gyroscope Z Data")
 
 
 # display the 'tracking' tab of the main GUI
@@ -488,7 +493,7 @@ class Grapher(AppComponent):
 
     def update(self) -> None:
 
-        ###Arming Status###
+        # ARMING STATUS #
 
         if self.iliad.telemetrum_status.y_data:
             gui.configure_item(item="telemetrum_armed_tag", show=True)
@@ -514,7 +519,7 @@ class Grapher(AppComponent):
             gui.configure_item(item="camera_armed_tag", show=False)
             gui.configure_item(item="camera_disarmed_tag", show=True)
 
-        ###LEFT SIDE BAR###
+        # LEFT SIDE BAR #
 
         # set altitude variable value
         if len(self.iliad.barometer_altitude.y_data) >= 1:
@@ -570,7 +575,7 @@ class Grapher(AppComponent):
             gui.set_value('gyroscopeZ',
                           round((self.iliad.gyroscope_z.y_data[len(self.iliad.gyroscope_z.y_data) - 1]), 2))
 
-            ###RIGHT SIDE BAR###
+            # RIGHT SIDE BAR #
             # set latitude/longitude variable values
             if len(self.iliad.gps_latitude.y_data) >= 1:
                 gui.set_value('latitude',
@@ -615,327 +620,12 @@ class Grapher(AppComponent):
                 gui.set_value('batteryTemperature', round(
                     (self.iliad.battery_temperature.y_data[len(self.iliad.battery_temperature.y_data) - 1]), 2))
 
-        # Get new data sample. Note we need both x and y values
-        # if we want a meaningful axis unit.
-        # t = time.time() - t0
-        # y = (2.0 * frequency * t)
-        # y2= (4.0 * sin(frequency) * t)
-        # y3=(4.0 * frequency * t)
-        # AY_axis.append(y)
-        # Altitude.append(t)
-        # BY_axis.append(y2)
-        # Acceleration.append(t)
-        # CY_axis.append(y3)
-        # Velocity.append(t)
+        # GRAPHS #
 
-        # set the series x and y to the last nsamples
-        # Set altitude data:
-        gui.set_value('barometer_altitude_tag',
-                      [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
-        # gui.fit_axis_data('Altitude_x_axis')
-        # gui.fit_axis_data('Altitude_y_axis')
-
-        gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data, self.iliad.gps_altitude.y_data])
-        # gui.fit_axis_data('Altitude_x_axis')
-        # gui.fit_axis_data('Altitude_y_axis')
-
-        # set acceleration X data:
-        # gui.set_value('AccelerationX_tag', [self.iliad.acceleration_x_data.x_data, self.iliad.acceleration_x_data.y_data])
-        # gui.fit_axis_data('Acceleration_x_axis')
-        # gui.fit_axis_data('Acceleration_y_axis')
-
-        # set acceleration Y data:
-        # gui.set_value('AccelerationY_tag', [self.iliad.acceleration_y_data.x_data, self.iliad.acceleration_x_data.y_data])
-        # gui.fit_axis_data('Acceleration_x_axis')
-        # gui.fit_axis_data('Acceleration_y_axis')
-
-        # set acceleration Z data:
-        gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
-        # gui.fit_axis_data('Acceleration_x_axis')
-        # gui.fit_axis_data('Acceleration_y_axis')
-
-        # set high G acceleration Z data:
-        gui.set_value('highGaccelerationZ_tag',
-                      [self.iliad.high_g_accelerometer_z.x_data, self.iliad.high_g_accelerometer_z.y_data])
-        # gui.fit_axis_data('Acceleration_x_axis')
-        # gui.fit_axis_data('Acceleration_y_axis')
-
-        # if(len(self.iliad.gps_latitude_data.y_data) >= 1):
-        # print(self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1])
-        # set gps latitude data:
-        # gui.set_value('GPS_Latitude_tag', self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)])
-        # gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
-        # gui.fit_axis_data('GPS_Latitude_and_Longitude_y_axis')
-
-        # set gps longitude data:
-        # gui.set_value('GPS_Longitude_tag', [self.iliad.gps_longitude_data.x_data, self.iliad.gps_longitude_data.y_data])
-        # gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
-        # gui.fit_axis_data('GPS_Latitude_and_Longitude_x_axis')
-
-        # set board 1 temperature data:
-        # gui.set_value('board_1_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
-        # gui.fit_axis_data('board_temperature_data_x_axis')
-        # gui.fit_axis_data('board_temperature_data_y_axis')
-
-        # set board 2 temperature data:
-        # gui.set_value('board_2_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
-        # gui.fit_axis_data('board_temperature_data_x_axis')
-        # gui.fit_axis_data('board_temperature_data_y_axis')
-
-        # set board 3 temperature data:
-        # gui.set_value('board_3_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
-        # gui.fit_axis_data('board_temperature_data_x_axis')
-        # gui.fit_axis_data('board_temperature_data_y_axis')
-
-        # set board 4 temperature data:
-        # gui.set_value('board_4_temperature_data_tag', [self.iliad.board_1_temperature_data.x_data, self.iliad.board_1_temperature_data.y_data])
-        # gui.fit_axis_data('board_temperature_data_x_axis')
-        # gui.fit_axis_data('board_temperature_data_y_axis')
-
-        # set board 1 voltage data:
-        # gui.set_value('board_1_voltage_data_tag', [self.iliad.board_1_voltage_data.x_data, self.iliad.board_1_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Voltage_x_axis')
-        # gui.fit_axis_data('Board_Voltage_y_axis')
-
-        # set board 2 voltage data:
-        # gui.set_value('board_2_voltage_data_tag', [self.iliad.board_2_voltage_data.x_data, self.iliad.board_2_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Voltage_x_axis')
-        # gui.fit_axis_data('Board_Voltage_y_axis')
-
-        # set board 3 voltage data:
-        # gui.set_value('board_3_voltage_data_tag', [self.iliad.board_3_voltage_data.x_data, self.iliad.board_3_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Voltage_x_axis')
-        # gui.fit_axis_data('Board_Voltage_y_axis')
-
-        # set board 4 voltage data:
-        # gui.set_value('board_4_voltage_data_tag', [self.iliad.board_4_voltage_data.x_data, self.iliad.board_4_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Voltage_x_axis')
-        # gui.fit_axis_data('Board_Voltage_y_axis')
-
-        # set board 1 current data:
-        # gui.set_value('board_1_current_data_tag', [self.iliad.board_1_current_data.x_data, self.iliad.board_1_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Current_x_axis')
-        # gui.fit_axis_data('Board_Current_y_axis')
-
-        # set board 2 current data:
-        # gui.set_value('board_2_current_data_tag', [self.iliad.board_2_current_data.x_data, self.iliad.board_2_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Current_x_axis')
-        # gui.fit_axis_data('Board_Current_y_axis')
-
-        # set board 3 current data:
-        # gui.set_value('board_3_current_data_tag', [self.iliad.board_3_current_data.x_data, self.iliad.board_3_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Current_x_axis')
-        # gui.fit_axis_data('Board_Current_y_axis')
-
-        # set board 4 current data:
-        # gui.set_value('board_4_current_data_tag', [self.iliad.board_4_current_data.x_data, self.iliad.board_4_voltage_data.y_data])
-        # gui.fit_axis_data('Board_Current_x_axis')
-        # gui.fit_axis_data('Board_Current_y_axis')
-
-        # set battery 1 current data:
-        # gui.set_value('battery_1_voltage_data_tag', [self.iliad.battery_1_voltage_data.x_data, self.iliad.board_1_voltage_data.y_data])
-        # gui.fit_axis_data('Battery_Voltage_x_axis')
-        # gui.fit_axis_data('Battery_Voltage_y_axis')
-
-        # set battery 2 current data:
-        # gui.set_value('battery_2_voltage_data_tag', [self.iliad.battery_2_voltage_data.x_data, self.iliad.board_2_voltage_data.y_data])
-        # gui.fit_axis_data('Battery_Voltage_x_axis')
-        # gui.fit_axis_data('Battery_Voltage_y_axis')
-
-        # set battery 3 current data:
-        # gui.set_value('battery_3_voltage_data_tag', [self.iliad.battery_3_voltage_data.x_data, self.iliad.board_3_voltage_data.y_data])
-        # gui.fit_axis_data('Battery_Voltage_x_axis')
-        # gui.fit_axis_data('Battery_Voltage_y_axis')
-
-        # set magnetometer 1 data:
-        # gui.set_value('Magnetometer_X_tag', [self.iliad.magnetometer_data_1.x_data, self.iliad.magnetometer_data_1.y_data])
-        # gui.fit_axis_data('Magnetometer_x_axis')
-        # gui.fit_axis_data('Magnetometer_y_axis')
-
-        # set magnetometer 2 data:
-        # gui.set_value('Magnetometer_Y_tag', [self.iliad.magnetometer_data_2.x_data, self.iliad.magnetometer_data_2.y_data])
-        # gui.fit_axis_data('Magnetometer_x_axis')
-        # gui.fit_axis_data('Magnetometer_y_axis')
-
-        # set magnetometer 3 data:
-        # gui.set_value('Magnetometer_Z_tag', [self.iliad.magnetometer_data_3.x_data, self.iliad.magnetometer_data_3.y_data])
-        # gui.fit_axis_data('Magnetometer_x_axis')
-        # gui.fit_axis_data('Magnetometer_y_axis')
-
-        # set gyroscope X data:
-        gui.set_value('Gyroscope_x_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
-        # gui.fit_axis_data('Gyroscope_x_axis')
-        # gui.fit_axis_data('Gyroscope_y_axis')
-
-        # set gyroscope Y data:
-        gui.set_value('Gyroscope_y_tag', [self.iliad.gyroscope_y.x_data, self.iliad.gyroscope_y.y_data])
-        # gui.fit_axis_data('Gyroscope_x_axis')
-        # gui.fit_axis_data('Gyroscope_y_axis')
-
-        # set gyroscope Z data:
-        gui.set_value('Gyroscope_z_tag', [self.iliad.gyroscope_z.x_data, self.iliad.gyroscope_z.y_data])
-        # gui.fit_axis_data('Gyroscope_x_axis')
-        # gui.fit_axis_data('Gyroscope_y_axis')
-
-        """#set gps satellites data:
-            gui.set_value('GPS_Satellites_tag', [self.iliad.gps_satellites_data.x_data, self.iliad.gps_satellites_data.y_data])
-            gui.fit_axis_data('GPS_Satellites_x_axis')
-            gui.fit_axis_data('GPS_Satellites_y_axis')"""
-
-        # set gps ground speed data:
-
-        gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
-        # gui.fit_axis_data('GPS_Ground_Speed_x_axis')
-        # gui.fit_axis_data('GPS_Ground_Speed_y_axis')
-
-        ''''#CSV File Stuff
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                #time_last_value = self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                #camera_arming_last_value = self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                #time_last_value = self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                #SRADFC_arming_last_value = self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                #COTSFC_arming_last_value = self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                altitude1_last_value = self.iliad.altitude_1_data.y_data[len(self.iliad.altitude_1_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                altitude2_last_value = self.iliad.altitude_2_data.y_data[len(self.iliad.altitude_2_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                accelerationX_last_value = self.iliad.acceleration_x_data.y_data[len(self.iliad.acceleration_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                accelerationY_last_value = self.iliad.acceleration_y_data.y_data[len(self.iliad.acceleration_y_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                accelerationZ_last_value = self.iliad.acceleration_z_data.y_data[len(self.iliad.acceleration_z_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                GPS_ground_speed_last_value = self.iliad.gps_ground_speed_data.y_data[len(self.iliad.gps_ground_speed_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                gyroscope_x_data_last_value = self.iliad.gyroscope_x_data.y_data[len(self.iliad.gyroscope_x_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                gyroscope_y_data_last_value = self.iliad.gyroscope_y_data.y_data[len(self.iliad.gyroscope_y_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                gyroscope_z_data_last_value = self.iliad.gyroscope_z_data.y_data[len(self.iliad.gyroscope_z_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                latitude_last_value = self.iliad.gps_latitude_data.y_data[len(self.iliad.gps_latitude_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                longitude_last_value = self.iliad.gps_longitude_data.y_data[len(self.iliad.gps_longitude_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_1_voltage_last_value = self.iliad.board_1_voltage_data.y_data[len(self.iliad.board_1_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_2_voltage_last_value = self.iliad.board_1_voltage_data.y_data[len(self.iliad.board_1_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_3_voltage_last_value = self.iliad.board_1_voltage_data.y_data[len(self.iliad.board_1_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_4_voltage_last_value = self.iliad.board_1_voltage_data.y_data[len(self.iliad.board_1_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_1_current_last_value = self.iliad.board_1_current_data.y_data[len(self.iliad.board_1_current_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_2_current_last_value = self.iliad.board_2_current_data.y_data[len(self.iliad.board_2_current_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_3_current_last_value = self.iliad.board_3_current_data.y_data[len(self.iliad.board_3_current_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_4_current_last_value = self.iliad.board_4_current_data.y_data[len(self.iliad.board_4_current_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_1_temperature_last_value = self.iliad.board_1_temperature_data.y_data[len(self.iliad.board_1_temperature_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_2_temprature_last_value = self.iliad.board_2_temperature_data.y_data[len(self.iliad.board_2_temperature_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_3_temperature_last_value = self.iliad.board_3_temperature_data.y_data[len(self.iliad.board_3_temperature_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                board_4_temperature_last_value = self.iliad.board_4_temperature_data.y_data[len(self.iliad.board_4_temperature_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                battery_voltage_1_data_last_value = self.iliad.battery_1_voltage_data.y_data[len(self.iliad.battery_1_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                battery_voltage_2_data_last_value = self.iliad.battery_2_voltage_data.y_data[len(self.iliad.battery_2_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-                battery_voltage_3_data_last_value = self.iliad.battery_3_voltage_data.y_data[len(self.iliad.battery_3_voltage_data.y_data)-1]
-            if(len(self.iliad.battery_3_voltage_data.y_data) >= 1):
-
-
-
-
-
-
-            rowList.append(self.iliad.gps_ground_speed_data.x_data)
-            writePacketToFile()'''
-
-        # update_data()
-
-        # acceleration_1_x_values: list[float] = []
-        # acceleration_1_y_values: list[float] = []
-        # for point in self.iliad.altitude_1_data:
-        #     altitude_1_x_values.append(point[0])
-        #     altitude_1_y_values.append(point[1])
-        # gui.set_value('Acceleration_tag', [acceleration_1_x_values, acceleration_1_y_values])
-        # gui.fit_axis_data('x_axis2')
-        # gui.fit_axis_data('y_axis2') 
-        # gui.set_value('Velocity_tag', [list(Velocity[-nsamples:]), list(CY_axis[-nsamples:])])
-        # gui.fit_axis_data('x_axis3')
-        # gui.fit_axis_data('y_axis3')       
-
-        altitude_plot.update()
-        match altitude_plot.fit:
-            case Plot.Fit.AUTO:
-                gui.set_value('barometer_altitude_tag',
-                              [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
-                gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data, self.iliad.gps_altitude.y_data])
-            case Plot.Fit.MANUAL:
-                gui.set_value('barometer_altitude_tag',
-                              [self.iliad.barometer_altitude.x_data, self.iliad.barometer_altitude.y_data])
-                gui.set_value('gps_altitude_tag', [self.iliad.gps_altitude.x_data, self.iliad.gps_altitude.y_data])
-            case Plot.Fit.SLIDING_WINDOW:
-                gui.set_value('barometer_altitude_tag', [self.iliad.barometer_altitude.x_data[-nsamples:],
-                                                         self.iliad.barometer_altitude.y_data[-nsamples:]])
-                gui.set_value('gps_altitude_tag',
-                              [self.iliad.gps_altitude.x_data[-nsamples:], self.iliad.gps_altitude.y_data[-nsamples:]])
-
-        acceleration_plot.update()
-        match acceleration_plot.fit:
-            case Plot.Fit.AUTO:
-                gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
-                gui.set_value('highGaccelerationZ_tag',
-                              [self.iliad.high_g_accelerometer_z.x_data, self.iliad.high_g_accelerometer_z.y_data])
-            case Plot.Fit.MANUAL:
-                gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data, self.iliad.accelerometer_z.y_data])
-                gui.set_value('highGaccelerationZ_tag',
-                              [self.iliad.high_g_accelerometer_z.x_data, self.iliad.high_g_accelerometer_z.y_data])
-            case Plot.Fit.SLIDING_WINDOW:
-                gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data[-nsamples:],
-                                                    self.iliad.accelerometer_z.y_data[-nsamples:]])
-                gui.set_value('highGaccelerationZ_tag', [self.iliad.high_g_accelerometer_z.x_data[-nsamples:],
-                                                         self.iliad.high_g_accelerometer_z.y_data[-nsamples:]])
-
-        gps_ground_speed_plot.update()
-        match gps_ground_speed_plot.fit:
-            case Plot.Fit.AUTO:
-                gui.set_value('GPS_Ground_Speed_tag',
-                              [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
-            case Plot.Fit.MANUAL:
-                gui.set_value('GPS_Ground_Speed_tag',
-                              [self.iliad.gps_ground_speed.x_data, self.iliad.gps_ground_speed.y_data])
-            case Plot.Fit.SLIDING_WINDOW:
-                gui.set_value('GPS_Ground_Speed_tag', [self.iliad.gps_ground_speed.x_data[-nsamples:],
-                                                       self.iliad.gps_ground_speed.y_data[-nsamples:]])
-
-        gyroscope_plot.update()
-        match gyroscope_plot.fit:
-            case Plot.Fit.AUTO:
-                gui.set_value('Gyroscope_x_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
-                gui.set_value('Gyroscope_y_tag', [self.iliad.gyroscope_y.x_data, self.iliad.gyroscope_y.y_data])
-                gui.set_value('Gyroscope_z_tag', [self.iliad.gyroscope_z.x_data, self.iliad.gyroscope_z.y_data])
-            case Plot.Fit.MANUAL:
-                gui.set_value('Gyroscope_x_tag', [self.iliad.gyroscope_x.x_data, self.iliad.gyroscope_x.y_data])
-                gui.set_value('Gyroscope_y_tag', [self.iliad.gyroscope_y.x_data, self.iliad.gyroscope_y.y_data])
-                gui.set_value('Gyroscope_z_tag', [self.iliad.gyroscope_z.x_data, self.iliad.gyroscope_z.y_data])
-            case Plot.Fit.SLIDING_WINDOW:
-                gui.set_value('Gyroscope_x_tag',
-                              [self.iliad.gyroscope_x.x_data[-nsamples:], self.iliad.gyroscope_x.y_data[-nsamples:]])
-                gui.set_value('Gyroscope_y_tag',
-                              [self.iliad.gyroscope_y.x_data[-nsamples:], self.iliad.gyroscope_y.y_data[-nsamples:]])
-                gui.set_value('Gyroscope_z_tag',
-                              [self.iliad.gyroscope_z.x_data[-nsamples:], self.iliad.gyroscope_z.y_data[-nsamples:]])
+        altitude_plot.update(barometer_altitude=self.iliad.barometer_altitude, gps_altitude=self.iliad.gps_altitude)
+        acceleration_plot.update(acceleration_z=self.iliad.accelerometer_z, high_g_acceleration_z=self.iliad.high_g_accelerometer_z)
+        gps_ground_speed_plot.update(gps_ground_speed=self.iliad.gps_ground_speed)
+        gyroscope_plot.update(gyroscope_x=self.iliad.gyroscope_x, gyroscope_y=self.iliad.gyroscope_y, gyroscope_z=self.iliad.gyroscope_z, )
 
         time.sleep(0.01)
 
