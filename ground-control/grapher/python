@@ -1,5 +1,0 @@
-from dearpygui.dearpygui import *
-
-add_input_text("You", default_value="cannot change the people around you",readonly=True) 
-add_input_text("But you", default_value="can change the people you choose to be around", multiline=True, readonly=True) 
-start_dearpygui() 
