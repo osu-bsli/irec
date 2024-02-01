@@ -1,7 +1,7 @@
 """
 Simulates launch using telmetry data from summer 2022.
 
-Uses data/flight_data_2.csv which you'll need to get from Peter.
+Uses test_data/simulator_data_flight_data_2.csv
 """
 from datetime import datetime
 import packetlib.packet as packet
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # _lib.write_gps_satellite_count_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_int]
     # _lib.write_gps_ground_speed_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float]
 
-    with open('data/flight_data_2.csv') as csv_file:
+    with open('test_data/simulator_data_flight_data_2.csv') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
             timestamp: float = float(row['time'])
