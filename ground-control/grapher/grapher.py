@@ -209,13 +209,6 @@ class Grapher(AppComponent):
         self.gyroscope_y = None
         self.gyroscope_z = None
 
-        self.telemetrum_armed = None
-        self.telemetrum_disarmed = None
-        self.stratologger_armed = None
-        self.stratologger_disarmed = None
-        self.camera_armed = None
-        self.camera_disarmed = None
-
         self.latitude = None
         self.longitude = None
         self.telemetrum_voltage = None
@@ -311,50 +304,6 @@ class Grapher(AppComponent):
             with gui.theme(tag="theme_unarmed"):
                 with gui.theme_component(gui.mvButton):
                     gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
-
-            # Button for Telemetry status
-            self.telemetrum_armed = gui.add_button(label='Telemetrum Armed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.disarm_telemetrum_popup:
-                gui.add_text("Disarm Telemetrum?")
-                gui.add_button(label="Yes", callback=self.disarm_camera)
-                gui.configure_item(self.disarm_telemetrum_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
-            gui.bind_item_theme(self.telemetrum_armed, "theme_armed")
-
-            self.stratologger_armed = gui.add_button(label='Stratologger Armed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.disarm_stratologger_popup:
-                gui.add_text("Arm Stratologger?")
-                gui.add_button(label="Yes", callback=self.disarm_srad_fc)
-                gui.configure_item(self.disarm_stratologger_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
-            gui.bind_item_theme(self.stratologger_armed, "theme_armed")
-
-            self.camera_armed = gui.add_button(label='Camera Armed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.disarm_camera_popup:
-                gui.add_text("Arm Camera?")
-                gui.add_button(label="Yes", callback=self.disarm_cots_fc)
-                gui.configure_item(self.disarm_camera_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
-            gui.bind_item_theme(self.camera_armed, "theme_armed")
-
-            # make Unarmed buttons
-            self.telemetrum_disarmed = gui.add_button(label='Telemetrum Disarmed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.arm_telemetrum_popup:
-                gui.add_text("Arm Stratologger?")
-                gui.add_button(label="Yes", callback=self.arm_camera)
-                gui.configure_item(self.arm_telemetrum_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
-            gui.bind_item_theme(self.telemetrum_disarmed, "theme_unarmed")
-
-            self.stratologger_disarmed = gui.add_button(label='Stratologger Disarmed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.arm_stratologger_popup:
-                gui.add_text("Disarm Stratologger?")
-                gui.add_button(label="Yes", callback=self.arm_srad_fc)
-                gui.configure_item(self.arm_stratologger_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
-            gui.bind_item_theme(self.stratologger_disarmed, "theme_unarmed")
-
-            self.camera_disarmed = gui.add_button(label='Camera Disarmed', width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
-            with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True) as self.arm_camera_popup:
-                gui.add_text("Disarm Camera?")
-                gui.add_button(label="Yes", callback=self.arm_cots_fc)
-                gui.configure_item(self.arm_camera_popup, pos=(POPUP_POSITIONX, POPUP_POSITIONY))
-            gui.bind_item_theme(self.camera_disarmed, "theme_unarmed")
 
             # start without showing unarmed button
             # gui.configure_item(item="COTS_fc_unarmed_tag", show=False)
@@ -508,29 +457,6 @@ class Grapher(AppComponent):
         pass
 
     def update(self) -> None:
-
-        # ARMING STATUS #
-
-        if self.iliad.telemetrum_status.y_data:
-            gui.configure_item(self.telemetrum_armed, show=True)
-            gui.configure_item(self.telemetrum_disarmed, show=False)
-        else:
-            gui.configure_item(self.telemetrum_armed, show=False)
-            gui.configure_item(self.telemetrum_disarmed, show=True)
-
-        if self.iliad.stratologger_status.y_data:
-            gui.configure_item(self.stratologger_armed, show=True)
-            gui.configure_item(self.stratologger_disarmed, show=False)
-        else:
-            gui.configure_item(self.stratologger_armed, show=False)
-            gui.configure_item(self.stratologger_disarmed, show=True)
-
-        if self.iliad.camera_status.y_data:
-            gui.configure_item(self.camera_armed, show=True)
-            gui.configure_item(self.camera_disarmed, show=False)
-        else:
-            gui.configure_item(self.camera_armed, show=False)
-            gui.configure_item(self.camera_disarmed, show=True)
 
         # LEFT SIDE BAR #
 

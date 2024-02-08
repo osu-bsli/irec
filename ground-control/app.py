@@ -2,8 +2,6 @@ import dearpygui.dearpygui as gui
 from typing import Union
 from data_controllers.iliad_data_controller import IliadDataController
 from grapher.grapher import Grapher
-from iliad.arm_control import ArmControl
-
 
 class App:
 
@@ -153,7 +151,6 @@ class App:
 
             self.iliad = IliadDataController('iliad_data_controller')
             self.grapher = Grapher('grapher', self.iliad)
-            self.arm_control = ArmControl('armctl', self.iliad)
 
         # Init config menu:
         with gui.window(label='Config', tag=App.TAG_CONFIG_WINDOW, min_size=(512, 512)):
@@ -191,7 +188,6 @@ class App:
         """
         self.iliad.update()
         self.grapher.update()
-        self.arm_control.update()
 
     def run(self) -> None:
         """

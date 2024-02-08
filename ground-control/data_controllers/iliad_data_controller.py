@@ -5,10 +5,7 @@ import crc
 import dearpygui.dearpygui as gui
 
 import data_controllers.serial_data_controller as serial_data_controller
-from packetlib import packet
-import packetlib.packetlib as packetlib
 from components.data_series import DataSeries
-
 
 class IliadDataController(serial_data_controller.SerialDataController):
 
@@ -27,14 +24,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.Calculator(crc.Crc16.CCITT)
-
-        # ~~~ Connection with C ~~~
-        packetlib.initialize()
-        self.packetPtr = packetlib.get_packet()
-        self.packet = self.packetPtr.contents
-        self.bufferPtr = packetlib.get_buffer()
-        self.buffer = self.bufferPtr.contents
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~
 
         self.high_g_accelerometer_x =        DataSeries('time', 'High G Acceleration X')    # float, float
         self.high_g_accelerometer_y =        DataSeries('time', 'High G Acceleration Y')    # float, float
@@ -85,80 +74,46 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
     # Before calling, make sure self.packet has valid data!
     def extract_packet_data(self):
-        if self.packet.type == packet.PACKET_TYPE_HIGH_G_ACCELEROMETER:
-            self.high_g_accelerometer_x.add_point(self.packet.timestamp, self.packet.high_g_accelerometer_x)
-            self.high_g_accelerometer_y.add_point(self.packet.timestamp, self.packet.high_g_accelerometer_y)
-            self.high_g_accelerometer_z.add_point(self.packet.timestamp, self.packet.high_g_accelerometer_z)
-        elif self.packet.type == packet.PACKET_TYPE_GYROSCOPE:
-            self.gyroscope_x.add_point(self.packet.timestamp, self.packet.gyroscope_x)
-            self.gyroscope_y.add_point(self.packet.timestamp, self.packet.gyroscope_y)
-            self.gyroscope_z.add_point(self.packet.timestamp, self.packet.gyroscope_z)
-        elif self.packet.type == packet.PACKET_TYPE_ACCELEROMETER:
-            self.accelerometer_x.add_point(self.packet.timestamp, self.packet.accelerometer_x)
-            self.accelerometer_y.add_point(self.packet.timestamp, self.packet.accelerometer_y)
-            self.accelerometer_z.add_point(self.packet.timestamp, self.packet.accelerometer_z)
-        elif self.packet.type == packet.PACKET_TYPE_BAROMETER:
-            print(f'{self.packet.timestamp} {self.packet.barometer_altitude}')
-            self.barometer_altitude.add_point(self.packet.timestamp, self.packet.barometer_altitude)
-        elif self.packet.type == packet.PACKET_TYPE_GPS:
-            self.gps_altitude.add_point(self.packet.timestamp, self.packet.gps_altitude)
-            self.gps_satellite_count.add_point(self.packet.timestamp, self.packet.gps_satellite_count)
-            self.gps_latitude.add_point(self.packet.timestamp, self.packet.gps_latitude)
-            self.gps_longitude.add_point(self.packet.timestamp, self.packet.gps_longitude)
-            self.gps_ascent.add_point(self.packet.timestamp, self.packet.gps_ascent)
-            self.gps_ground_speed.add_point(self.packet.timestamp, self.packet.gps_ground_speed)
-        elif self.packet.type == packet.PACKET_TYPE_TELEMETRUM:
-            self.telemetrum_status.add_point(self.packet.timestamp, self.packet.telemetrum_status)
-            self.telemetrum_current.add_point(self.packet.timestamp, self.packet.telemetrum_current)
-            self.telemetrum_voltage.add_point(self.packet.timestamp, self.packet.telemetrum_voltage)
-        elif self.packet.type == packet.PACKET_TYPE_STRATOLOGGER:
-            self.stratologger_status.add_point(self.packet.timestamp, self.packet.stratologger_status)
-            self.stratologger_current.add_point(self.packet.timestamp, self.packet.stratologger_current)
-            self.stratologger_voltage.add_point(self.packet.timestamp, self.packet.stratologger_voltage)
-        elif self.packet.type == packet.PACKET_TYPE_CAMERA:
-            self.camera_status.add_point(self.packet.timestamp, self.packet.camera_status)
-            self.camera_current.add_point(self.packet.timestamp, self.packet.camera_current)
-            self.camera_voltage.add_point(self.packet.timestamp, self.packet.camera_voltage)
-        elif self.packet.type == packet.PACKET_TYPE_BATTERY:
-            self.battery_voltage.add_point(self.packet.timestamp, self.packet.battery_voltage)
-            self.battery_temperature.add_point(self.packet.timestamp, self.packet.battery_temperature)
+        pass
+        # if self.packet.type == packet.PACKET_TYPE_HIGH_G_ACCELEROMETER:
+        #     self.high_g_accelerometer_x.add_point(self.packet.timestamp, self.packet.high_g_accelerometer_x)
+        #     self.high_g_accelerometer_y.add_point(self.packet.timestamp, self.packet.high_g_accelerometer_y)
+        #     self.high_g_accelerometer_z.add_point(self.packet.timestamp, self.packet.high_g_accelerometer_z)
+        # elif self.packet.type == packet.PACKET_TYPE_GYROSCOPE:
+        #     self.gyroscope_x.add_point(self.packet.timestamp, self.packet.gyroscope_x)
+        #     self.gyroscope_y.add_point(self.packet.timestamp, self.packet.gyroscope_y)
+        #     self.gyroscope_z.add_point(self.packet.timestamp, self.packet.gyroscope_z)
+        # elif self.packet.type == packet.PACKET_TYPE_ACCELEROMETER:
+        #     self.accelerometer_x.add_point(self.packet.timestamp, self.packet.accelerometer_x)
+        #     self.accelerometer_y.add_point(self.packet.timestamp, self.packet.accelerometer_y)
+        #     self.accelerometer_z.add_point(self.packet.timestamp, self.packet.accelerometer_z)
+        # elif self.packet.type == packet.PACKET_TYPE_BAROMETER:
+        #     print(f'{self.packet.timestamp} {self.packet.barometer_altitude}')
+        #     self.barometer_altitude.add_point(self.packet.timestamp, self.packet.barometer_altitude)
+        # elif self.packet.type == packet.PACKET_TYPE_GPS:
+        #     self.gps_altitude.add_point(self.packet.timestamp, self.packet.gps_altitude)
+        #     self.gps_satellite_count.add_point(self.packet.timestamp, self.packet.gps_satellite_count)
+        #     self.gps_latitude.add_point(self.packet.timestamp, self.packet.gps_latitude)
+        #     self.gps_longitude.add_point(self.packet.timestamp, self.packet.gps_longitude)
+        #     self.gps_ascent.add_point(self.packet.timestamp, self.packet.gps_ascent)
+        #     self.gps_ground_speed.add_point(self.packet.timestamp, self.packet.gps_ground_speed)
+        # elif self.packet.type == packet.PACKET_TYPE_TELEMETRUM:
+        #     self.telemetrum_status.add_point(self.packet.timestamp, self.packet.telemetrum_status)
+        #     self.telemetrum_current.add_point(self.packet.timestamp, self.packet.telemetrum_current)
+        #     self.telemetrum_voltage.add_point(self.packet.timestamp, self.packet.telemetrum_voltage)
+        # elif self.packet.type == packet.PACKET_TYPE_STRATOLOGGER:
+        #     self.stratologger_status.add_point(self.packet.timestamp, self.packet.stratologger_status)
+        #     self.stratologger_current.add_point(self.packet.timestamp, self.packet.stratologger_current)
+        #     self.stratologger_voltage.add_point(self.packet.timestamp, self.packet.stratologger_voltage)
+        # elif self.packet.type == packet.PACKET_TYPE_CAMERA:
+        #     self.camera_status.add_point(self.packet.timestamp, self.packet.camera_status)
+        #     self.camera_current.add_point(self.packet.timestamp, self.packet.camera_current)
+        #     self.camera_voltage.add_point(self.packet.timestamp, self.packet.camera_voltage)
+        # elif self.packet.type == packet.PACKET_TYPE_BATTERY:
+        #     self.battery_voltage.add_point(self.packet.timestamp, self.packet.battery_voltage)
+        #     self.battery_temperature.add_point(self.packet.timestamp, self.packet.battery_temperature)
     
     def update(self) -> None:
-        if self.is_open():
-            # Poll serial port and put anything there into data_buffer
-            if self.port.in_waiting > 0:
-                # print('data')
-                self.data_buffer += self.port.read_all()
-            # else:
-            #     print('no data')
-            bytes_to_q = max(0, min(len(self.data_buffer), packetlib._BUFFER_SIZE - self.buffer.size - 1))
-            for i in range(bytes_to_q):
-                packetlib.enqueue(ct.c_ubyte(self.data_buffer[i]))
-            self.data_buffer = self.data_buffer[bytes_to_q:]
-
-            # Update the packet
-            old_size = 0
-            while old_size - self.buffer.size != 0:
-                #self.packet = self.packetPtr.contents
-                old_size = self.buffer.size
-                packetlib.process()
-                if self.packet.is_ready == 1:
-                    self.extract_packet_data()
-                self.packet.is_ready = 0
-                #packetlib.process()
-
-            # for i in range(100):
-            #     packetlib.process()
-            #     if self.packet.is_ready == 1:
-            #         self.extract_packet_data()
-            #     self.packet.is_ready = 0
-
-            # packetlib.process()
-            # # print(self.buffer.size)
-            # if self.packet.is_ready == 1:
-            #     self.extract_packet_data()
-            # self.packet.is_ready = 0
-
         # Update GUI
         if self.is_open():
             gui.set_value(f'{self.identifier}.connection.status', 'CONNECTED')
@@ -179,33 +134,3 @@ class IliadDataController(serial_data_controller.SerialDataController):
         super().apply_config()
         if gui.does_item_exist(f'{self.identifier}.connection.name'):
             gui.set_value(f'{self.identifier}.connection.name', self.port_name)
-    
-    def arm_telemetrum(self) -> None:
-        p = packet.create_packet(packet.PACKET_TYPE_ARM_TELEMETRUM, time.time(), ())
-        self.port.write(p)
-        print(f'-> PACKET_TYPE_ARM_TELEMETRUM')
-    
-    def disarm_telemetrum(self) -> None:
-        p = packet.create_packet(packet.PACKET_TYPE_DISARM_TELEMETRUM, time.time(), ())
-        self.port.write(p)
-        print(f'-> PACKET_TYPE_DISARM_TELEMETRUM')
-    
-    def arm_stratologger(self) -> None:
-        p = packet.create_packet(packet.PACKET_TYPE_ARM_STRATOLOGGER, time.time(), ())
-        self.port.write(p)
-        print(f'-> PACKET_TYPE_ARM_STRATOLOGGER')
-    
-    def disarm_stratologger(self) -> None:
-        p = packet.create_packet(packet.PACKET_TYPE_DISARM_STRATOLOGGER, time.time(), ())
-        self.port.write(p)
-        print(f'-> PACKET_TYPE_DISARM_STRATOLOGGER')
-    
-    def arm_cots_flight_computer(self) -> None:
-        p = packet.create_packet(packet.PACKET_TYPE_ARM_CAMERA, time.time(), ())
-        self.port.write(p)
-        print(f'-> PACKET_TYPE_ARM_CAMERA')
-    
-    def disarm_cots_flight_computer(self) -> None:
-        p = packet.create_packet(packet.PACKET_TYPE_DISARM_CAMERA, time.time(), ())
-        self.port.write(p)
-        print(f'-> PACKET_TYPE_DISARM_CAMERA')
