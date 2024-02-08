@@ -1,5 +1,5 @@
 """
-Simulates launch using telmetry data from summer 2022.
+Simulates launch using telemetry data from summer 2022.
 
 Uses test_data/simulator_data_flight_data_2.csv
 """
@@ -8,7 +8,6 @@ import packetlib.packet as packet
 import serial
 import csv
 import time
-import ctypes as ct
 
 if __name__ == '__main__':
     start_time = datetime.now()
@@ -23,22 +22,10 @@ if __name__ == '__main__':
         bytesize=serial.EIGHTBITS,
     )
 
-    # _lib_path = '.\libpacket_shared.dll'
-    # _lib = ct.CDLL(_lib_path)
-    # _lib.write_altitude_packet.argtypes = [ct.POINTER(ct.c_ubyte*64), ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_acceleration_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_gps_position_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_board_voltage_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_board_current_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_battery_voltage_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_magnetometer_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_gyroscope_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float, ct.c_float, ct.c_float]
-    # _lib.write_gps_satellite_count_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_int]
-    # _lib.write_gps_ground_speed_packet.argtypes = [ct.POINTER(ct.c_ubyte), ct.c_float, ct.c_float]
-
     with open('test_data/simulator_data_flight_data_2.csv') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
+            row: dict = row
             timestamp: float = float(row['time'])
 
             port.write(packet.create_packet(
@@ -58,16 +45,6 @@ if __name__ == '__main__':
                     float(row['bmx_x_gyro']),
                     float(row['bmx_y_gyro']),
                     float(row['bmx_z_gyro']),
-                )
-            ))
-            
-            port.write(packet.create_packet(
-                packet.PACKET_TYPE_ACCELEROMETER,
-                timestamp,
-                (
-                    float(row['bmx_x_accel']),
-                    float(row['bmx_y_accel']),
-                    float(row['bmx_z_accel']),
                 )
             ))
             
@@ -145,7 +122,7 @@ if __name__ == '__main__':
             time.sleep(0.1)
 
     # Wait until the buffer has been written to COM1
-    while(port.out_waiting > 0):
+    while port.out_waiting > 0:
         time.sleep(.01)
     
     port.close()
