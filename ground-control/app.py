@@ -1,5 +1,6 @@
 import dearpygui.dearpygui as gui
 from typing import Union
+import ctypes
 from data_controllers.iliad_data_controller import IliadDataController
 from grapher.grapher import Grapher
 
@@ -15,6 +16,17 @@ class App:
     TAG_CONFIG_WINDOW = 'app.config_window'
 
     def __init__(self) -> None:
+        self.unscaled_dpi = 96
+        self.dpi = 96
+        # Set process DPI awareness to system DPI aware,
+        # and get the system DPI from Windows so we can DPI scale later
+        # https://github.com/hoffstadt/DearPyGui/issues/1380
+        if ctypes.windll:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+            self.dpi = ctypes.windll.user32.GetDpiForSystem()
+
+        self.scaling_factor = self.dpi / self.unscaled_dpi
+
         # noinspection PyTypeChecker
         def create_theme_imgui_light() -> Union[str, int]:
             
@@ -123,11 +135,11 @@ class App:
         gui.setup_dearpygui()
 
         with gui.font_registry():
-            primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16)
+            primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16 * self.scaling_factor)
             gui.bind_font(primary_font)
 
         self.iliad = IliadDataController('iliad_data_controller')
-        self.grapher = Grapher('grapher', self.iliad)
+        self.grapher = Grapher(self.scaling_factor, 'grapher', self.iliad)
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())

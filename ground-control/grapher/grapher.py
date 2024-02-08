@@ -91,8 +91,10 @@ gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
 
 
 class Grapher(AppComponent):
-    def __init__(self, identifier: str, iliad: IliadDataController) -> None:
+    def __init__(self, scaling_factor: float, identifier: str, iliad: IliadDataController) -> None:
         super().__init__(identifier)
+
+        self.scaling_factor = scaling_factor
 
         # Initialize GUI variables
         self.altitude_barometer = None
@@ -358,7 +360,7 @@ class Grapher(AppComponent):
         # GRAPHS #
 
         # TODO: Find a way to not hardcode this offset
-        plot_height = int((gui.get_viewport_client_height() - 140) / 2)
+        plot_height = int((gui.get_viewport_client_height() - 140 * self.scaling_factor) / 2)
 
         altitude_plot.update(plot_height,
                              barometer_altitude=self.iliad.barometer_altitude,
