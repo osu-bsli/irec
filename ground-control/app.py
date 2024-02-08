@@ -3,19 +3,21 @@ from typing import Union
 import ctypes
 from data_controllers.iliad_data_controller import IliadDataController
 from grapher.grapher import Grapher
+from grapher.numerical_data_view import NumericalDataView
 
 # (r, g, b, alpha)
 # orng_btn_theme = (150, 30, 30)
 BUTTON_ACTIVE_COLOR = (0, 150, 100, 255)  # green
 BUTTON_INACTIVE_COLOR = (150, 30, 30)  # red
 
-class App:
 
+class App:
     # Widget tags
     TAG_MAIN_WINDOW = 'app.main_window'
     TAG_CONFIG_WINDOW = 'app.config_window'
 
     def __init__(self) -> None:
+        self.left_sidebar = NumericalDataView(2)
         self.unscaled_dpi = 96
         self.dpi = 96
         # Set process DPI awareness to system DPI aware,
@@ -29,7 +31,6 @@ class App:
 
         # noinspection PyTypeChecker
         def create_theme_imgui_light() -> Union[str, int]:
-            
             with gui.theme() as theme_id:
                 with gui.theme_component(0):
                     gui.add_theme_color(gui.mvThemeCol_Text                   , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255))
@@ -135,11 +136,12 @@ class App:
         gui.setup_dearpygui()
 
         with gui.font_registry():
-            primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16 * self.scaling_factor)
+            primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf',
+                                        16 * self.scaling_factor)
             gui.bind_font(primary_font)
 
         self.iliad = IliadDataController('iliad_data_controller')
-        self.grapher = Grapher(self.scaling_factor, 'grapher')
+        self.grapher = Grapher('grapher')
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())
@@ -163,7 +165,7 @@ class App:
                 gui.add_table_column()
                 with gui.table_row():
                     with gui.table_cell():
-                        self.add_sidebar()
+                        self.add_left_sidebar()
                     with gui.table_cell():
                         with gui.tab_bar():
                             self.iliad.add()
@@ -185,9 +187,8 @@ class App:
                 gui.add_text('No options available.')
             with gui.tree_node(label='Iliad Data Controller'):
                 self.iliad.add_config_menu()
-            
-            with gui.group(horizontal=True):
 
+            with gui.group(horizontal=True):
                 def on_apply_config():
                     # self.grapher.apply_config()
                     self.iliad.apply_config()
@@ -199,7 +200,7 @@ class App:
         gui.show_viewport()
         gui.maximize_viewport()
 
-    def add_sidebar(self):
+    def add_left_sidebar(self):
         # bind buttons to an initial named theme.
         # modify the theme and re-bind button to change appearance.
         # TODO button click redirects to relevant diagnostics
@@ -213,55 +214,45 @@ class App:
                 with gui.theme_component(gui.mvButton):
                     gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
 
-            with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
-                           borders_innerH=False, borders_outerH=True, borders_innerV=True,
-                           borders_outerV=True, context_menu_in_body=True, row_background=True):
-                # create table column to hold plot rows
-                gui.add_table_column()
-
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_text("Altitude Barometer:")
-                        self.altitude_barometer = gui.add_text("0.00")
-                        gui.add_text("Altitude GPS:")
-                        self.altitude_gps = gui.add_text("0.00")
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_text("Acceleration X:")
-                        self.acceleration_x = gui.add_text("0.00")
-                        gui.add_text("Acceleration Y:")
-                        self.acceleration_y = gui.add_text("0.00")
-                        gui.add_text("Acceleration Z:")
-                        self.acceleration_z = gui.add_text("0.00")
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_text("High G Acceleration X:")
-                        self.high_g_acceleration_x = gui.add_text("0.00")
-                        gui.add_text("High G Acceleration Y:")
-                        self.high_g_acceleration_y = gui.add_text("0.00")
-                        gui.add_text("High G Acceleration Z:")
-                        self.high_g_acceleration_z = gui.add_text("0.00")
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_text("GPS Ground Speed:")
-                        self.gps_ground_speed = gui.add_text("0.00")
-                with gui.table_row():
-                    with gui.table_cell():
-                        gui.add_text("Gyroscope X data:")
-                        self.gyroscope_x = gui.add_text("0.00")
-                        gui.add_text("Gyroscope Y data:")
-                        self.gyroscope_y = gui.add_text("0.00")
-                        gui.add_text("Gyroscope Z data:")
-                        self.gyroscope_z = gui.add_text("0.00")
+            self.left_sidebar.add()
+            self.left_sidebar.add_data_group(altitude_barometer="Altitude Barometer",
+                                             altitude_gps="Altitude GPS")
+            self.left_sidebar.add_data_group(acceleration_x="Acceleration X",
+                                             acceleration_y="Acceleration Y",
+                                             acceleration_z="Acceleration Z")
+            self.left_sidebar.add_data_group(high_g_acceleration_x="High G Acceleration X",
+                                             high_g_acceleration_y="High G Acceleration Y",
+                                             high_g_acceleration_z="High G Acceleration Z")
+            self.left_sidebar.add_data_group(gps_ground_speed="GPS Ground Speed")
+            self.left_sidebar.add_data_group(gyroscope_x="Gyroscope X",
+                                             gyroscope_y="Gyroscope Y",
+                                             gyroscope_z="Gyroscope Z")
 
     def update(self) -> None:
         """
         Called every frame.
 
         Calls `update()` on all components.
+
         """
+        self.left_sidebar.update_data(
+            altitude_barometer=self.iliad.barometer_altitude,
+            altitude_gps=self.iliad.gps_altitude,
+            acceleration_x=self.iliad.accelerometer_x,
+            acceleration_y=self.iliad.accelerometer_y,
+            acceleration_z=self.iliad.accelerometer_z,
+            high_g_acceleration_x=self.iliad.high_g_accelerometer_x,
+            high_g_acceleration_y=self.iliad.high_g_accelerometer_y,
+            high_g_acceleration_z=self.iliad.high_g_accelerometer_z,
+            gps_ground_speed=self.iliad.gps_ground_speed,
+            gyroscope_x=self.iliad.gyroscope_x,
+            gyroscope_y=self.iliad.gyroscope_y,
+            gyroscope_z=self.iliad.gyroscope_z,
+        )
+
         self.iliad.update()
         self.grapher.update(self.iliad)
+
 
     def run(self) -> None:
         """
@@ -272,5 +263,5 @@ class App:
             gui.render_dearpygui_frame()
 
         self.iliad.close()
-        
+
         gui.destroy_context()

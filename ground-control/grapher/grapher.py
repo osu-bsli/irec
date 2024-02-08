@@ -8,6 +8,7 @@ import dearpygui.dearpygui as gui
 from components.app_component import AppComponent
 from components.data_series import DataSeries
 from data_controllers.iliad_data_controller import IliadDataController
+from grapher.numerical_data_view import NumericalDataView
 
 # variables for plotting over time
 nsamples = 100
@@ -91,35 +92,10 @@ gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
 
 
 class Grapher(AppComponent):
-    def __init__(self, scaling_factor: float, identifier: str) -> None:
+    def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
 
-        self.scaling_factor = scaling_factor
-
-        # Initialize GUI variables
-        self.altitude_barometer = None
-        self.altitude_gps = None
-        self.acceleration_x = None
-        self.acceleration_y = None
-        self.acceleration_z = None
-        self.high_g_acceleration_x = None
-        self.high_g_acceleration_y = None
-        self.high_g_acceleration_z = None
-        self.gps_ground_speed = None
-        self.gyroscope_x = None
-        self.gyroscope_y = None
-        self.gyroscope_z = None
-
-        self.latitude = None
-        self.longitude = None
-        self.telemetrum_voltage = None
-        self.stratologger_voltage = None
-        self.camera_voltage = None
-        self.battery_voltage = None
-        self.telemetrum_current = None
-        self.stratologger_current = None
-        self.camera_current = None
-        self.battery_temperature = None
+        self.right_sidebar = NumericalDataView(2)
 
     def add(self):
         self.add_tracking()
@@ -198,44 +174,18 @@ class Grapher(AppComponent):
                                     acceleration_plot.add()
                                     gyroscope_plot.add()
 
-                    with gui.table_cell():
-                        with gui.table(header_row=False):
-                            # create table column to hold plot rows
-                            gui.add_table_column(label="primary_column")
-
-                            # Row for Right Table
-                            with gui.table_row():
-                                with gui.table_cell():
-                                    gui.add_text("Latitude/Longitude:")
-                                    with gui.group(horizontal=True):
-                                        # TODO: Use string templating
-                                        gui.add_text("(")
-                                        self.latitude = gui.add_text("0.00")
-                                        gui.add_text(",")
-                                        self.longitude = gui.add_text("0.00")
-                                        gui.add_text(")")
-                            with gui.table_row():
-                                with gui.table_cell():
-                                    gui.add_text("Telemetrum Voltage:")
-                                    self.telemetrum_voltage = gui.add_text("0.00")
-                                    gui.add_text("Stratologger Voltage:")
-                                    self.stratologger_voltage = gui.add_text("0.00")
-                                    gui.add_text("Camera Voltage:")
-                                    self.camera_voltage = gui.add_text("0.00")
-                                    gui.add_text("Battery Voltage:")
-                                    self.battery_voltage = gui.add_text("0.00")
-                            with gui.table_row():
-                                with gui.table_cell():
-                                    gui.add_text("Telemetrum Current:")
-                                    self.telemetrum_current = gui.add_text("0.00")
-                                    gui.add_text("Stratologger Current")
-                                    self.stratologger_current = gui.add_text("0.00")
-                                    gui.add_text("Camera Current:")
-                                    self.camera_current = gui.add_text("0.00")
-                            with gui.table_row():
-                                with gui.table_cell():
-                                    gui.add_text("Battery Temperature:")
-                                    self.battery_temperature = gui.add_text("0.00")
+                    # TODO: Latitude/Longitude in one group like it was before Brian's refactor
+                    self.right_sidebar.add()
+                    self.right_sidebar.add_data_group(latitude="Latitude")
+                    self.right_sidebar.add_data_group(longitude="Longitude")
+                    self.right_sidebar.add_data_group(telemetrum_voltage="Telemetrum Voltage")
+                    self.right_sidebar.add_data_group(stratologger_voltage="Stratologger Voltage")
+                    self.right_sidebar.add_data_group(camera_voltage="Camera Voltage")
+                    self.right_sidebar.add_data_group(battery_voltage="Battery Voltage")
+                    self.right_sidebar.add_data_group(telemetrum_current="Telemetrum Current")
+                    self.right_sidebar.add_data_group(stratologger_current="Stratologger Current")
+                    self.right_sidebar.add_data_group(camera_current="Camera Current")
+                    self.right_sidebar.add_data_group(battery_temperature="Battery Temperature")
 
     # Returns a dictionary with different config options.
     def get_config(self) -> dict[str, str]:
@@ -252,111 +202,22 @@ class Grapher(AppComponent):
         pass
 
     def update(self, iliad: IliadDataController) -> None:
-
         # LEFT SIDE BAR #
 
-        # set altitude variable value
-        if len(iliad.barometer_altitude.y_data) >= 1:
-            gui.set_value(self.altitude_barometer,
-                          round((iliad.barometer_altitude.y_data[len(iliad.barometer_altitude.y_data) - 1]),
-                                2))
+        self.right_sidebar.update_data(
+            latitude=iliad.gps_latitude,
+            longitude=iliad.gps_longitude,
+            telemetrum_voltage=iliad.telemetrum_voltage,
+            stratologger_voltage=iliad.stratologger_voltage,
+            camera_voltage=iliad.camera_voltage,
+            battery_voltage=iliad.battery_voltage,
+            telemetrum_current=iliad.telemetrum_current,
+            stratologger_current=iliad.stratologger_current,
+            camera_current=iliad.camera_current,
+            battery_temperature=iliad.battery_temperature,
+        )
 
-        if len(iliad.gps_altitude.y_data) >= 1:
-            gui.set_value(self.altitude_gps,
-                          round((iliad.gps_altitude.y_data[len(iliad.gps_altitude.y_data) - 1]), 2))
-
-        # set regular acceleration variable values
-        if len(iliad.accelerometer_x.y_data) >= 1:
-            gui.set_value(self.acceleration_x,
-                          round((iliad.accelerometer_x.y_data[len(iliad.accelerometer_x.y_data) - 1]), 2))
-
-        if len(iliad.accelerometer_y.y_data) >= 1:
-            gui.set_value(self.acceleration_y,
-                          round((iliad.accelerometer_y.y_data[len(iliad.accelerometer_y.y_data) - 1]), 2))
-
-        if len(iliad.accelerometer_z.y_data) >= 1:
-            gui.set_value(self.acceleration_z,
-                          round((iliad.accelerometer_z.y_data[len(iliad.accelerometer_z.y_data) - 1]), 2))
-
-        # set high g acceleration variable values
-        if len(iliad.high_g_accelerometer_x.y_data) >= 1:
-            gui.set_value(self.high_g_acceleration_x, round(
-                (iliad.high_g_accelerometer_x.y_data[len(iliad.high_g_accelerometer_x.y_data) - 1]), 2))
-
-        if len(iliad.high_g_accelerometer_y.y_data) >= 1:
-            gui.set_value(self.high_g_acceleration_y, round(
-                (iliad.high_g_accelerometer_y.y_data[len(iliad.high_g_accelerometer_y.y_data) - 1]), 2))
-
-        if len(iliad.high_g_accelerometer_z.y_data) >= 1:
-            gui.set_value(self.high_g_acceleration_z, round(
-                (iliad.high_g_accelerometer_z.y_data[len(iliad.high_g_accelerometer_z.y_data) - 1]), 2))
-
-        # set ground speed data variable value
-        if len(iliad.gps_ground_speed.y_data) >= 1:
-            gui.set_value(self.gps_ground_speed,
-                          round((iliad.gps_ground_speed.y_data[len(iliad.gps_ground_speed.y_data) - 1]), 2))
-
-        # set gyroscope variable values
-        if len(iliad.gyroscope_x.y_data) >= 1:
-            gui.set_value(self.gyroscope_x,
-                          round((iliad.gyroscope_x.y_data[len(iliad.gyroscope_x.y_data) - 1]), 2))
-
-        if len(iliad.gyroscope_y.y_data) >= 1:
-            gui.set_value(self.gyroscope_y,
-                          round((iliad.gyroscope_y.y_data[len(iliad.gyroscope_y.y_data) - 1]), 2))
-
-        if len(iliad.gyroscope_z.y_data) >= 1:
-            gui.set_value(self.gyroscope_z,
-                          round((iliad.gyroscope_z.y_data[len(iliad.gyroscope_z.y_data) - 1]), 2))
-
-            # RIGHT SIDE BAR #
-            # set latitude/longitude variable values
-            if len(iliad.gps_latitude.y_data) >= 1:
-                gui.set_value(self.latitude,
-                              round((iliad.gps_latitude.y_data[len(iliad.gps_latitude.y_data) - 1]), 2))
-
-            if len(iliad.gps_longitude.y_data) >= 1:
-                gui.set_value(self.longitude,
-                              round((iliad.gps_longitude.y_data[len(iliad.gps_longitude.y_data) - 1]), 2))
-
-            # set voltage variable values
-            if len(iliad.telemetrum_voltage.y_data) >= 1:
-                gui.set_value(self.telemetrum_voltage, round(
-                    (iliad.telemetrum_voltage.y_data[len(iliad.telemetrum_voltage.y_data) - 1]), 2))
-
-            if len(iliad.stratologger_voltage.y_data) >= 1:
-                gui.set_value(self.stratologger_voltage, round(
-                    (iliad.stratologger_voltage.y_data[len(iliad.stratologger_voltage.y_data) - 1]), 2))
-
-            if len(iliad.camera_voltage.y_data) >= 1:
-                gui.set_value(self.camera_voltage,
-                              round((iliad.camera_voltage.y_data[len(iliad.camera_voltage.y_data) - 1]), 2))
-
-            if len(iliad.battery_voltage.y_data) >= 1:
-                gui.set_value(self.battery_voltage,
-                              round((iliad.battery_voltage.y_data[len(iliad.battery_voltage.y_data) - 1]), 2))
-
-            # set board current variable values
-            if len(iliad.telemetrum_current.y_data) >= 1:
-                gui.set_value(self.telemetrum_current, round(
-                    (iliad.telemetrum_current.y_data[len(iliad.telemetrum_current.y_data) - 1]), 2))
-
-            if len(iliad.stratologger_current.y_data) >= 1:
-                gui.set_value(self.stratologger_current, round(
-                    (iliad.stratologger_current.y_data[len(iliad.stratologger_current.y_data) - 1]), 2))
-
-            if len(iliad.camera_current.y_data) >= 1:
-                gui.set_value(self.camera_current,
-                              round((iliad.camera_current.y_data[len(iliad.camera_current.y_data) - 1]), 2))
-
-            # set board temperature variable values
-            if len(iliad.battery_temperature.y_data) >= 1:
-                gui.set_value(self.battery_temperature, round(
-                    (iliad.battery_temperature.y_data[len(iliad.battery_temperature.y_data) - 1]), 2))
-
-        # GRAPHS #
-
-        plot_height = int(gui.get_available_content_region(self.tracking_tab)[1]) / 2
+        plot_height = int(gui.get_available_content_region(self.tracking_tab)[1] / 2)
 
         altitude_plot.update(plot_height,
                              barometer_altitude=iliad.barometer_altitude,
@@ -370,5 +231,3 @@ class Grapher(AppComponent):
                               gyroscope_x=iliad.gyroscope_x,
                               gyroscope_y=iliad.gyroscope_y,
                               gyroscope_z=iliad.gyroscope_z)
-
-        time.sleep(0.01)

@@ -32,9 +32,9 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.telemetrum_status =             DataSeries('time', 'Telemetrum Status')        # float, int
         self.telemetrum_current =            DataSeries('time', 'Telemetrum Current')       # float, float
         self.telemetrum_voltage =            DataSeries('time', 'Telemetrum Voltage')       # float, float
-        self.stratologger_status =           DataSeries('time', 'Startologger Status')      # float, int
-        self.stratologger_current =          DataSeries('time', 'Startologger Current')     # float, float
-        self.stratologger_voltage =          DataSeries('time', 'Startologger Voltage')     # float, float
+        self.stratologger_status =           DataSeries('time', 'Stratologger Status')      # float, int
+        self.stratologger_current =          DataSeries('time', 'Stratologger Current')     # float, float
+        self.stratologger_voltage =          DataSeries('time', 'Stratologger Voltage')     # float, float
         self.camera_status =                 DataSeries('time', 'Camera Status')            # float, int
         self.camera_current =                DataSeries('time', 'Camera Current')           # float, float
         self.camera_voltage =                DataSeries('time', 'Camera Voltage')           # float, float
