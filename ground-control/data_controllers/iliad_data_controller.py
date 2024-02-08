@@ -1,11 +1,9 @@
-import ctypes as ct
-import time
-
 import crc
 import dearpygui.dearpygui as gui
 
 import data_controllers.serial_data_controller as serial_data_controller
 from components.data_series import DataSeries
+
 
 class IliadDataController(serial_data_controller.SerialDataController):
 

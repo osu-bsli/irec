@@ -33,7 +33,7 @@ class Plot:
         self.series_tags: dict[str, int | str] = {}
 
     def add(self):
-        with gui.group(horizontal=True):
+        with gui.group(horizontal=True) as self.buttons:
             def set_fit_callback(sender, app_data, user_data):
                 self.fit = user_data
 
@@ -41,8 +41,7 @@ class Plot:
             gui.add_button(label="Auto Fit", callback=set_fit_callback, user_data=Plot.Fit.AUTO)
             gui.add_button(label="Sliding Window", callback=set_fit_callback, user_data=Plot.Fit.SLIDING_WINDOW)
 
-        with gui.plot(label=self.label_text, width=-1) as plot:
-            self.plot = plot
+        with gui.plot(label=self.label_text, width=-1) as self.plot:
             gui.add_plot_legend()
             self.x_axis_tag = gui.add_plot_axis(gui.mvXAxis, label=self.x_axis_label)
             self.y_axis_tag = gui.add_plot_axis(gui.mvYAxis, label=self.y_axis_label)
@@ -70,6 +69,7 @@ class Plot:
                 gui.set_axis_limits_auto(self.x_axis_tag)
                 gui.set_axis_limits_auto(self.y_axis_tag)
 
+        height -= gui.get_item_rect_max(self.buttons)[1]
         gui.set_item_height(item=self.plot, height=height)
 
 
@@ -91,7 +91,7 @@ gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
 
 
 class Grapher(AppComponent):
-    def __init__(self, scaling_factor: float, identifier: str, iliad: IliadDataController) -> None:
+    def __init__(self, scaling_factor: float, identifier: str) -> None:
         super().__init__(identifier)
 
         self.scaling_factor = scaling_factor
@@ -120,9 +120,6 @@ class Grapher(AppComponent):
         self.stratologger_current = None
         self.camera_current = None
         self.battery_temperature = None
-
-        # Store a reference to the IliadDataController so we can get data from it later.
-        self.iliad = iliad
 
     def add(self):
         self.add_tracking()
@@ -254,125 +251,124 @@ class Grapher(AppComponent):
     def apply_config(self) -> None:
         pass
 
-    def update(self) -> None:
+    def update(self, iliad: IliadDataController) -> None:
 
         # LEFT SIDE BAR #
 
         # set altitude variable value
-        if len(self.iliad.barometer_altitude.y_data) >= 1:
+        if len(iliad.barometer_altitude.y_data) >= 1:
             gui.set_value(self.altitude_barometer,
-                          round((self.iliad.barometer_altitude.y_data[len(self.iliad.barometer_altitude.y_data) - 1]),
+                          round((iliad.barometer_altitude.y_data[len(iliad.barometer_altitude.y_data) - 1]),
                                 2))
 
-        if len(self.iliad.gps_altitude.y_data) >= 1:
+        if len(iliad.gps_altitude.y_data) >= 1:
             gui.set_value(self.altitude_gps,
-                          round((self.iliad.gps_altitude.y_data[len(self.iliad.gps_altitude.y_data) - 1]), 2))
+                          round((iliad.gps_altitude.y_data[len(iliad.gps_altitude.y_data) - 1]), 2))
 
         # set regular acceleration variable values
-        if len(self.iliad.accelerometer_x.y_data) >= 1:
+        if len(iliad.accelerometer_x.y_data) >= 1:
             gui.set_value(self.acceleration_x,
-                          round((self.iliad.accelerometer_x.y_data[len(self.iliad.accelerometer_x.y_data) - 1]), 2))
+                          round((iliad.accelerometer_x.y_data[len(iliad.accelerometer_x.y_data) - 1]), 2))
 
-        if len(self.iliad.accelerometer_y.y_data) >= 1:
+        if len(iliad.accelerometer_y.y_data) >= 1:
             gui.set_value(self.acceleration_y,
-                          round((self.iliad.accelerometer_y.y_data[len(self.iliad.accelerometer_y.y_data) - 1]), 2))
+                          round((iliad.accelerometer_y.y_data[len(iliad.accelerometer_y.y_data) - 1]), 2))
 
-        if len(self.iliad.accelerometer_z.y_data) >= 1:
+        if len(iliad.accelerometer_z.y_data) >= 1:
             gui.set_value(self.acceleration_z,
-                          round((self.iliad.accelerometer_z.y_data[len(self.iliad.accelerometer_z.y_data) - 1]), 2))
+                          round((iliad.accelerometer_z.y_data[len(iliad.accelerometer_z.y_data) - 1]), 2))
 
         # set high g acceleration variable values
-        if len(self.iliad.high_g_accelerometer_x.y_data) >= 1:
+        if len(iliad.high_g_accelerometer_x.y_data) >= 1:
             gui.set_value(self.high_g_acceleration_x, round(
-                (self.iliad.high_g_accelerometer_x.y_data[len(self.iliad.high_g_accelerometer_x.y_data) - 1]), 2))
+                (iliad.high_g_accelerometer_x.y_data[len(iliad.high_g_accelerometer_x.y_data) - 1]), 2))
 
-        if len(self.iliad.high_g_accelerometer_y.y_data) >= 1:
+        if len(iliad.high_g_accelerometer_y.y_data) >= 1:
             gui.set_value(self.high_g_acceleration_y, round(
-                (self.iliad.high_g_accelerometer_y.y_data[len(self.iliad.high_g_accelerometer_y.y_data) - 1]), 2))
+                (iliad.high_g_accelerometer_y.y_data[len(iliad.high_g_accelerometer_y.y_data) - 1]), 2))
 
-        if len(self.iliad.high_g_accelerometer_z.y_data) >= 1:
+        if len(iliad.high_g_accelerometer_z.y_data) >= 1:
             gui.set_value(self.high_g_acceleration_z, round(
-                (self.iliad.high_g_accelerometer_z.y_data[len(self.iliad.high_g_accelerometer_z.y_data) - 1]), 2))
+                (iliad.high_g_accelerometer_z.y_data[len(iliad.high_g_accelerometer_z.y_data) - 1]), 2))
 
         # set ground speed data variable value
-        if len(self.iliad.gps_ground_speed.y_data) >= 1:
+        if len(iliad.gps_ground_speed.y_data) >= 1:
             gui.set_value(self.gps_ground_speed,
-                          round((self.iliad.gps_ground_speed.y_data[len(self.iliad.gps_ground_speed.y_data) - 1]), 2))
+                          round((iliad.gps_ground_speed.y_data[len(iliad.gps_ground_speed.y_data) - 1]), 2))
 
         # set gyroscope variable values
-        if len(self.iliad.gyroscope_x.y_data) >= 1:
+        if len(iliad.gyroscope_x.y_data) >= 1:
             gui.set_value(self.gyroscope_x,
-                          round((self.iliad.gyroscope_x.y_data[len(self.iliad.gyroscope_x.y_data) - 1]), 2))
+                          round((iliad.gyroscope_x.y_data[len(iliad.gyroscope_x.y_data) - 1]), 2))
 
-        if len(self.iliad.gyroscope_y.y_data) >= 1:
+        if len(iliad.gyroscope_y.y_data) >= 1:
             gui.set_value(self.gyroscope_y,
-                          round((self.iliad.gyroscope_y.y_data[len(self.iliad.gyroscope_y.y_data) - 1]), 2))
+                          round((iliad.gyroscope_y.y_data[len(iliad.gyroscope_y.y_data) - 1]), 2))
 
-        if len(self.iliad.gyroscope_z.y_data) >= 1:
+        if len(iliad.gyroscope_z.y_data) >= 1:
             gui.set_value(self.gyroscope_z,
-                          round((self.iliad.gyroscope_z.y_data[len(self.iliad.gyroscope_z.y_data) - 1]), 2))
+                          round((iliad.gyroscope_z.y_data[len(iliad.gyroscope_z.y_data) - 1]), 2))
 
             # RIGHT SIDE BAR #
             # set latitude/longitude variable values
-            if len(self.iliad.gps_latitude.y_data) >= 1:
+            if len(iliad.gps_latitude.y_data) >= 1:
                 gui.set_value(self.latitude,
-                              round((self.iliad.gps_latitude.y_data[len(self.iliad.gps_latitude.y_data) - 1]), 2))
+                              round((iliad.gps_latitude.y_data[len(iliad.gps_latitude.y_data) - 1]), 2))
 
-            if len(self.iliad.gps_longitude.y_data) >= 1:
+            if len(iliad.gps_longitude.y_data) >= 1:
                 gui.set_value(self.longitude,
-                              round((self.iliad.gps_longitude.y_data[len(self.iliad.gps_longitude.y_data) - 1]), 2))
+                              round((iliad.gps_longitude.y_data[len(iliad.gps_longitude.y_data) - 1]), 2))
 
             # set voltage variable values
-            if len(self.iliad.telemetrum_voltage.y_data) >= 1:
+            if len(iliad.telemetrum_voltage.y_data) >= 1:
                 gui.set_value(self.telemetrum_voltage, round(
-                    (self.iliad.telemetrum_voltage.y_data[len(self.iliad.telemetrum_voltage.y_data) - 1]), 2))
+                    (iliad.telemetrum_voltage.y_data[len(iliad.telemetrum_voltage.y_data) - 1]), 2))
 
-            if len(self.iliad.stratologger_voltage.y_data) >= 1:
+            if len(iliad.stratologger_voltage.y_data) >= 1:
                 gui.set_value(self.stratologger_voltage, round(
-                    (self.iliad.stratologger_voltage.y_data[len(self.iliad.stratologger_voltage.y_data) - 1]), 2))
+                    (iliad.stratologger_voltage.y_data[len(iliad.stratologger_voltage.y_data) - 1]), 2))
 
-            if len(self.iliad.camera_voltage.y_data) >= 1:
+            if len(iliad.camera_voltage.y_data) >= 1:
                 gui.set_value(self.camera_voltage,
-                              round((self.iliad.camera_voltage.y_data[len(self.iliad.camera_voltage.y_data) - 1]), 2))
+                              round((iliad.camera_voltage.y_data[len(iliad.camera_voltage.y_data) - 1]), 2))
 
-            if len(self.iliad.battery_voltage.y_data) >= 1:
+            if len(iliad.battery_voltage.y_data) >= 1:
                 gui.set_value(self.battery_voltage,
-                              round((self.iliad.battery_voltage.y_data[len(self.iliad.battery_voltage.y_data) - 1]), 2))
+                              round((iliad.battery_voltage.y_data[len(iliad.battery_voltage.y_data) - 1]), 2))
 
             # set board current variable values
-            if len(self.iliad.telemetrum_current.y_data) >= 1:
+            if len(iliad.telemetrum_current.y_data) >= 1:
                 gui.set_value(self.telemetrum_current, round(
-                    (self.iliad.telemetrum_current.y_data[len(self.iliad.telemetrum_current.y_data) - 1]), 2))
+                    (iliad.telemetrum_current.y_data[len(iliad.telemetrum_current.y_data) - 1]), 2))
 
-            if len(self.iliad.stratologger_current.y_data) >= 1:
+            if len(iliad.stratologger_current.y_data) >= 1:
                 gui.set_value(self.stratologger_current, round(
-                    (self.iliad.stratologger_current.y_data[len(self.iliad.stratologger_current.y_data) - 1]), 2))
+                    (iliad.stratologger_current.y_data[len(iliad.stratologger_current.y_data) - 1]), 2))
 
-            if len(self.iliad.camera_current.y_data) >= 1:
+            if len(iliad.camera_current.y_data) >= 1:
                 gui.set_value(self.camera_current,
-                              round((self.iliad.camera_current.y_data[len(self.iliad.camera_current.y_data) - 1]), 2))
+                              round((iliad.camera_current.y_data[len(iliad.camera_current.y_data) - 1]), 2))
 
             # set board temperature variable values
-            if len(self.iliad.battery_temperature.y_data) >= 1:
+            if len(iliad.battery_temperature.y_data) >= 1:
                 gui.set_value(self.battery_temperature, round(
-                    (self.iliad.battery_temperature.y_data[len(self.iliad.battery_temperature.y_data) - 1]), 2))
+                    (iliad.battery_temperature.y_data[len(iliad.battery_temperature.y_data) - 1]), 2))
 
         # GRAPHS #
 
-        # TODO: Find a way to not hardcode this offset
-        plot_height = int((gui.get_viewport_client_height() - 140 * self.scaling_factor) / 2)
+        plot_height = int(gui.get_available_content_region(self.tracking_tab)[1]) / 2
 
         altitude_plot.update(plot_height,
-                             barometer_altitude=self.iliad.barometer_altitude,
-                             gps_altitude=self.iliad.gps_altitude)
+                             barometer_altitude=iliad.barometer_altitude,
+                             gps_altitude=iliad.gps_altitude)
         acceleration_plot.update(plot_height,
-                                 acceleration_z=self.iliad.accelerometer_z,
-                                 high_g_acceleration_z=self.iliad.high_g_accelerometer_z)
+                                 acceleration_z=iliad.accelerometer_z,
+                                 high_g_acceleration_z=iliad.high_g_accelerometer_z)
         gps_ground_speed_plot.update(plot_height,
-                                     gps_ground_speed=self.iliad.gps_ground_speed)
+                                     gps_ground_speed=iliad.gps_ground_speed)
         gyroscope_plot.update(plot_height,
-                              gyroscope_x=self.iliad.gyroscope_x,
-                              gyroscope_y=self.iliad.gyroscope_y,
-                              gyroscope_z=self.iliad.gyroscope_z)
+                              gyroscope_x=iliad.gyroscope_x,
+                              gyroscope_y=iliad.gyroscope_y,
+                              gyroscope_z=iliad.gyroscope_z)
 
         time.sleep(0.01)

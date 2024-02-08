@@ -139,7 +139,7 @@ class App:
             gui.bind_font(primary_font)
 
         self.iliad = IliadDataController('iliad_data_controller')
-        self.grapher = Grapher(self.scaling_factor, 'grapher', self.iliad)
+        self.grapher = Grapher(self.scaling_factor, 'grapher')
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())
@@ -261,7 +261,7 @@ class App:
         Calls `update()` on all components.
         """
         self.iliad.update()
-        self.grapher.update()
+        self.grapher.update(self.iliad)
 
     def run(self) -> None:
         """
