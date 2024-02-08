@@ -11,16 +11,6 @@ class IliadDataController(serial_data_controller.SerialDataController):
 
     def __init__(self, identifier: str) -> None:
         super().__init__(identifier)
-        
-        # Create a gui for opening / closing the connection
-        with gui.tab(label='Telemetry Connection', parent='app.main_tab_bar'):
-            with gui.group(horizontal=True):
-                gui.add_text('DISCONNECTED', tag=f'{self.identifier}.connection.status')
-                gui.add_button(label='CONNECT', tag=f'{self.identifier}.connection.connect', callback=lambda: self._on_connect_button_clicked())
-                gui.add_button(label='DISCONNECT', tag=f'{self.identifier}.connection.disconnect', callback=lambda: self._on_disconnect_button_clicked())
-                gui.add_text(self.port_name, tag=f'{self.identifier}.connection.name')
-            gui.add_text('', show=False, tag=f'{self.identifier}.connection.error')
-            gui.hide_item(f'{self.identifier}.connection.disconnect')
 
         self.data_buffer = bytearray()
         self.checksum_calculator = crc.Calculator(crc.Crc16.CCITT)
@@ -52,6 +42,17 @@ class IliadDataController(serial_data_controller.SerialDataController):
         self.camera_voltage =                DataSeries('time', 'Camera Voltage')           # float, float
         self.battery_voltage =               DataSeries('time', 'Battery Voltage')          # float, float
         self.battery_temperature =           DataSeries('time', 'Battery Temperature')      # float, float
+
+    def add(self):
+        # Create a gui for opening / closing the connection
+        with gui.tab(label='Telemetry Connection', parent='app.main_tab_bar'):
+            with gui.group(horizontal=True):
+                gui.add_text('DISCONNECTED', tag=f'{self.identifier}.connection.status')
+                gui.add_button(label='CONNECT', tag=f'{self.identifier}.connection.connect', callback=lambda: self._on_connect_button_clicked())
+                gui.add_button(label='DISCONNECT', tag=f'{self.identifier}.connection.disconnect', callback=lambda: self._on_disconnect_button_clicked())
+                gui.add_text(self.port_name, tag=f'{self.identifier}.connection.name')
+            gui.add_text('', show=False, tag=f'{self.identifier}.connection.error')
+            gui.hide_item(f'{self.identifier}.connection.disconnect')
 
     def _on_connect_button_clicked(self) -> None:
         try:
