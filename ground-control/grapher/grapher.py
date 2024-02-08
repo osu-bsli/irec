@@ -14,6 +14,7 @@ import packetlib.packet as packet
 import crc
 
 
+
 # layout constants
 
 import tkinter as tk    # screen dimensions
@@ -43,7 +44,7 @@ BUTTON_INACTIVE_COLOR=(150, 30, 30)     # red
 # persistent sidebar
 
 SIDEBAR_BUTTON_HEIGHT=VIEWPORT_HEIGHT/8     # 1/6 of total height
-SIDEBAR_BUTTON_WIDTH=VIEWPORT_WIDTH/10      # 1/10 of total width
+SIDEBAR_BUTTON_WIDTH=VIEWPORT_WIDTH/8    # 1/10 of total width
 
 ICON_FILE='resources/BSLI_logo.ico'
 
@@ -55,6 +56,9 @@ nsamples = 100
 
 packetNumber = 1
 
+TELEMETRUM_VOLTAGE_EXPECTED= 4.14 
+TELEMETRUM_CURRENT = 30
+STRATOLOGGER_VOLATGE = 8
 global Altitude
 global AY_axis
 global Acceleration
@@ -179,17 +183,39 @@ def displayChecklist():
                     # Rows for Checklist Left Side
                     with gui.table_row():
                         with gui.table_cell():
-                            gui.add_checkbox(label="Inspect for damages from travel", tag="R28")
+                            with gui.group(horizontal=True):
+                                gui.add_checkbox(label="", tag="R28")
+                                gui.add_text("Inspect for damages from travel")
+
+                                
 
                     with gui.table_row():
                         
                         with gui.table_cell():
-                            gui.add_checkbox(label="Check TeleMetrum battery voltage", tag="R27")
+                            with gui.group(horizontal=True):
+
+                                gui.add_checkbox(label="", tag="R27")
+                                with gui.group(horizontal=True):
+                                    gui.add_text("Check TeleMetrum battery voltage", color=[250,0,0],tag= "telemetrum_battery_voltage")
+    
+                                    gui.add_text("", color=[250,0,0],id= "Telemetrum_battery_voltage_value")
+                                    gui.add_text("", color=[250,0,0],id= "Telemetrum_battery_units")
+
 
                     with gui.table_row():
                         
                         with gui.table_cell():
-                            gui.add_checkbox(label="Check StratoLogger battery voltage", tag="R26")
+                            with gui.group(horizontal=True):
+                                gui.add_checkbox(label="", tag="R29")
+
+                                
+                                gui.add_text("Check TeleMetrum current", color=[250,0,0],tag= "telemetrum_current")
+                    with gui.table_row():
+                        
+                        with gui.table_cell():
+                            with gui.group(horizontal=True):
+                                gui.add_checkbox(label="", tag="R26")
+                                gui.add_text("Check StratoLogger battery voltage", color=[250,0,0],tag= "StratoLogger_battery_voltage")
 
                     with gui.table_row():
                         
@@ -317,6 +343,7 @@ def displayChecklist():
                         with gui.table_cell():
                             gui.add_checkbox(label="Listen for continuity beeps", tag="R1")
 
+                    
                         
 
 
@@ -333,119 +360,136 @@ def displayChecklist():
 
 # display the 'tracking' tab of the main GUI
 def displayTracking():
+    mainWidth = SCREEN_WIDTH-SIDEBAR_BUTTON_WIDTH-SIDEBAR_BUTTON_WIDTH-30
+
+
     with gui.tab(label="Tracking", parent='app.main_tab_bar'):
 
+
         # tracking tab
+
+
  
+        with gui.group(horizontal=True,pos=[SIDEBAR_BUTTON_WIDTH+20,500]):
+            
+
+            # Plot Altitude data
+            with gui.group(horizontal=True):
+                with gui.group(horizontal=False):
+                    with gui.group(horizontal=True):
+                        gui.add_button(label = "Manual Fit", callback = manualFitAltitude)
+                        gui.add_button(label = "Auto Fit", callback = autoFitAltitude)
+                        gui.add_button(label = "Sliding Window", callback = slidingWindowAltitude)
+                    with gui.group(horizontal=False,width=(mainWidth/3)-10):
+                        create_plot('Altitude', 'Altitude_y_axis', 'Altitude_x_axis', 'Time(s)', 'Altitude (meters)')
+                        add_line_series_custom(original_x_axis, original_y_axis, 'barometer_altitude_tag', 'Barometer Altitude', 'Altitude_y_axis')
+                        add_line_series_custom(original_x_axis, original_y_axis, 'gps_altitude_tag', 'GPS Altitude', 'Altitude_y_axis')
+                with gui.group(horizontal=True):
+                    with gui.group(horizontal=False):
+                        with gui.group(horizontal=True):
+                            width2, height2, channel2, data2 = gui.load_image("resources/3dgridy2.png", )
+                        with gui.texture_registry(show=False):
+                            gui.add_static_texture(width=width2, height=height2, default_value=data2, tag="texture_tag2")
+                        gui.add_image("texture_tag2", height=VIEWPORT_HEIGHT/2, width=(mainWidth/3)-10)                                
+                    with gui.group(horizontal=True):
+                        with gui.group(horizontal=True):
+                            width5, height5, channel5, data5 = gui.load_image("resources/rocketWithoutLabels.png", )
+                            with gui.texture_registry(show=False):
+                                gui.add_static_texture(width=width5, height=height5, default_value=data5, tag="texture_tag5")
+                            gui.add_image("texture_tag5", height=VIEWPORT_HEIGHT/2, width=(mainWidth/3)-10)
+
+
+                    
+                        
+
+
+
+
+        # Plot Acceleration data
         with gui.group(horizontal=True):
+            with gui.group(horizontal=False):
+                with gui.group(horizontal=True):
+                    gui.add_button(label = "Manual Fit", callback = manualFitAcceleration)
+                    gui.add_button(label = "Auto Fit", callback = autoFitAcceleration)
+                    gui.add_button(label = "Sliding Window", callback = slidingWindowAcceleration)
+                with gui.group(horizontal=False, width= (mainWidth/3)-10):
+                    create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
+                    add_line_series_custom(original_x_axis, original_y_axis, 'accelerationZ_tag', 'Acceleration Z ', 'Acceleration_y_axis')
+                    add_line_series_custom(original_x_axis, original_y_axis, 'highGaccelerationZ_tag', 'High G Acceleration Z', 'Acceleration_y_axis')
+                        
 
+
+
+            with gui.group(horizontal=True):
+                with gui.group(horizontal=False):
+                    with gui.group(horizontal=True):
+                        gui.add_button(label = "Manual Fit", callback = manualFitGPSGroundSpeed)
+                        gui.add_button(label = "Auto Fit", callback = autoFitGPSGroundSpeed)
+                        gui.add_button(label = "Sliding Window", callback = slidingWindowGPSGroundSpeed)
+                    with gui.group(horizontal=False,width= (mainWidth/3)-10):
+                        create_plot("GPS Ground Speed", 'GPS_Ground_Speed_y_axis', 'GPS_Ground_Speed_x_axis', 'Time(s)', 'Velocity (m/s)')
+                        add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed', 'GPS_Ground_Speed_y_axis')
+
+            # Plot gyroscope data
+                with gui.group(horizontal=False):
+                    with gui.group(horizontal=True):
+                        gui.add_button(label = "Manual Fit", callback = manualFitGyroscope)
+                        gui.add_button(label = "Auto Fit", callback = autoFitGyroscope)
+                        gui.add_button(label = "Sliding Window", callback = slidingWindowGyroscope)
+                    with gui.group(horizontal=False,width= (mainWidth/3)-10):
+                        create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
+                        add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_x_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
+                        add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
+                        add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_z_tag', "Gyroscope Z Data", 'Gyroscope_y_axis')
+
+
+
+        with gui.group(horizontal=True,pos=[SCREEN_WIDTH-SIDEBAR_BUTTON_WIDTH,SCREEN_HEIGHT/16]):
             with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
             borders_innerH=False, borders_outerH=True, borders_innerV=True,
-            borders_outerV=True, context_menu_in_body=True, row_background=True,
-            height=VIEWPORT_HEIGHT, width=VIEWPORT_WIDTH-20):
-
-                # create table column to hold plot rows
-                gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH*2)
-                
-                
-                # Row for Altitude and Acceleration Plots
-                with gui.table_row( height=VIEWPORT_HEIGHT/2):
-                    with gui.table_cell():
-                
-                        # Plot Altitude data
-                        with gui.group(horizontal=True):
-                            with gui.group(horizontal=False):
-                                with gui.group(horizontal=True):
-                                    gui.add_button(label = "Manual Fit", callback = manualFitAltitude)
-                                    gui.add_button(label = "Auto Fit", callback = autoFitAltitude)
-                                    gui.add_button(label = "Sliding Window", callback = slidingWindowAltitude)
-                                with gui.group(horizontal=False):
-                                    create_plot('Altitude', 'Altitude_y_axis', 'Altitude_x_axis', 'Time(s)', 'Altitude (meters)')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'barometer_altitude_tag', 'Barometer Altitude', 'Altitude_y_axis')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'gps_altitude_tag', 'GPS Altitude', 'Altitude_y_axis')
-
-                        # Plot Acceleration data
-                            with gui.group(horizontal=False):
-                                with gui.group(horizontal=True):
-                                    gui.add_button(label = "Manual Fit", callback = manualFitAcceleration)
-                                    gui.add_button(label = "Auto Fit", callback = autoFitAcceleration)
-                                    gui.add_button(label = "Sliding Window", callback = slidingWindowAcceleration)
-                                with gui.group(horizontal=False):
-                                    create_plot("Acceleration", 'Acceleration_y_axis', 'Acceleration_x_axis', 'Time(s)', 'Acceleration (m/s^2)')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'accelerationZ_tag', 'Acceleration Z ', 'Acceleration_y_axis')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'highGaccelerationZ_tag', 'High G Acceleration Z', 'Acceleration_y_axis')
-                                    
-
-
-                # New Row 
-                #gui.add_table_column(label="secondary_column")
-                #with gui.table_row():
-                    # Plot GPS Ground Speed data
-                #with gui.table_row( height=VIEWPORT_HEIGHT/2):\
-                        with gui.group(horizontal=True):
-                            with gui.group(horizontal=False):
-                                with gui.group(horizontal=True):
-                                    gui.add_button(label = "Manual Fit", callback = manualFitGPSGroundSpeed)
-                                    gui.add_button(label = "Auto Fit", callback = autoFitGPSGroundSpeed)
-                                    gui.add_button(label = "Sliding Window", callback = slidingWindowGPSGroundSpeed)
-                                with gui.group(horizontal=False):
-                                    create_plot("GPS Ground Speed", 'GPS_Ground_Speed_y_axis', 'GPS_Ground_Speed_x_axis', 'Time(s)', 'Velocity (m/s)')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'GPS_Ground_Speed_tag', 'GPS Ground Speed', 'GPS_Ground_Speed_y_axis')
-
-                        # Plot gyroscope data
-                            with gui.group(horizontal=False):
-                                with gui.group(horizontal=True):
-                                    gui.add_button(label = "Manual Fit", callback = manualFitGyroscope)
-                                    gui.add_button(label = "Auto Fit", callback = autoFitGyroscope)
-                                    gui.add_button(label = "Sliding Window", callback = slidingWindowGyroscope)
-                                with gui.group(horizontal=False):
-                                    create_plot("Gyroscope", 'Gyroscope_y_axis', 'Gyroscope_x_axis', 'Time(s)', '(RPS)')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_x_tag', "Gyroscope X Data", 'Gyroscope_y_axis')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_y_tag', "Gyroscope Y Data", 'Gyroscope_y_axis')
-                                    add_line_series_custom(original_x_axis, original_y_axis, 'Gyroscope_z_tag', "Gyroscope Z Data", 'Gyroscope_y_axis')
-
-            with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
-            borders_innerH=False, borders_outerH=True, borders_innerV=True,
-            borders_outerV=True, context_menu_in_body=True, row_background=True):
+            borders_outerV=True, context_menu_in_body=True, row_background=True,pos=[SCREEN_WIDTH-SIDEBAR_BUTTON_WIDTH,200]):
                 
             # create table column to hold plot rows
-                gui.add_table_column(label="primary_column", width=VIEWPORT_WIDTH*2)
+                gui.add_table_column(label="primary_column",width=SIDEBAR_BUTTON_WIDTH)
                 
                 
                 # Row for Right Table
+            
                 with gui.table_row( height=VIEWPORT_HEIGHT/100):
                     with gui.table_cell():
-                        gui.add_text("Latitude/Longitude:")
+                        gui.add_text("Latitude/Longitude:",)
                         with gui.group(horizontal=True):
                             gui.add_text("(")
                             gui.add_text("0.00", id='latitude')
                             gui.add_text(",")
                             gui.add_text("0.00", id='longitude')
                             gui.add_text(")")
-                with gui.table_row( height=VIEWPORT_HEIGHT/9):
+                with gui.table_row( height=VIEWPORT_HEIGHT/10):
                     with gui.table_cell():
-                        gui.add_text("Telemetrum Voltage:")
+                        gui.add_text("Telemetrum\nVoltage:")
                         gui.add_text("0.00", id="telemetrumVoltage")
-                        gui.add_text("Stratologger Voltage:")
+                        gui.add_text("Stratologger\nVoltage:")
                         gui.add_text("0.00", id="stratologgerVoltage")
-                        gui.add_text("Camera Voltage:")
+                        gui.add_text("Camera\nVoltage:")
                         gui.add_text("0.00", id="cameraVoltage")
-                        gui.add_text("Battery Voltage:")
+                        gui.add_text("Battery\nVoltage:")
                         gui.add_text("0.00", id="batteryVoltage")
-                with gui.table_row( height=VIEWPORT_HEIGHT/9):
+                with gui.table_row( height=VIEWPORT_HEIGHT/10):
                     with gui.table_cell():
-                        gui.add_text("Telemetrum Current:")
+                        gui.add_text("Telemetrum\nCurrent:")
                         gui.add_text("0.00", id="telemetrumCurrent")
-                        gui.add_text("Stratologger Current")
+                        gui.add_text("Stratologger\nCurrent:")
                         gui.add_text("0.00", id="stratologgerCurrent")
-                        gui.add_text("Camera Current:")
+                        gui.add_text("Camera\nCurrent:")
                         gui.add_text("0.00", id="cameraCurrent")
                 with gui.table_row( height=VIEWPORT_HEIGHT/10):
                     with gui.table_cell():
-                        gui.add_text("Battery Temperature:")
+                        gui.add_text("Battery\nTemperature:")
                         gui.add_text("0.00", id="batteryTemperature")
 
-
+                    
+                    
+                
 
 # diagnostic info goes here
 def displayHealth():
@@ -559,7 +603,7 @@ class Grapher(AppComponent):
             
 
             #make Unarmed buttons
-            gui.add_button(label='Telemetrum Disarmed', tag='telemetrum_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            gui.add_button(label='Telemetrum \n Disarmed', tag='telemetrum_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_telemetrum_popup"):
                 #print("I AM HERE!!!")
                 gui.add_text("Arm Stratologger?")
@@ -567,14 +611,14 @@ class Grapher(AppComponent):
             gui.bind_item_theme('telemetrum_disarmed_tag', "theme_unarmed")
             gui.configure_item("arm_telemetrum_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-            gui.add_button(label='Stratologger Disarmed', tag='stratologger_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            gui.add_button(label='Stratologger\nDisarmed', tag='stratologger_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_stratologger_popup"):
                 gui.add_text("Disarm Stratologger?")
                 gui.add_button(label="Yes",  callback=self.armSRADfc)
             gui.bind_item_theme('stratologger_disarmed_tag', "theme_unarmed")
             gui.configure_item("arm_stratologger_popup", pos = (POPUP_POSITIONX, POPUP_POSITIONY))
 
-            gui.add_button(label='Camera Disarmed', tag='camera_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
+            gui.add_button(label='Camera\nDisarmed', tag='camera_disarmed_tag',width=SIDEBAR_BUTTON_WIDTH, height=SIDEBAR_BUTTON_HEIGHT)
             with gui.popup(gui.last_item(), mousebutton=gui.mvMouseButton_Left, modal=True, tag="arm_camera_popup"):
                 gui.add_text("Disarm Camera?")
                 gui.add_button(label="Yes",  callback=self.armCOTSfc)
@@ -587,7 +631,7 @@ class Grapher(AppComponent):
 
             with gui.table(header_row=False, no_host_extendX=True, delay_search=True,
                     borders_innerH=False, borders_outerH=True, borders_innerV=True,
-                    borders_outerV=True, context_menu_in_body=True, row_background=True, width=VIEWPORT_WIDTH/10):
+                    borders_outerV=True, context_menu_in_body=True, row_background=True, width=SIDEBAR_BUTTON_WIDTH):
                         
                     # create table column to hold plot rows
                         gui.add_table_column(label="primary_columns", width=VIEWPORT_WIDTH/100)
@@ -674,7 +718,29 @@ class Grapher(AppComponent):
         pass
 
     def update(self) -> None:
+            
 
+            if(len(self.iliad.telemetrum_voltage.y_data)>=1):
+                if(self.iliad.telemetrum_voltage.y_data[len(self.iliad.telemetrum_voltage.y_data)-1 ]>= TELEMETRUM_VOLTAGE_EXPECTED ):
+                    gui.configure_item(item="telemetrum_battery_voltage", color=[0,250,0])
+                    gui.set_value("Telemetrum_battery_voltage_value", "")
+                    gui.set_value("Telemetrum_battery_units", "")
+
+                else:
+                    gui.configure_item(item="telemetrum_battery_voltage", color=[250,0,0])
+                    gui.set_value("Telemetrum_battery_voltage_value", round(self.iliad.telemetrum_voltage.y_data[len(self.iliad.telemetrum_voltage.y_data)-1],2))
+                    gui.set_value("Telemetrum_battery_units", "volts")
+
+            if(len(self.iliad.telemetrum_current.y_data)>=1):
+                if(self.iliad.telemetrum_current.y_data[len(self.iliad.telemetrum_current.y_data)-1 ]>= TELEMETRUM_CURRENT ):
+                    gui.configure_item(item="telemetrum_current", color=[0,250,0])
+                else:
+                    gui.configure_item(item="telemetrum_current", color=[250,0,0])
+            if(len(self.iliad.stratologger_voltage.y_data)>=1):
+                if(self.iliad.stratologger_voltage.y_data[len(self.iliad.stratologger_voltage.y_data)-1 ]>= STRATOLOGGER_VOLATGE ):
+                    gui.configure_item(item="StratoLogger_battery_voltage", color=[0,250,0])
+                else:
+                    gui.configure_item(item="StratoLogger_battery_voltage", color=[250,0,0])
             sample = 1
             frequency=1.0   
 
@@ -1083,7 +1149,7 @@ class Grapher(AppComponent):
             if(variableAcceleration == 2):
                 gui.fit_axis_data("Acceleration_x_axis")
                 gui.fit_axis_data("Acceleration_y_axis")
-                gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data[-nsamples:], self.iliad.accelerometer_z.y_data[-nsamples:]])
+                gui.set_value('accelerationZ_tag', [self.iliad.accelerometer_z.x_data[2*-nsamples:], self.iliad.accelerometer_z.y_data[2*-nsamples:]])
                 gui.set_value('highGaccelerationZ_tag', [self.iliad.high_g_accelerometer_z.x_data[-nsamples:], self.iliad.high_g_accelerometer_z.y_data[-nsamples:]])
 
             #GPS Ground Speed
