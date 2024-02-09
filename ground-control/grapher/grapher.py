@@ -92,9 +92,10 @@ gyroscope_plot = Plot("Gyroscope", 'Time(s)', '(RPS)',
 
 
 class Grapher(AppComponent):
-    def __init__(self, identifier: str) -> None:
+    def __init__(self, identifier: str, scaling_factor: float) -> None:
         super().__init__(identifier)
 
+        self.scaling_factor = scaling_factor
         self.right_sidebar = NumericalDataView(2)
 
     def add(self):
@@ -157,7 +158,7 @@ class Grapher(AppComponent):
         with gui.tab(label="Tracking") as self.tracking_tab:
             with gui.table(header_row=False):
                 gui.add_table_column()
-                gui.add_table_column(init_width_or_weight=180, width_fixed=True)
+                gui.add_table_column(init_width_or_weight=180 * self.scaling_factor, width_fixed=True)
 
                 with gui.table_row():
                     with gui.table_cell():

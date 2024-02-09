@@ -141,7 +141,7 @@ class App:
             gui.bind_font(primary_font)
 
         self.iliad = IliadDataController('iliad_data_controller')
-        self.grapher = Grapher('grapher')
+        self.grapher = Grapher('grapher', self.scaling_factor)
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())
@@ -161,7 +161,7 @@ class App:
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
             with gui.table(header_row=False):
-                gui.add_table_column(init_width_or_weight=180, width_fixed=True)
+                gui.add_table_column(init_width_or_weight=180*self.scaling_factor, width_fixed=True)
                 gui.add_table_column()
                 with gui.table_row():
                     with gui.table_cell():
