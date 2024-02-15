@@ -38,7 +38,7 @@ class AppComponent:
         """
         pass
 
-    def update(self) -> None:
+    def update(self, *args, **kwargs) -> None:
         """
         Called every frame.
 

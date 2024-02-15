@@ -2,6 +2,8 @@
 
 Rocket ground control software for the [Buckeye Space Launch Initiative](https://bsli.space/) at the Ohio State University.
 
+The minimum required Python version is 3.12.
+
 ## Contributing
 
 Please do not push directly to this repo. Fork it, push your changes there, and make a pull request (PR).
