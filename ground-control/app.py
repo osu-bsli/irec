@@ -1,26 +1,36 @@
 import dearpygui.dearpygui as gui
-import tomli
+from typing import Union
+import ctypes
 from data_controllers.iliad_data_controller import IliadDataController
-from grapher.grapher import *
 from grapher.grapher import Grapher
-from iliad.arm_control import ArmControl
-from grapher import grapher
-from typing import List, Any, Callable, Union, Tuple
+from grapher.numerical_data_view import NumericalDataView
+
+# (r, g, b, alpha)
+# orng_btn_theme = (150, 30, 30)
+BUTTON_ACTIVE_COLOR = (0, 150, 100, 255)  # green
+BUTTON_INACTIVE_COLOR = (150, 30, 30)  # red
+
 
 class App:
-
     # Widget tags
     TAG_MAIN_WINDOW = 'app.main_window'
-    TAG_MAIN_MENU = 'app.main_menu'
-    TAG_MAIN_TAB_BAR = 'app.main_tab_bar'
     TAG_CONFIG_WINDOW = 'app.config_window'
 
-
-
     def __init__(self) -> None:
+        self.left_sidebar = NumericalDataView(2)
+        self.unscaled_dpi = 96
+        self.dpi = 96
+        # Set process DPI awareness to system DPI aware,
+        # and get the system DPI from Windows so we can DPI scale later
+        # https://github.com/hoffstadt/DearPyGui/issues/1380
+        if ctypes.windll:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+            self.dpi = ctypes.windll.user32.GetDpiForSystem()
 
+        self.scaling_factor = self.dpi / self.unscaled_dpi
+
+        # noinspection PyTypeChecker
         def create_theme_imgui_light() -> Union[str, int]:
-            
             with gui.theme() as theme_id:
                 with gui.theme_component(0):
                     gui.add_theme_color(gui.mvThemeCol_Text                   , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255))
@@ -126,13 +136,16 @@ class App:
         gui.setup_dearpygui()
 
         with gui.font_registry():
-            primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf', 16)
+            primary_font = gui.add_font('assets/fonts/open_sans/OpenSans-VariableFont_wdth,wght.ttf',
+                                        16 * self.scaling_factor)
             gui.bind_font(primary_font)
 
+        self.iliad = IliadDataController('iliad_data_controller')
+        self.grapher = Grapher('grapher', self.scaling_factor)
 
         with gui.window(tag=App.TAG_MAIN_WINDOW):
             gui.bind_theme(create_theme_imgui_light())
-            with gui.menu_bar(tag=App.TAG_MAIN_MENU):
+            with gui.menu_bar():
                 with gui.menu(label='Options'):
                     gui.add_menu_item(label='Config', callback=lambda: gui.show_item(App.TAG_CONFIG_WINDOW))
                 with gui.menu(label='Tools'):
@@ -147,18 +160,18 @@ class App:
                 with gui.menu(label='Help'):
                     gui.add_menu_item(label='Docs', callback=None)
                     gui.add_menu_item(label='About', callback=None)
-            # with gui.group(horizontal=True):
-            with gui.group(horizontal=True):
-                gui.add_group(tag='app.sidebar')
-                gui.add_tab_bar(tag=App.TAG_MAIN_TAB_BAR, pos=(200, 200))
-
-                # gui.add_group(horizontal=True, tag='app.sidebar')
+            with gui.table(header_row=False):
+                gui.add_table_column(init_width_or_weight=180*self.scaling_factor, width_fixed=True)
+                gui.add_table_column()
+                with gui.table_row():
+                    with gui.table_cell():
+                        self.add_left_sidebar()
+                    with gui.table_cell():
+                        with gui.tab_bar():
+                            self.iliad.add()
+                            self.grapher.add()
 
             gui.set_primary_window(App.TAG_MAIN_WINDOW, True)
-
-            self.iliad = IliadDataController('iliad_data_controller')
-            self.grapher = Grapher('grapher', self.iliad)
-            self.arm_control = ArmControl('armctl', self.iliad)
 
         # Init config menu:
         with gui.window(label='Config', tag=App.TAG_CONFIG_WINDOW, min_size=(512, 512)):
@@ -174,9 +187,8 @@ class App:
                 gui.add_text('No options available.')
             with gui.tree_node(label='Iliad Data Controller'):
                 self.iliad.add_config_menu()
-            
-            with gui.group(horizontal=True):
 
+            with gui.group(horizontal=True):
                 def on_apply_config():
                     # self.grapher.apply_config()
                     self.iliad.apply_config()
@@ -188,15 +200,59 @@ class App:
         gui.show_viewport()
         gui.maximize_viewport()
 
+    def add_left_sidebar(self):
+        # bind buttons to an initial named theme.
+        # modify the theme and re-bind button to change appearance.
+        # TODO button click redirects to relevant diagnostics
+
+        with gui.group(horizontal=False):
+            with gui.theme(tag="theme_armed"):
+                with gui.theme_component(gui.mvButton):
+                    gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_INACTIVE_COLOR)
+
+            with gui.theme(tag="theme_unarmed"):
+                with gui.theme_component(gui.mvButton):
+                    gui.add_theme_color(gui.mvThemeCol_Button, BUTTON_ACTIVE_COLOR)
+
+            self.left_sidebar.add()
+            self.left_sidebar.add_data_group(altitude_barometer="Altitude Barometer",
+                                             altitude_gps="Altitude GPS")
+            self.left_sidebar.add_data_group(acceleration_x="Acceleration X",
+                                             acceleration_y="Acceleration Y",
+                                             acceleration_z="Acceleration Z")
+            self.left_sidebar.add_data_group(high_g_acceleration_x="High G Acceleration X",
+                                             high_g_acceleration_y="High G Acceleration Y",
+                                             high_g_acceleration_z="High G Acceleration Z")
+            self.left_sidebar.add_data_group(gps_ground_speed="GPS Ground Speed")
+            self.left_sidebar.add_data_group(gyroscope_x="Gyroscope X",
+                                             gyroscope_y="Gyroscope Y",
+                                             gyroscope_z="Gyroscope Z")
+
     def update(self) -> None:
         """
         Called every frame.
 
         Calls `update()` on all components.
+
         """
+        self.left_sidebar.update_data(
+            altitude_barometer=self.iliad.barometer_altitude,
+            altitude_gps=self.iliad.gps_altitude,
+            acceleration_x=self.iliad.accelerometer_x,
+            acceleration_y=self.iliad.accelerometer_y,
+            acceleration_z=self.iliad.accelerometer_z,
+            high_g_acceleration_x=self.iliad.high_g_accelerometer_x,
+            high_g_acceleration_y=self.iliad.high_g_accelerometer_y,
+            high_g_acceleration_z=self.iliad.high_g_accelerometer_z,
+            gps_ground_speed=self.iliad.gps_ground_speed,
+            gyroscope_x=self.iliad.gyroscope_x,
+            gyroscope_y=self.iliad.gyroscope_y,
+            gyroscope_z=self.iliad.gyroscope_z,
+        )
+
         self.iliad.update()
-        self.grapher.update()
-        self.arm_control.update()
+        self.grapher.update(self.iliad)
+
 
     def run(self) -> None:
         """
@@ -207,5 +263,5 @@ class App:
             gui.render_dearpygui_frame()
 
         self.iliad.close()
-        
+
         gui.destroy_context()
