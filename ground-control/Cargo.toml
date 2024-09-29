@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+eframe = "0.29.0"
+egui_extras = { version = "0.29.0", features = ["default", "image"] }
+egui_plot = "0.29.0"
+env_logger = { version = "0.10", default-features = false, features = [
+    "auto-color",
+    "humantime",
+] } 
+mavlink = "0.13.1"
+serialport = "4.5.1"
