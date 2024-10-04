@@ -1,4 +1,4 @@
-use eframe::egui::Color32;
+use eframe::egui::{Color32, Stroke};
 use egui_plot::{Line, PlotPoints};
 use std::vec::Vec;
 use rand; // only used for placeholder demo graph functionality (see randpoints())
@@ -36,6 +36,7 @@ impl From<&DataSeries> for Line {
         Line::new(PlotPoints::from(value.points.clone()))
             .name(value.displayname.clone())
             .color(value.displaycolor)
+            .stroke(Stroke::new(1.0, value.displaycolor)) // thin lines look nice
     }
 }
 

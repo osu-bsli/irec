@@ -1,17 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod data;
-mod graphs;
+mod plottab;
+mod livetab;
 mod connection;
 use connection::ConnectionStatus;
 use data::Data;
+use livetab::LiveTab;
 use std::time::Duration;
 
 use log::{debug, info, error};
 
 use eframe::egui;
 use egui_extras;
-use graphs::Graphs;
+use plottab::PlotTab;
 use serialport::{SerialPort, SerialPortInfo};
 
 fn main() -> eframe::Result {
@@ -36,15 +38,16 @@ fn main() -> eframe::Result {
 
 #[derive(PartialEq)]
 enum AppTab {
-    MainGraph,
-    AllGraphs,
-    Visualization, // TODO: 3d flight altitude and gps visualization
-    MAVLink, // TODO: packet log
+    Plot,
+    Live,
+    Trajectory, // TODO: 3d flight altitude and gps visualization
+    Network, // TODO: packet log
 }
 
 struct MyApp {
     frame: egui::Frame,
-    graphs: graphs::Graphs,
+    tab_plot: plottab::PlotTab,
+    tab_live: livetab::LiveTab,
 
     data: data::Data,
 
@@ -106,7 +109,8 @@ impl Default for MyApp {
                 stroke: egui::Stroke::new(1.0, egui::Color32::GRAY),
             },
 
-            graphs: Graphs::new(),
+            tab_plot: PlotTab::new(),
+            tab_live: LiveTab::new(),
 
             data: Data::new(),
 
@@ -122,7 +126,7 @@ impl Default for MyApp {
             serialport_messages: Vec::new(),
 
             ui_showsidebar: true,
-            ui_selectedtab: AppTab::MainGraph,
+            ui_selectedtab: AppTab::Plot,
         }
     }
 }
@@ -133,6 +137,10 @@ impl eframe::App for MyApp {
         egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.label("BSLI Ground Control");
+
+                // ui.add_space(8.0);
+                ui.separator();
+                // ui.add_space(8.0);
 
                 ui.menu_button("File", |ui| {
                     ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
@@ -176,9 +184,17 @@ impl eframe::App for MyApp {
                     }
                 });
 
-                ui.toggle_value(&mut self.ui_showsidebar, "Toggle sidebar (placeholder)");
-
                 egui::global_theme_preference_switch(ui);
+
+                // ui.add_space(8.0);
+                ui.separator();
+                // ui.add_space(8.0);
+
+                ui.toggle_value(&mut self.ui_showsidebar, "Sidebar");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Plot, "Plot");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Live, "Live");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Trajectory, "Trajectory");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Network, "Network");
             });
         });
 
@@ -194,6 +210,10 @@ impl eframe::App for MyApp {
                     // serial port connection ui
                     ui.collapsing("Serial port", |ui| {
                         ui_add_serialportui(ui, self);
+                    });
+
+                    ui.collapsing("Logging", |ui| {
+                        ui.label("placeholder");
                     });
 
                     ui.collapsing("MAVLink", |ui| {
@@ -264,13 +284,20 @@ impl eframe::App for MyApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // TODO: extract tabs from Graphs into here, splitting Graphs into Plot and LivePlots (or similar)
-            // tabs
-            // ui.horizontal(|ui| {
-            //     ui.selectable_value(&mut self.ui_selectedtab, AppTab::MainGraph, "Main graph");
-            //     ui.selectable_value(&mut self.ui_selectedtab, AppTab::AllGraphs, "All graphs");
-            // });
-            self.graphs.ui(ctx, &self.data);
+            match self.ui_selectedtab {
+                AppTab::Plot => {
+                    self.tab_plot.ui(ui, &self.data);
+                },
+                AppTab::Live => {
+                    self.tab_live.ui(ui, &self.data);
+                },
+                AppTab::Trajectory => {
+                    ui.label("placeholder");
+                },
+                AppTab::Network => {
+                    ui.label("placeholder");
+                },
+            }
         });
     }
 }
