@@ -1475,7 +1475,9 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "env_logger",
+ "log",
  "mavlink",
+ "rand",
  "serialport",
 ]
 
