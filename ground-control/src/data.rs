@@ -45,12 +45,19 @@ impl DataSeries {
         Self {
             displayname: displayname,
             displaycolor: displaycolor,
-            points: randpoints(),
+            points: Vec::new(),
+            // points: randpoints(),
         }
     }
 
     pub fn add_point(&mut self, x: f64, y: f64) {
         self.points.push([x, y]);
+    }
+
+    // assumes points are added in increasing-x order
+    // TODO: replace Vec with some other data structure that x-sorts the points
+    pub fn get_latest_point(&self) -> Option<[f64; 2]> {
+        self.points.last().copied() // copied() derefs an option's value
     }
 }
 

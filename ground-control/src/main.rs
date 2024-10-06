@@ -3,18 +3,18 @@
 mod data;
 mod plottab;
 mod livetab;
-mod connection;
-use connection::ConnectionStatus;
+mod serialconnection;
 use data::Data;
 use livetab::LiveTab;
-use std::time::Duration;
+use std::io::BufRead;
+use rand;
 
 use log::{debug, info, error};
 
 use eframe::egui;
 use egui_extras;
 use plottab::PlotTab;
-use serialport::{SerialPort, SerialPortInfo};
+use serialport::SerialPortInfo;
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -50,13 +50,14 @@ struct MyApp {
     tab_live: livetab::LiveTab,
 
     data: data::Data,
+    data_t: f64,
+
+    serialconnection: serialconnection::SerialConnection,
 
     // TODO: clean up relationship between activeport and selectedport
     // TODO: clean up representation of port status (ConnectionStatus vs. Option vs. Result, etc.)
-    serialport_activeport: Result<Box<dyn SerialPort>, serialport::Error>, // the actual port, Err(serialport::Error { kind: serialport::ErrorKind::NoDevice, description: ... }) if not connected
     serialport_knownports: Vec<SerialPortInfo>,
-    serialport_status: ConnectionStatus,
-    serialport_selectedport: Option<SerialPortInfo>, // the port selected in the ui, None if not connected
+    serialport_selectedport: String, // the name of the port selected in the ui, "" if not connected
     serialport_baudrate: u32,
     serialport_databits: serialport::DataBits,
     serialport_parity: serialport::Parity,
@@ -69,26 +70,18 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn serialport_connect(&mut self, path: String, baudrate: u32, databits: serialport::DataBits, parity: serialport::Parity, stopbits: serialport::StopBits, timeout_ms: u64) {
-        self.serialport_activeport = serialport::new(path, baudrate)
-            .data_bits(databits)
-            .parity(parity)
-            .stop_bits(stopbits)
-            .timeout(Duration::from_millis(timeout_ms))
-            .open();
-        self.serialport_status = match &self.serialport_activeport {
-            Ok(_) => ConnectionStatus::Connected,
-            Err(_) => ConnectionStatus::Failed,
-        };
+    fn serialport_connect(&mut self) {
+        self.serialconnection.connect(
+            self.serialport_selectedport.clone(),
+            self.serialport_baudrate,
+            self.serialport_databits,
+            self.serialport_parity,
+            self.serialport_stopbits,
+            100);
     }
 
     fn serialport_disconnect(&mut self) {
-        // TODO: figure out how this is meant to be done
-        self.serialport_activeport = Err(serialport::Error {
-            kind: serialport::ErrorKind::NoDevice,
-            description: "disconnected".to_string(),
-        });
-        self.serialport_status = ConnectionStatus::NotConnected;
+        self.serialconnection.disconnect();
     }
 }
 
@@ -113,11 +106,12 @@ impl Default for MyApp {
             tab_live: LiveTab::new(),
 
             data: Data::new(),
+            data_t: 0.0,
 
-            serialport_activeport: Err(serialport::Error { kind: serialport::ErrorKind::NoDevice, description: "disconnected".to_string() }),
+            serialconnection: serialconnection::SerialConnection::new(),
+
             serialport_knownports: Vec::new(),
-            serialport_status: ConnectionStatus::NotConnected,
-            serialport_selectedport: None,
+            serialport_selectedport: "".to_string(),
             serialport_baudrate: 9600,
             serialport_databits: serialport::DataBits::Eight,
             serialport_parity: serialport::Parity::None,
@@ -133,6 +127,26 @@ impl Default for MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+
+        // read serialport
+        // TODO: move to another thread
+        match &mut self.serialconnection.reader {
+            Some(r) => {
+                let mut buffer = String::new();
+                let _ = r.read_line(&mut buffer);
+                let _ = buffer.pop(); // remove trailing '\n'
+                self.serialport_messages.push(buffer);
+            },
+            None => {},
+        }
+
+        // add fake data
+        self.data.altitude.add_point(self.data_t, rand::random::<f64>() * 30000.0);
+        self.data.airpressure.add_point(self.data_t, rand::random::<f64>() * 100.0);
+        self.data.acceleration_x.add_point(self.data_t, rand::random::<f64>() * 100.0);
+        self.data.acceleration_y.add_point(self.data_t, rand::random::<f64>() * 1000.0);
+        self.data.acceleration_z.add_point(self.data_t, rand::random::<f64>() * 100.0);
+        self.data_t += 0.1 / 60.0;
 
         egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -234,25 +248,8 @@ impl eframe::App for MyApp {
                         ui.label("placeholder");
 
                         ui.collapsing("Log", |ui| {
-                            match &mut self.serialport_activeport {
-                                Ok(p) => {
-
-                                    // read serialport
-                                    let mut buffer: Vec<u8> = vec![0; 64];
-                                    match p.read(buffer.as_mut_slice()) {
-                                        Ok(n) => {
-                                            self.serialport_messages.push(String::from_utf8_lossy(&buffer[..n]).to_string()); // TODO: check slice index
-                                        },
-                                        Err(_) => {}, // TODO: handle error
-                                    }
-
-                                    for m in &self.serialport_messages {
-                                        ui.label(m);
-                                    }
-                                },
-                                Err(_) => {
-                                    // do nothing
-                                }
+                            for m in &self.serialport_messages {
+                                ui.label(m);
                             }
                         });
                     });
@@ -303,17 +300,24 @@ impl eframe::App for MyApp {
 }
 
 fn ui_add_serialportui(ui: &mut egui::Ui, app: &mut MyApp) {
-    let mut settings_isenabled = false; // port name, baud rate, etc.
-    let mut connect_isenabled = false; // connect button
-    let mut disconnect_isenabled = true; // disconnect button
-    match app.serialport_status {
-        ConnectionStatus::NotConnected => {
-            settings_isenabled = true;
-            connect_isenabled = app.serialport_selectedport.is_some(); // disable connect button if no port selected (e.g. when no ports are detected)
-            disconnect_isenabled = false;
-        },
-        _ => {}, // do nothing
-    }
+    // let mut settings_isenabled = false; // port name, baud rate, etc.
+    // let mut connect_isenabled = false; // connect button
+    // let mut disconnect_isenabled = true; // disconnect button
+    let isconnected = app.serialconnection.isconnected();
+    let settings_isenabled =   !isconnected;
+    let connect_isenabled =    !isconnected && !app.serialport_selectedport.is_empty();
+    let disconnect_isenabled =  isconnected;
+    // match &app.serialport_activeport {
+    //     Err(e) => match e.kind {
+    //         serialport::ErrorKind::NoDevice => {
+    //             settings_isenabled = true;
+    //             connect_isenabled = true;
+    //             disconnect_isenabled = false;
+    //         },
+    //         _ => {},
+    //     },
+    //     _ => {},
+    // }
 
     // port settings
     ui.add_enabled_ui(settings_isenabled, |ui| {
@@ -397,14 +401,9 @@ fn ui_add_serialportui(ui: &mut egui::Ui, app: &mut MyApp) {
     });
     
     // status
-    ui.label(format!("Status: {}", match &app.serialport_activeport {
-        Ok(_) => "connected",
-        Err(e) => match e.kind {
-            serialport::ErrorKind::NoDevice => "disconnected",
-            serialport::ErrorKind::InvalidInput => "bad settings",
-            serialport::ErrorKind::Unknown => "unknown error",
-            serialport::ErrorKind::Io(_) => "IO error",
-        }
+    ui.label(format!("Status: {}", match app.serialconnection.isconnected() {
+        true => "connected",
+        false => "disconnected",
     }));
     ui.label("Error rate: 0% (placeholder)");
 
@@ -412,8 +411,8 @@ fn ui_add_serialportui(ui: &mut egui::Ui, app: &mut MyApp) {
     ui.horizontal(|ui| {
         ui.add_enabled_ui(connect_isenabled, |ui| {
             if ui.button("Connect").clicked() {
-                app.serialport_connect(
-                    app.serialport_selectedport.as_ref().unwrap().port_name.clone(),
+                app.serialconnection.connect(
+                    app.serialport_selectedport.clone(),
                     app.serialport_baudrate,
                     app.serialport_databits,
                     app.serialport_parity,
@@ -431,15 +430,12 @@ fn ui_add_serialportui(ui: &mut egui::Ui, app: &mut MyApp) {
     });
 }
 
-fn ui_add_serialportdropdown(ui: &mut egui::Ui, availableports: &mut Vec<SerialPortInfo>, selectedport: &mut Option<SerialPortInfo>) {
+fn ui_add_serialportdropdown(ui: &mut egui::Ui, availableports: &mut Vec<SerialPortInfo>, selectedport: &mut String) {
     egui::ComboBox::from_id_salt("serialport-name")
-        .selected_text(match selectedport {
-            Some(p) => p.port_name.clone(),
-            None => "".to_string(),
-        })
+        .selected_text(selectedport.clone())
         .show_ui(ui, |ui| {
             for p in availableports {
-                ui.selectable_value(selectedport, Some(p.clone()), p.port_name.clone()); // TODO: cloning port info every time is probably horrible lol
+                ui.selectable_value(selectedport, p.port_name.clone(), p.port_name.clone()); // TODO: cloning port info every time is probably horrible lol
             }
         });
 }

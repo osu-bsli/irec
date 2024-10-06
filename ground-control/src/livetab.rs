@@ -53,7 +53,10 @@ impl LiveTab {
     fn graph(ui: &mut egui::Ui, id: &str, lines: Vec<Line>) {
         let plot = Plot::new(id)
             .legend(Legend::default())
-            .link_axis("axislinkgroup-1", true, false)
+            .allow_boxed_zoom(false)
+            .allow_drag(false)
+            .allow_scroll(false)
+            .allow_zoom(false)
             .link_cursor("cursorlinkgroup-1", true, false);
         plot.show(ui, |plotui| {
             for l in lines {
