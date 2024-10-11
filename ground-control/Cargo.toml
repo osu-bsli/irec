@@ -2,16 +2,21 @@
 name = "ground-control"
 version = "0.1.0"
 edition = "2021"
+default-run = "ground-control"
 
 [dependencies]
 log = "0.4.22"
-env_logger = { version = "0.10", default-features = false, features = [
+env_logger = { version = "0.11.5", default-features = false, features = [
     "auto-color",
     "humantime",
 ] } 
-eframe = "0.29.0"
-egui_extras = { version = "0.29.0", features = ["default", "image"] }
+eframe = "0.29.1"
+egui_extras = { version = "0.29.1", features = ["default", "image"] }
 egui_plot = "0.29.0"
 mavlink = "0.13.1"
+mavlink-bindgen = "0.13.1"
+serde = "1.0.210"
 serialport = "4.5.1"
 rand = "0.8.5"
+csv = "1.3.0"
+
