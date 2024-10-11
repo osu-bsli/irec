@@ -8,6 +8,7 @@ use data::Data;
 use livetab::LiveTab;
 use rand;
 use std::{f32::consts::PI, io::BufRead};
+use winit::window::Icon;
 
 use log::{debug, error, info};
 
@@ -25,7 +26,7 @@ use bevy::{
         view::RenderLayers,
     },
     window::PrimaryWindow,
-    winit::WinitSettings,
+    winit::{WinitSettings, WinitWindows},
 };
 use bevy_egui::{EguiContexts, EguiPlugin, EguiSet, EguiStartupSet};
 
@@ -37,14 +38,45 @@ struct OriginalCameraTransform(Transform);
 fn main() {
     bevy::prelude::App::new()
         .insert_resource(WinitSettings::desktop_app())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "BSLI Ground Control".to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }))
         .add_plugins(EguiPlugin)
         .init_non_send_resource::<App>()
+        .add_systems(Startup, set_window_icon)
         .add_systems(Startup, setup_system.after(EguiStartupSet::InitContexts))
         .add_systems(Update, ui_example_system)
         .add_systems(Update, rotator_system)
         .run();
 }
+
+// https://bevy-cheatbook.github.io/window/icon.html
+fn set_window_icon(
+    // we have to use `NonSend` here
+    windows: NonSend<WinitWindows>,
+) {
+    // here we use the `image` crate to load our icon data from a png file
+    // this is not a very bevy-native solution, but it will do
+    let (icon_rgba, icon_width, icon_height) = {
+        let image = image::open("assets/bsli_logo.png")
+            .expect("Failed to open icon path")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+    let icon = winit::window::Icon::from_rgba(icon_rgba, icon_width, icon_height).unwrap();
+
+    // do it for all windows
+    for window in windows.windows.values() {
+        window.set_window_icon(Some(icon.clone()));
+    }
+}
+
 
 #[derive(PartialEq)]
 enum AppTab {
@@ -65,7 +97,12 @@ fn setup_system(
     mut contexts: EguiContexts,
     mut images: ResMut<Assets<Image>>,
     mut ground_control: NonSendMut<App>,
+    mut windows: Query<&mut Window>,
+    asset_server: Res<AssetServer>,
 ) {
+    let mut window = windows.single_mut();
+    window.set_maximized(true);
+
     let style = egui::Style {
         visuals: egui::Visuals::light(),
         ..egui::Style::default()
@@ -98,16 +135,11 @@ fn setup_system(
     // fill image.data with zeroes
     image.resize(size);
 
-    let first_pass_layer = RenderLayers::layer(1);
-
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-            ..Default::default()
-        },
-        first_pass_layer.clone(),
-    ));
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        ..Default::default()
+    },));
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
@@ -115,20 +147,21 @@ fn setup_system(
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
         },
-        first_pass_layer.clone(),
         Cube,
     ));
-    commands.spawn((
-        PointLightBundle {
-            point_light: PointLight {
-                shadows_enabled: true,
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+    commands.spawn((PointLightBundle {
+        point_light: PointLight {
+            shadows_enabled: true,
             ..Default::default()
         },
-        first_pass_layer.clone(),
-    ));
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        ..Default::default()
+    },));
+
+    commands.spawn(SceneBundle {
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/untitled.gltf")),
+        ..default()
+    });
 
     let camera_pos = Vec3::new(-2.0, 2.5, 5.0);
     let camera_transform =
@@ -137,20 +170,15 @@ fn setup_system(
 
     let image_handle = images.add(image);
 
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                // render before the "main pass" camera
-                order: -1,
-                target: image_handle.clone().into(),
-                clear_color: Color::WHITE.into(),
-                ..default()
-            },
-            transform: camera_transform,
-            ..Default::default()
+    commands.spawn(Camera3dBundle {
+        camera: Camera {
+            target: image_handle.clone().into(),
+            clear_color: Color::WHITE.into(),
+            ..default()
         },
-        first_pass_layer,
-    ));
+        transform: camera_transform,
+        ..Default::default()
+    });
 
     ground_control.image_3dvis = Some(contexts.add_image(image_handle));
 }
@@ -184,6 +212,8 @@ struct App {
 
 impl App {
     fn update(&mut self, ctx: &mut Context) {
+        ctx.request_repaint();
+
         // read serialport
         // TODO: move to another thread
         match &mut self.serialconnection.reader {
@@ -428,7 +458,8 @@ impl App {
                 );
                 ui.label("Port");
                 if ui.button("Refresh").clicked() {
-                    self.serialport_knownports = serialport::available_ports().unwrap_or(Vec::new());
+                    self.serialport_knownports =
+                        serialport::available_ports().unwrap_or(Vec::new());
                     // TODO: handle this error properly
                 }
             });
@@ -511,7 +542,11 @@ impl App {
                         serialport::Parity::Even,
                         "Even",
                     );
-                    ui.selectable_value(&mut self.serialport_parity, serialport::Parity::Odd, "Odd");
+                    ui.selectable_value(
+                        &mut self.serialport_parity,
+                        serialport::Parity::Odd,
+                        "Odd",
+                    );
                 });
 
             // stop bits
