@@ -19,4 +19,9 @@ serde = "1.0.210"
 serialport = "4.5.1"
 rand = "0.8.5"
 csv = "1.3.0"
+bevy = { version = "0.14", features = ["dynamic_linking"] }
+bevy_egui = "0.30"
 
+# Enable a small amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
