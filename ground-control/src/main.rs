@@ -11,12 +11,22 @@ use std::{f32::consts::PI, io::BufRead};
 
 use log::{debug, error, info};
 
-use eframe::egui::{self, pos2, Color32, Pos2};
+use eframe::egui::{self, pos2, Color32, Context, Pos2};
 use egui_extras;
 use plottab::PlotTab;
 use serialport::SerialPortInfo;
 
-use bevy::{prelude::*, render::{render_resource::{Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages}, view::RenderLayers}, window::PrimaryWindow, winit::WinitSettings};
+use bevy::{
+    prelude::*,
+    render::{
+        render_resource::{
+            Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+        },
+        view::RenderLayers,
+    },
+    window::PrimaryWindow,
+    winit::WinitSettings,
+};
 use bevy_egui::{EguiContexts, EguiPlugin, EguiSet, EguiStartupSet};
 
 const CAMERA_TARGET: Vec3 = Vec3::ZERO;
@@ -25,11 +35,11 @@ const CAMERA_TARGET: Vec3 = Vec3::ZERO;
 struct OriginalCameraTransform(Transform);
 
 fn main() {
-    App::new()
+    bevy::prelude::App::new()
         .insert_resource(WinitSettings::desktop_app())
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
-        .init_non_send_resource::<GroundControl>()
+        .init_non_send_resource::<App>()
         .add_systems(Startup, setup_system.after(EguiStartupSet::InitContexts))
         .add_systems(Update, ui_example_system)
         .add_systems(Update, rotator_system)
@@ -54,20 +64,20 @@ fn setup_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut contexts: EguiContexts,
     mut images: ResMut<Assets<Image>>,
-    mut ground_control: NonSendMut<GroundControl>
+    mut ground_control: NonSendMut<App>,
 ) {
     let style = egui::Style {
         visuals: egui::Visuals::light(),
         ..egui::Style::default()
     };
-    
+
     contexts.ctx_mut().set_style(style);
     let size = Extent3d {
         width: 512,
         height: 512,
         ..default()
     };
-    
+
     // This is the texture that will be rendered to.
     let mut image = Image {
         texture_descriptor: TextureDescriptor {
@@ -87,32 +97,35 @@ fn setup_system(
 
     // fill image.data with zeroes
     image.resize(size);
-    
+
     let first_pass_layer = RenderLayers::layer(1);
 
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..Default::default()
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+            ..Default::default()
         },
         first_pass_layer.clone(),
     ));
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..Default::default()
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..Default::default()
         },
         first_pass_layer.clone(),
         Cube,
     ));
-    commands.spawn((PointLightBundle {
-        point_light: PointLight {
-            shadows_enabled: true,
+    commands.spawn((
+        PointLightBundle {
+            point_light: PointLight {
+                shadows_enabled: true,
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..Default::default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
         },
         first_pass_layer.clone(),
     ));
@@ -124,24 +137,25 @@ fn setup_system(
 
     let image_handle = images.add(image);
 
-    commands.spawn((Camera3dBundle {
-        camera: Camera {
-            // render before the "main pass" camera
-            order: -1,
-            target: image_handle.clone().into(),
-            clear_color: Color::WHITE.into(),
-            ..default()
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                // render before the "main pass" camera
+                order: -1,
+                target: image_handle.clone().into(),
+                clear_color: Color::WHITE.into(),
+                ..default()
+            },
+            transform: camera_transform,
+            ..Default::default()
         },
-        transform: camera_transform,
-        ..Default::default()
-        },
-        first_pass_layer
+        first_pass_layer,
     ));
 
     ground_control.image_3dvis = Some(contexts.add_image(image_handle));
 }
 
-struct GroundControl {
+struct App {
     frame: egui::Frame,
     tab_plot: plottab::PlotTab,
     tab_live: livetab::LiveTab,
@@ -165,149 +179,11 @@ struct GroundControl {
     ui_showsidebar: bool,
     ui_selectedtab: AppTab,
 
-    image_3dvis: Option<egui::TextureId>
+    image_3dvis: Option<egui::TextureId>,
 }
 
-fn ui_example_system(
-    mut is_last_selected: Local<bool>,
-    mut contexts: EguiContexts,
-    mut ground_control: NonSendMut<GroundControl>
-) {
-    let ctx = contexts.ctx_mut();
-
-    egui::SidePanel::left("left_panel")
-        .resizable(true)
-        .show(ctx, |ui| {
-            ui.label("Left resizeable panel");
-            if ui
-                .add(egui::widgets::Button::new("A button").selected(!*is_last_selected))
-                .clicked()
-            {
-                *is_last_selected = false;
-            }
-            if ui
-                .add(egui::widgets::Button::new("Another button").selected(*is_last_selected))
-                .clicked()
-            {
-                *is_last_selected = true;
-            }
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        })
-        .response
-        .rect
-        .width();
-    egui::SidePanel::right("right_panel")
-        .resizable(true)
-        .show(ctx, |ui| {
-            ui.label("Right resizeable panel");
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        })
-        .response
-        .rect
-        .width();
-    egui::TopBottomPanel::top("top_panel")
-        .resizable(true)
-        .show(ctx, |ui| {
-            ui.label("Top resizeable panel");
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        })
-        .response
-        .rect
-        .height();
-    egui::TopBottomPanel::bottom("bottom_panel")
-        .resizable(true)
-        .show(ctx, |ui| {
-            ui.label("Bottom resizeable panel");
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        })
-        .response
-        .rect
-        .height();
-
-    egui::Window::new("3D Visualizer")
-        .vscroll(true)
-        .show(ctx, |ui| {
-            if let Some(image_3dvis) = ground_control.image_3dvis {
-                let image_pos = ui.next_widget_position();
-                let image_rect = egui::Rect {
-                    min: image_pos,
-                    max: image_pos + egui::Vec2 {x: 512.0, y: 512.0}
-                };
-
-                ui.label(ui.cursor().to_string());
-                ui.painter().image(
-                    image_3dvis,
-                    image_rect,
-                    egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                    Color32::WHITE
-                );
-            } else {
-                ui.label("Initializing...");
-            }
-        });
-}
-
-impl GroundControl {
-    fn serialport_connect(&mut self) {
-        self.serialconnection.connect(
-            self.serialport_selectedport.clone(),
-            self.serialport_baudrate,
-            self.serialport_databits,
-            self.serialport_parity,
-            self.serialport_stopbits,
-            100,
-        );
-    }
-
-    fn serialport_disconnect(&mut self) {
-        self.serialconnection.disconnect();
-    }
-}
-
-impl Default for GroundControl {
-    fn default() -> Self {
-        Self {
-            frame: egui::Frame {
-                inner_margin: 12.0.into(),
-                outer_margin: 24.0.into(),
-                rounding: 14.0.into(),
-                shadow: egui::Shadow {
-                    offset: [8.0, 12.0].into(),
-                    blur: 16.0,
-                    spread: 0.0,
-                    color: egui::Color32::from_black_alpha(180),
-                },
-                fill: egui::Color32::from_rgba_unmultiplied(97, 0, 255, 128),
-                stroke: egui::Stroke::new(1.0, egui::Color32::GRAY),
-            },
-
-            tab_plot: PlotTab::new(),
-            tab_live: LiveTab::new(),
-
-            data: Data::new(),
-            data_t: 0.0,
-
-            serialconnection: serialconnection::SerialConnection::new(),
-
-            serialport_knownports: Vec::new(),
-            serialport_selectedport: "".to_string(),
-            serialport_baudrate: 9600,
-            serialport_databits: serialport::DataBits::Eight,
-            serialport_parity: serialport::Parity::None,
-            serialport_stopbits: serialport::StopBits::One,
-
-            serialport_messages: Vec::new(),
-
-            ui_showsidebar: true,
-            ui_selectedtab: AppTab::Plot,
-
-            image_3dvis: None
-        }
-    }
-}
-
-impl eframe::App for GroundControl {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+impl App {
+    fn update(&mut self, ctx: &mut Context) {
         // read serialport
         // TODO: move to another thread
         match &mut self.serialconnection.reader {
@@ -411,7 +287,7 @@ impl eframe::App for GroundControl {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     // serial port connection ui
                     ui.collapsing("Serial port", |ui| {
-                        ui_add_serialportui(ui, self);
+                        self.ui_add_serialportui(ui);
                     });
 
                     ui.collapsing("Logging", |ui| {
@@ -482,6 +358,279 @@ impl eframe::App for GroundControl {
                 ui.label("placeholder");
             }
         });
+
+        egui::Window::new("3D Visualizer")
+            .vscroll(true)
+            .show(ctx, |ui| {
+                if let Some(image_3dvis) = self.image_3dvis {
+                    let image_pos = ui.next_widget_position();
+                    let image_rect = egui::Rect {
+                        min: image_pos,
+                        max: image_pos + egui::Vec2 { x: 512.0, y: 512.0 },
+                    };
+
+                    ui.label(ui.cursor().to_string());
+                    ui.painter().image(
+                        image_3dvis,
+                        image_rect,
+                        egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                        Color32::WHITE,
+                    );
+                } else {
+                    ui.label("Initializing...");
+                }
+            });
+    }
+
+    fn serialport_connect(&mut self) {
+        self.serialconnection.connect(
+            self.serialport_selectedport.clone(),
+            self.serialport_baudrate,
+            self.serialport_databits,
+            self.serialport_parity,
+            self.serialport_stopbits,
+            100,
+        );
+    }
+
+    fn serialport_disconnect(&mut self) {
+        self.serialconnection.disconnect();
+    }
+
+    fn ui_add_serialportui(&mut self, ui: &mut egui::Ui) {
+        // let mut settings_isenabled = false; // port name, baud rate, etc.
+        // let mut connect_isenabled = false; // connect button
+        // let mut disconnect_isenabled = true; // disconnect button
+        let isconnected = self.serialconnection.isconnected();
+        let settings_isenabled = !isconnected;
+        let connect_isenabled = !isconnected && !self.serialport_selectedport.is_empty();
+        let disconnect_isenabled = isconnected;
+        // match &app.serialport_activeport {
+        //     Err(e) => match e.kind {
+        //         serialport::ErrorKind::NoDevice => {
+        //             settings_isenabled = true;
+        //             connect_isenabled = true;
+        //             disconnect_isenabled = false;
+        //         },
+        //         _ => {},
+        //     },
+        //     _ => {},
+        // }
+
+        // port settings
+        ui.add_enabled_ui(settings_isenabled, |ui| {
+            // port selection
+            ui.horizontal(|ui| {
+                App::ui_draw_serialportdropdown(
+                    ui,
+                    &mut self.serialport_knownports,
+                    &mut self.serialport_selectedport,
+                );
+                ui.label("Port");
+                if ui.button("Refresh").clicked() {
+                    self.serialport_knownports = serialport::available_ports().unwrap_or(Vec::new());
+                    // TODO: handle this error properly
+                }
+            });
+
+            // baud rate
+            egui::ComboBox::from_label("Baud rate")
+                .selected_text(format!("{}", self.serialport_baudrate))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.serialport_baudrate, 50, "50");
+                    ui.selectable_value(&mut self.serialport_baudrate, 75, "75");
+                    ui.selectable_value(&mut self.serialport_baudrate, 110, "110");
+                    ui.selectable_value(&mut self.serialport_baudrate, 134, "134");
+                    ui.selectable_value(&mut self.serialport_baudrate, 150, "150");
+                    ui.selectable_value(&mut self.serialport_baudrate, 200, "200");
+                    ui.selectable_value(&mut self.serialport_baudrate, 300, "300");
+                    ui.selectable_value(&mut self.serialport_baudrate, 600, "600");
+                    ui.selectable_value(&mut self.serialport_baudrate, 1200, "1200");
+                    ui.selectable_value(&mut self.serialport_baudrate, 1800, "1800");
+                    ui.selectable_value(&mut self.serialport_baudrate, 2400, "2400");
+                    ui.selectable_value(&mut self.serialport_baudrate, 4800, "4800");
+                    ui.selectable_value(&mut self.serialport_baudrate, 9600, "9600");
+                    ui.selectable_value(&mut self.serialport_baudrate, 19200, "19200");
+                    ui.selectable_value(&mut self.serialport_baudrate, 28800, "28800");
+                    ui.selectable_value(&mut self.serialport_baudrate, 38400, "38400");
+                    ui.selectable_value(&mut self.serialport_baudrate, 57600, "57600");
+                    ui.selectable_value(&mut self.serialport_baudrate, 76800, "76800");
+                    ui.selectable_value(&mut self.serialport_baudrate, 115200, "115200");
+                    ui.selectable_value(&mut self.serialport_baudrate, 230400, "230400");
+                    ui.selectable_value(&mut self.serialport_baudrate, 460800, "460800");
+                    ui.selectable_value(&mut self.serialport_baudrate, 576000, "576000");
+                    ui.selectable_value(&mut self.serialport_baudrate, 921600, "921600");
+                });
+
+            // data bits
+            egui::ComboBox::from_label("Data bits")
+                .selected_text(match self.serialport_databits {
+                    serialport::DataBits::Five => "5",
+                    serialport::DataBits::Six => "6",
+                    serialport::DataBits::Seven => "7",
+                    serialport::DataBits::Eight => "8",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut self.serialport_databits,
+                        serialport::DataBits::Five,
+                        "5",
+                    );
+                    ui.selectable_value(
+                        &mut self.serialport_databits,
+                        serialport::DataBits::Six,
+                        "6",
+                    );
+                    ui.selectable_value(
+                        &mut self.serialport_databits,
+                        serialport::DataBits::Seven,
+                        "7",
+                    );
+                    ui.selectable_value(
+                        &mut self.serialport_databits,
+                        serialport::DataBits::Eight,
+                        "8",
+                    );
+                });
+
+            // parity
+            egui::ComboBox::from_label("Parity")
+                .selected_text(match self.serialport_parity {
+                    serialport::Parity::Even => "Even",
+                    serialport::Parity::Odd => "Odd",
+                    serialport::Parity::None => "None",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut self.serialport_parity,
+                        serialport::Parity::None,
+                        "None",
+                    );
+                    ui.selectable_value(
+                        &mut self.serialport_parity,
+                        serialport::Parity::Even,
+                        "Even",
+                    );
+                    ui.selectable_value(&mut self.serialport_parity, serialport::Parity::Odd, "Odd");
+                });
+
+            // stop bits
+            egui::ComboBox::from_label("Stop bits")
+                .selected_text(match self.serialport_stopbits {
+                    serialport::StopBits::One => "1",
+                    serialport::StopBits::Two => "2",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut self.serialport_stopbits,
+                        serialport::StopBits::One,
+                        "1",
+                    );
+                    ui.selectable_value(
+                        &mut self.serialport_stopbits,
+                        serialport::StopBits::Two,
+                        "2",
+                    );
+                });
+        });
+
+        // status
+        ui.label(format!(
+            "Status: {}",
+            match self.serialconnection.isconnected() {
+                true => "connected",
+                false => "disconnected",
+            }
+        ));
+        ui.label("Error rate: 0% (placeholder)");
+
+        // connect/disconnect buttons
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(connect_isenabled, |ui| {
+                if ui.button("Connect").clicked() {
+                    self.serialconnection.connect(
+                        self.serialport_selectedport.clone(),
+                        self.serialport_baudrate,
+                        self.serialport_databits,
+                        self.serialport_parity,
+                        self.serialport_stopbits,
+                        100,
+                    );
+                }
+            });
+
+            ui.add_enabled_ui(disconnect_isenabled, |ui| {
+                if ui.button("Disconnect").clicked() {
+                    self.serialport_disconnect();
+                }
+            });
+        });
+    }
+
+    fn ui_draw_serialportdropdown(
+        ui: &mut egui::Ui,
+        availableports: &mut Vec<SerialPortInfo>,
+        selectedport: &mut String,
+    ) {
+        egui::ComboBox::from_id_salt("serialport-name")
+            .selected_text(selectedport.clone())
+            .show_ui(ui, |ui| {
+                for p in availableports {
+                    ui.selectable_value(selectedport, p.port_name.clone(), p.port_name.clone());
+                    // TODO: cloning port info every time is probably horrible lol
+                }
+            });
+    }
+}
+
+fn ui_example_system(
+    mut is_last_selected: Local<bool>,
+    mut contexts: EguiContexts,
+    mut app: NonSendMut<App>,
+) {
+    let ctx = contexts.ctx_mut();
+    app.update(ctx);
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            frame: egui::Frame {
+                inner_margin: 12.0.into(),
+                outer_margin: 24.0.into(),
+                rounding: 14.0.into(),
+                shadow: egui::Shadow {
+                    offset: [8.0, 12.0].into(),
+                    blur: 16.0,
+                    spread: 0.0,
+                    color: egui::Color32::from_black_alpha(180),
+                },
+                fill: egui::Color32::from_rgba_unmultiplied(97, 0, 255, 128),
+                stroke: egui::Stroke::new(1.0, egui::Color32::GRAY),
+            },
+
+            tab_plot: PlotTab::new(),
+            tab_live: LiveTab::new(),
+
+            data: Data::new(),
+            data_t: 0.0,
+
+            serialconnection: serialconnection::SerialConnection::new(),
+
+            serialport_knownports: Vec::new(),
+            serialport_selectedport: "".to_string(),
+            serialport_baudrate: 9600,
+            serialport_databits: serialport::DataBits::Eight,
+            serialport_parity: serialport::Parity::None,
+            serialport_stopbits: serialport::StopBits::One,
+
+            serialport_messages: Vec::new(),
+
+            ui_showsidebar: true,
+            ui_selectedtab: AppTab::Plot,
+
+            image_3dvis: None,
+        }
     }
 }
 
@@ -491,169 +640,4 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>)
         transform.rotate_x(1.5 * time.delta_seconds());
         transform.rotate_z(1.3 * time.delta_seconds());
     }
-}
-
-fn ui_add_serialportui(ui: &mut egui::Ui, app: &mut GroundControl) {
-    // let mut settings_isenabled = false; // port name, baud rate, etc.
-    // let mut connect_isenabled = false; // connect button
-    // let mut disconnect_isenabled = true; // disconnect button
-    let isconnected = app.serialconnection.isconnected();
-    let settings_isenabled = !isconnected;
-    let connect_isenabled = !isconnected && !app.serialport_selectedport.is_empty();
-    let disconnect_isenabled = isconnected;
-    // match &app.serialport_activeport {
-    //     Err(e) => match e.kind {
-    //         serialport::ErrorKind::NoDevice => {
-    //             settings_isenabled = true;
-    //             connect_isenabled = true;
-    //             disconnect_isenabled = false;
-    //         },
-    //         _ => {},
-    //     },
-    //     _ => {},
-    // }
-
-    // port settings
-    ui.add_enabled_ui(settings_isenabled, |ui| {
-        // port selection
-        ui.horizontal(|ui| {
-            ui_add_serialportdropdown(
-                ui,
-                &mut app.serialport_knownports,
-                &mut app.serialport_selectedport,
-            );
-            ui.label("Port");
-            if ui.button("Refresh").clicked() {
-                app.serialport_knownports = serialport::available_ports().unwrap_or(Vec::new());
-                // TODO: handle this error properly
-            }
-        });
-
-        // baud rate
-        egui::ComboBox::from_label("Baud rate")
-            .selected_text(format!("{}", app.serialport_baudrate))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut app.serialport_baudrate, 50, "50");
-                ui.selectable_value(&mut app.serialport_baudrate, 75, "75");
-                ui.selectable_value(&mut app.serialport_baudrate, 110, "110");
-                ui.selectable_value(&mut app.serialport_baudrate, 134, "134");
-                ui.selectable_value(&mut app.serialport_baudrate, 150, "150");
-                ui.selectable_value(&mut app.serialport_baudrate, 200, "200");
-                ui.selectable_value(&mut app.serialport_baudrate, 300, "300");
-                ui.selectable_value(&mut app.serialport_baudrate, 600, "600");
-                ui.selectable_value(&mut app.serialport_baudrate, 1200, "1200");
-                ui.selectable_value(&mut app.serialport_baudrate, 1800, "1800");
-                ui.selectable_value(&mut app.serialport_baudrate, 2400, "2400");
-                ui.selectable_value(&mut app.serialport_baudrate, 4800, "4800");
-                ui.selectable_value(&mut app.serialport_baudrate, 9600, "9600");
-                ui.selectable_value(&mut app.serialport_baudrate, 19200, "19200");
-                ui.selectable_value(&mut app.serialport_baudrate, 28800, "28800");
-                ui.selectable_value(&mut app.serialport_baudrate, 38400, "38400");
-                ui.selectable_value(&mut app.serialport_baudrate, 57600, "57600");
-                ui.selectable_value(&mut app.serialport_baudrate, 76800, "76800");
-                ui.selectable_value(&mut app.serialport_baudrate, 115200, "115200");
-                ui.selectable_value(&mut app.serialport_baudrate, 230400, "230400");
-                ui.selectable_value(&mut app.serialport_baudrate, 460800, "460800");
-                ui.selectable_value(&mut app.serialport_baudrate, 576000, "576000");
-                ui.selectable_value(&mut app.serialport_baudrate, 921600, "921600");
-            });
-
-        // data bits
-        egui::ComboBox::from_label("Data bits")
-            .selected_text(match app.serialport_databits {
-                serialport::DataBits::Five => "5",
-                serialport::DataBits::Six => "6",
-                serialport::DataBits::Seven => "7",
-                serialport::DataBits::Eight => "8",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut app.serialport_databits,
-                    serialport::DataBits::Five,
-                    "5",
-                );
-                ui.selectable_value(&mut app.serialport_databits, serialport::DataBits::Six, "6");
-                ui.selectable_value(
-                    &mut app.serialport_databits,
-                    serialport::DataBits::Seven,
-                    "7",
-                );
-                ui.selectable_value(
-                    &mut app.serialport_databits,
-                    serialport::DataBits::Eight,
-                    "8",
-                );
-            });
-
-        // parity
-        egui::ComboBox::from_label("Parity")
-            .selected_text(match app.serialport_parity {
-                serialport::Parity::Even => "Even",
-                serialport::Parity::Odd => "Odd",
-                serialport::Parity::None => "None",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut app.serialport_parity, serialport::Parity::None, "None");
-                ui.selectable_value(&mut app.serialport_parity, serialport::Parity::Even, "Even");
-                ui.selectable_value(&mut app.serialport_parity, serialport::Parity::Odd, "Odd");
-            });
-
-        // stop bits
-        egui::ComboBox::from_label("Stop bits")
-            .selected_text(match app.serialport_stopbits {
-                serialport::StopBits::One => "1",
-                serialport::StopBits::Two => "2",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut app.serialport_stopbits, serialport::StopBits::One, "1");
-                ui.selectable_value(&mut app.serialport_stopbits, serialport::StopBits::Two, "2");
-            });
-    });
-
-    // status
-    ui.label(format!(
-        "Status: {}",
-        match app.serialconnection.isconnected() {
-            true => "connected",
-            false => "disconnected",
-        }
-    ));
-    ui.label("Error rate: 0% (placeholder)");
-
-    // connect/disconnect buttons
-    ui.horizontal(|ui| {
-        ui.add_enabled_ui(connect_isenabled, |ui| {
-            if ui.button("Connect").clicked() {
-                app.serialconnection.connect(
-                    app.serialport_selectedport.clone(),
-                    app.serialport_baudrate,
-                    app.serialport_databits,
-                    app.serialport_parity,
-                    app.serialport_stopbits,
-                    100,
-                );
-            }
-        });
-
-        ui.add_enabled_ui(disconnect_isenabled, |ui| {
-            if ui.button("Disconnect").clicked() {
-                app.serialport_disconnect();
-            }
-        });
-    });
-}
-
-fn ui_add_serialportdropdown(
-    ui: &mut egui::Ui,
-    availableports: &mut Vec<SerialPortInfo>,
-    selectedport: &mut String,
-) {
-    egui::ComboBox::from_id_salt("serialport-name")
-        .selected_text(selectedport.clone())
-        .show_ui(ui, |ui| {
-            for p in availableports {
-                ui.selectable_value(selectedport, p.port_name.clone(), p.port_name.clone());
-                // TODO: cloning port info every time is probably horrible lol
-            }
-        });
 }
