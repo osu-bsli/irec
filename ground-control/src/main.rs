@@ -3,10 +3,12 @@
 mod data;
 mod livetab;
 mod plottab;
+mod trajectorytab;
 mod serialconnection;
 use data::Data;
 use livetab::LiveTab;
 use rand;
+use trajectorytab::TrajectoryTab;
 use std::{f32::consts::PI, io::BufRead};
 use winit::window::Icon;
 
@@ -47,15 +49,15 @@ fn main() {
         }))
         .add_plugins(EguiPlugin)
         .init_non_send_resource::<App>()
-        .add_systems(Startup, set_window_icon)
-        .add_systems(Startup, setup_system.after(EguiStartupSet::InitContexts))
-        .add_systems(Update, ui_example_system)
-        .add_systems(Update, rotator_system)
+        .add_systems(Startup, system_setwindowicon)
+        .add_systems(Startup, system_setup.after(EguiStartupSet::InitContexts))
+        .add_systems(Update,  system_ui)
+        .add_systems(Update,  system_rotator)
         .run();
 }
 
 // https://bevy-cheatbook.github.io/window/icon.html
-fn set_window_icon(
+fn system_setwindowicon(
     // we have to use `NonSend` here
     windows: NonSend<WinitWindows>,
 ) {
@@ -90,7 +92,7 @@ enum AppTab {
 #[derive(Component)]
 struct Cube;
 
-fn setup_system(
+fn system_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -180,13 +182,15 @@ fn setup_system(
         ..Default::default()
     });
 
+    ground_control.image_3dvis_handle = Some(image_handle.clone());
     ground_control.image_3dvis = Some(contexts.add_image(image_handle));
 }
 
 struct App {
-    frame: egui::Frame,
+    // frame: egui::Frame,
     tab_plot: plottab::PlotTab,
     tab_live: livetab::LiveTab,
+    tab_trajectory: trajectorytab::TrajectoryTab,
 
     data: data::Data,
     data_t: f64,
@@ -207,11 +211,12 @@ struct App {
     ui_showsidebar: bool,
     ui_selectedtab: AppTab,
 
+    image_3dvis_handle: Option<Handle<Image>>,
     image_3dvis: Option<egui::TextureId>,
 }
 
 impl App {
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(&mut self, ctx: &mut Context, bevy_images: &mut ResMut<Assets<Image>>) {
         ctx.request_repaint();
 
         // read serialport
@@ -382,34 +387,22 @@ impl App {
                 self.tab_live.ui(ui, &self.data);
             }
             AppTab::Trajectory => {
-                ui.label("placeholder");
+                let availablesize = ui.available_size();
+                self.tab_trajectory.ui(ui, self.image_3dvis, availablesize);
+                if let Some(h) = &self.image_3dvis_handle {
+                    if let Some(i) = bevy_images.get_mut(h) {
+                        i.resize(Extent3d {
+                            width: availablesize.x as u32 * 2,
+                            height: availablesize.y as u32 * 2,
+                            ..default()
+                        });
+                    }
+                }
             }
             AppTab::Network => {
                 ui.label("placeholder");
             }
         });
-
-        egui::Window::new("3D Visualizer")
-            .vscroll(true)
-            .show(ctx, |ui| {
-                if let Some(image_3dvis) = self.image_3dvis {
-                    let image_pos = ui.next_widget_position();
-                    let image_rect = egui::Rect {
-                        min: image_pos,
-                        max: image_pos + egui::Vec2 { x: 512.0, y: 512.0 },
-                    };
-
-                    ui.label(ui.cursor().to_string());
-                    ui.painter().image(
-                        image_3dvis,
-                        image_rect,
-                        egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                        Color32::WHITE,
-                    );
-                } else {
-                    ui.label("Initializing...");
-                }
-            });
     }
 
     fn serialport_connect(&mut self) {
@@ -618,34 +611,36 @@ impl App {
     }
 }
 
-fn ui_example_system(
+fn system_ui(
     mut is_last_selected: Local<bool>,
     mut contexts: EguiContexts,
     mut app: NonSendMut<App>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     let ctx = contexts.ctx_mut();
-    app.update(ctx);
+    app.update(ctx, &mut images);
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
-            frame: egui::Frame {
-                inner_margin: 12.0.into(),
-                outer_margin: 24.0.into(),
-                rounding: 14.0.into(),
-                shadow: egui::Shadow {
-                    offset: [8.0, 12.0].into(),
-                    blur: 16.0,
-                    spread: 0.0,
-                    color: egui::Color32::from_black_alpha(180),
-                },
-                fill: egui::Color32::from_rgba_unmultiplied(97, 0, 255, 128),
-                stroke: egui::Stroke::new(1.0, egui::Color32::GRAY),
-            },
+            // frame: egui::Frame {
+            //     inner_margin: 12.0.into(),
+            //     outer_margin: 24.0.into(),
+            //     rounding: 14.0.into(),
+            //     shadow: egui::Shadow {
+            //         offset: [8.0, 12.0].into(),
+            //         blur: 16.0,
+            //         spread: 0.0,
+            //         color: egui::Color32::from_black_alpha(180),
+            //     },
+            //     fill: egui::Color32::from_rgba_unmultiplied(97, 0, 255, 128),
+            //     stroke: egui::Stroke::new(1.0, egui::Color32::GRAY),
+            // },
 
             tab_plot: PlotTab::new(),
             tab_live: LiveTab::new(),
+            tab_trajectory: TrajectoryTab::new(),
 
             data: Data::new(),
             data_t: 0.0,
@@ -664,15 +659,16 @@ impl Default for App {
             ui_showsidebar: true,
             ui_selectedtab: AppTab::Plot,
 
+            image_3dvis_handle: None,
             image_3dvis: None,
         }
     }
 }
 
 /// Rotates the inner cube (first pass)
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
+fn system_rotator(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     for mut transform in &mut query {
-        transform.rotate_x(1.5 * time.delta_seconds());
-        transform.rotate_z(1.3 * time.delta_seconds());
+        transform.rotate_x(std::f32::consts::TAU * time.delta_seconds());
+        //transform.rotate_z(1.3 * time.delta_seconds());
     }
 }

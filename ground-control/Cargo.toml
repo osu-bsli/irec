@@ -19,7 +19,8 @@ serde = "1.0.210"
 serialport = "4.5.1"
 rand = "0.8.5"
 csv = "1.3.0"
-bevy = { version = "0.14", features = ["dynamic_linking"] }
+#bevy = { version = "0.14", features = ["dynamic_linking"] }
+bevy = "0.14"
 bevy_egui = "0.30"
 image = "0.25.2"
 winit = "0.30.5"
