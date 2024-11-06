@@ -3,13 +3,13 @@
 mod data;
 mod livetab;
 mod plottab;
-mod trajectorytab;
 mod serialconnection;
+mod trajectorytab;
 use data::Data;
 use livetab::LiveTab;
 use rand;
-use trajectorytab::TrajectoryTab;
 use std::{f32::consts::PI, io::BufRead};
+use trajectorytab::TrajectoryTab;
 use winit::window::Icon;
 
 use log::{debug, error, info};
@@ -48,11 +48,12 @@ fn main() {
             ..Default::default()
         }))
         .add_plugins(EguiPlugin)
-        .init_non_send_resource::<App>()
+        .init_non_send_resource::<GroundControlApp>()
         .add_systems(Startup, system_setwindowicon)
         .add_systems(Startup, system_setup.after(EguiStartupSet::InitContexts))
-        .add_systems(Update,  system_ui)
-        .add_systems(Update,  system_rotator)
+        .add_systems(Update, system_ui)
+        .add_systems(Update, trajectorytab::system_resize)
+        .add_systems(Update, system_rotator)
         .run();
 }
 
@@ -79,7 +80,6 @@ fn system_setwindowicon(
     }
 }
 
-
 #[derive(PartialEq)]
 enum AppTab {
     Plot,
@@ -98,19 +98,13 @@ fn system_setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut contexts: EguiContexts,
     mut images: ResMut<Assets<Image>>,
-    mut ground_control: NonSendMut<App>,
+    mut ground_control: NonSendMut<GroundControlApp>,
     mut windows: Query<&mut Window>,
     asset_server: Res<AssetServer>,
 ) {
     let mut window = windows.single_mut();
     window.set_maximized(true);
 
-    let style = egui::Style {
-        visuals: egui::Visuals::light(),
-        ..egui::Style::default()
-    };
-
-    contexts.ctx_mut().set_style(style);
     let size = Extent3d {
         width: 512,
         height: 512,
@@ -186,8 +180,7 @@ fn system_setup(
     ground_control.image_3dvis = Some(contexts.add_image(image_handle));
 }
 
-struct App {
-    // frame: egui::Frame,
+struct GroundControlApp {
     tab_plot: plottab::PlotTab,
     tab_live: livetab::LiveTab,
     tab_trajectory: trajectorytab::TrajectoryTab,
@@ -215,7 +208,7 @@ struct App {
     image_3dvis: Option<egui::TextureId>,
 }
 
-impl App {
+impl GroundControlApp {
     fn update(&mut self, ctx: &mut Context, bevy_images: &mut ResMut<Assets<Image>>) {
         ctx.request_repaint();
 
@@ -387,17 +380,7 @@ impl App {
                 self.tab_live.ui(ui, &self.data);
             }
             AppTab::Trajectory => {
-                let availablesize = ui.available_size();
-                self.tab_trajectory.ui(ui, self.image_3dvis, availablesize);
-                if let Some(h) = &self.image_3dvis_handle {
-                    if let Some(i) = bevy_images.get_mut(h) {
-                        i.resize(Extent3d {
-                            width: availablesize.x as u32 * 2,
-                            height: availablesize.y as u32 * 2,
-                            ..default()
-                        });
-                    }
-                }
+                self.tab_trajectory.ui(ui, self.image_3dvis, ui.available_size());
             }
             AppTab::Network => {
                 ui.label("placeholder");
@@ -444,7 +427,7 @@ impl App {
         ui.add_enabled_ui(settings_isenabled, |ui| {
             // port selection
             ui.horizontal(|ui| {
-                App::ui_draw_serialportdropdown(
+                GroundControlApp::ui_draw_serialportdropdown(
                     ui,
                     &mut self.serialport_knownports,
                     &mut self.serialport_selectedport,
@@ -614,30 +597,16 @@ impl App {
 fn system_ui(
     mut is_last_selected: Local<bool>,
     mut contexts: EguiContexts,
-    mut app: NonSendMut<App>,
+    mut app: NonSendMut<GroundControlApp>,
     mut images: ResMut<Assets<Image>>,
 ) {
     let ctx = contexts.ctx_mut();
     app.update(ctx, &mut images);
 }
 
-impl Default for App {
+impl Default for GroundControlApp {
     fn default() -> Self {
         Self {
-            // frame: egui::Frame {
-            //     inner_margin: 12.0.into(),
-            //     outer_margin: 24.0.into(),
-            //     rounding: 14.0.into(),
-            //     shadow: egui::Shadow {
-            //         offset: [8.0, 12.0].into(),
-            //         blur: 16.0,
-            //         spread: 0.0,
-            //         color: egui::Color32::from_black_alpha(180),
-            //     },
-            //     fill: egui::Color32::from_rgba_unmultiplied(97, 0, 255, 128),
-            //     stroke: egui::Stroke::new(1.0, egui::Color32::GRAY),
-            // },
-
             tab_plot: PlotTab::new(),
             tab_live: LiveTab::new(),
             tab_trajectory: TrajectoryTab::new(),
