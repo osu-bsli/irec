@@ -1,7 +1,6 @@
 use eframe::egui::{Color32, Stroke};
 use egui_plot::{Line, PlotPoints};
 use std::vec::Vec;
-use rand; // only used for placeholder demo graph functionality (see randpoints())
 
 pub(crate) struct Data {
     pub altitude:       DataSeries, // meters above sea level (TODO: or above ground?)
@@ -28,6 +27,7 @@ pub(crate) struct DataSeries {
     pub displayname: String,
     pub displaycolor: Color32,
     pub points: Vec<[f64; 2]>,
+    pub maxx: f64, // highest x value seen so far
 }
 
 // convert to egui_plot data
@@ -46,33 +46,31 @@ impl DataSeries {
             displayname: displayname,
             displaycolor: displaycolor,
             points: Vec::new(),
-            // points: randpoints(),
+            maxx: 0.0,
         }
     }
 
     pub fn add_point(&mut self, x: f64, y: f64) {
         self.points.push([x, y]);
+        if x > self.maxx {
+            self.maxx = x;
+        }
     }
 
-    // assumes points are added in increasing-x order
-    // TODO: replace Vec with some other data structure that x-sorts the points
-    pub fn get_latest_point(&self) -> Option<[f64; 2]> {
-        self.points.last().copied() // copied() derefs an option's value
+    // returns a Line containing the last n points, where those points range
+    // from xrange before the latest point to the latest point itself.
+    pub fn as_line(&self, xrange: f64) -> Line {
+        let minx = self.maxx - xrange;
+
+        // get an iterator of references, filter, then clone.
+        // this way, we only clone xrange worth of points.
+        let pointsiter = (&self.points).into_iter()
+            .filter(|p| p[0] > minx)
+            .cloned(); // clones all elements
+
+        Line::new(PlotPoints::from_iter(pointsiter))
+            .name(self.displayname.clone())
+            .color(self.displaycolor)
+            .stroke(Stroke::new(1.0, self.displaycolor))
     }
-}
-
-// only used for placeholder demo graph functionality
-fn randpoints() -> Vec<[f64; 2]> {
-    let mut range = rand::random::<f64>() * 100.0;
-    range *= range * range; // cube it to get big variance of scales between data sets
-
-    let mut result = Vec::new();
-    let mut x = 0.0;
-    while x < 100.0 {
-        let y = rand::random::<f64>() * range;
-        result.push([x, y]);
-        x += rand::random::<f64>() * 10.0;
-    }
-
-    result
 }

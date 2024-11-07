@@ -8,9 +8,8 @@ mod trajectorytab;
 use data::Data;
 use livetab::LiveTab;
 use rand;
-use std::{f32::consts::PI, io::BufRead};
+use std::io::BufRead;
 use trajectorytab::TrajectoryTab;
-use winit::window::Icon;
 
 use log::{debug, error, info};
 
@@ -209,7 +208,7 @@ struct GroundControlApp {
 }
 
 impl GroundControlApp {
-    fn update(&mut self, ctx: &mut Context, bevy_images: &mut ResMut<Assets<Image>>) {
+    fn update(&mut self, ctx: &mut Context) {
         ctx.request_repaint();
 
         // read serialport
@@ -595,13 +594,11 @@ impl GroundControlApp {
 }
 
 fn system_ui(
-    mut is_last_selected: Local<bool>,
     mut contexts: EguiContexts,
     mut app: NonSendMut<GroundControlApp>,
-    mut images: ResMut<Assets<Image>>,
 ) {
     let ctx = contexts.ctx_mut();
-    app.update(ctx, &mut images);
+    app.update(ctx);
 }
 
 impl Default for GroundControlApp {
