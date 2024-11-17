@@ -10,20 +10,16 @@ env_logger = { version = "0.11.5", default-features = false, features = [
     "auto-color",
     "humantime",
 ] } 
-eframe = "0.29.1"
+eframe = { version = "0.29.1", features = ["persistence"] }
 egui_extras = { version = "0.29.1", features = ["default", "image"] }
 egui_plot = "0.29.0"
-mavlink = "0.13.1"
 mavlink-bindgen = "0.13.1"
-serde = "1.0.210"
+serde = { version = "1.0.215", features = ["derive"] }
 serialport = "4.5.1"
 rand = "0.8.5"
 csv = "1.3.0"
-#bevy = { version = "0.14", features = ["dynamic_linking"] }
-bevy = "0.14"
-bevy_egui = "0.30"
 image = "0.25.2"
-winit = "0.30.5"
+egui = { version = "0.29.1" }
 
 # Enable full optimization in the dev profile for dependencies.
 [profile.dev.package."*"]

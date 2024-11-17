@@ -8,6 +8,7 @@ mod trajectorytab;
 use data::Data;
 use livetab::LiveTab;
 use rand;
+use serialconnection::SerialConnection;
 use std::io::BufRead;
 use trajectorytab::TrajectoryTab;
 
@@ -18,65 +19,25 @@ use egui_extras;
 use plottab::PlotTab;
 use serialport::SerialPortInfo;
 
-use bevy::{
-    prelude::*,
-    render::{
-        render_resource::{
-            Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        view::RenderLayers,
-    },
-    window::PrimaryWindow,
-    winit::{WinitSettings, WinitWindows},
-};
-use bevy_egui::{EguiContexts, EguiPlugin, EguiSet, EguiStartupSet};
+fn main() -> eframe::Result {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-const CAMERA_TARGET: Vec3 = Vec3::ZERO;
-
-#[derive(Resource, Deref, DerefMut)]
-struct OriginalCameraTransform(Transform);
-
-fn main() {
-    bevy::prelude::App::new()
-        .insert_resource(WinitSettings::desktop_app())
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "BSLI Ground Control".to_string(),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }))
-        .add_plugins(EguiPlugin)
-        .init_non_send_resource::<GroundControlApp>()
-        .add_systems(Startup, system_setwindowicon)
-        .add_systems(Startup, system_setup.after(EguiStartupSet::InitContexts))
-        .add_systems(Update, system_ui)
-        .add_systems(Update, trajectorytab::system_resize)
-        .add_systems(Update, system_rotator)
-        .run();
-}
-
-// https://bevy-cheatbook.github.io/window/icon.html
-fn system_setwindowicon(
-    // we have to use `NonSend` here
-    windows: NonSend<WinitWindows>,
-) {
-    // here we use the `image` crate to load our icon data from a png file
-    // this is not a very bevy-native solution, but it will do
-    let (icon_rgba, icon_width, icon_height) = {
-        let image = image::open("assets/bsli_logo.png")
-            .expect("Failed to open icon path")
-            .into_rgba8();
-        let (width, height) = image.dimensions();
-        let rgba = image.into_raw();
-        (rgba, width, height)
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([400.0, 300.0])
+            .with_min_inner_size([300.0, 220.0])
+            .with_icon(
+                // NOTE: Adding an icon is optional
+                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/bsli_logo.png")[..])
+                    .expect("Failed to load icon"),
+            ),
+        ..Default::default()
     };
-    let icon = winit::window::Icon::from_rgba(icon_rgba, icon_width, icon_height).unwrap();
-
-    // do it for all windows
-    for window in windows.windows.values() {
-        window.set_window_icon(Some(icon.clone()));
-    }
+    eframe::run_native(
+        "eframe template",
+        native_options,
+        Box::new(|cc| Ok(Box::new(GroundControlApp::new(cc)))),
+    )
 }
 
 #[derive(PartialEq)]
@@ -87,107 +48,15 @@ enum AppTab {
     Network,    // TODO: packet log
 }
 
-// Marks the main pass cube, to which the texture is applied.
-#[derive(Component)]
-struct Cube;
-
-fn system_setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut contexts: EguiContexts,
-    mut images: ResMut<Assets<Image>>,
-    mut ground_control: NonSendMut<GroundControlApp>,
-    mut windows: Query<&mut Window>,
-    asset_server: Res<AssetServer>,
-) {
-    let mut window = windows.single_mut();
-    window.set_maximized(true);
-
-    let size = Extent3d {
-        width: 512,
-        height: 512,
-        ..default()
-    };
-
-    // This is the texture that will be rendered to.
-    let mut image = Image {
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        },
-        ..default()
-    };
-
-    // fill image.data with zeroes
-    image.resize(size);
-
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..Default::default()
-    },));
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..Default::default()
-        },
-        Cube,
-    ));
-    commands.spawn((PointLightBundle {
-        point_light: PointLight {
-            shadows_enabled: true,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
-    },));
-
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/untitled.gltf")),
-        ..default()
-    });
-
-    let camera_pos = Vec3::new(-2.0, 2.5, 5.0);
-    let camera_transform =
-        Transform::from_translation(camera_pos).looking_at(CAMERA_TARGET, Vec3::Y);
-    commands.insert_resource(OriginalCameraTransform(camera_transform));
-
-    let image_handle = images.add(image);
-
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
-            target: image_handle.clone().into(),
-            clear_color: Color::WHITE.into(),
-            ..default()
-        },
-        transform: camera_transform,
-        ..Default::default()
-    });
-
-    ground_control.image_3dvis_handle = Some(image_handle.clone());
-    ground_control.image_3dvis = Some(contexts.add_image(image_handle));
-}
-
 struct GroundControlApp {
-    tab_plot: plottab::PlotTab,
-    tab_live: livetab::LiveTab,
-    tab_trajectory: trajectorytab::TrajectoryTab,
+    tab_plot: PlotTab,
+    tab_live: LiveTab,
+    tab_trajectory: TrajectoryTab,
 
     data: data::Data,
     data_t: f64,
 
-    serialconnection: serialconnection::SerialConnection,
+    serialconnection: SerialConnection,
 
     // TODO: clean up relationship between activeport and selectedport
     // TODO: clean up representation of port status (ConnectionStatus vs. Option vs. Result, etc.)
@@ -202,189 +71,21 @@ struct GroundControlApp {
 
     ui_showsidebar: bool,
     ui_selectedtab: AppTab,
-
-    image_3dvis_handle: Option<Handle<Image>>,
-    image_3dvis: Option<egui::TextureId>,
 }
 
 impl GroundControlApp {
-    fn update(&mut self, ctx: &mut Context) {
-        ctx.request_repaint();
+    /// Called once before the first frame.
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // This is also where you can customize the look and feel of egui using
+        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
-        // read serialport
-        // TODO: move to another thread
-        match &mut self.serialconnection.reader {
-            Some(r) => {
-                let mut buffer = String::new();
-                let _ = r.read_line(&mut buffer);
-                let _ = buffer.pop(); // remove trailing '\n'
-                self.serialport_messages.push(buffer);
-            }
-            None => {}
-        }
+        // Load previous app state (if any).
+        // Note that you must enable the `persistence` feature for this to work.
+        // if let Some(storage) = cc.storage {
+        //     return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+        // }
 
-        // add fake data
-        self.data
-            .altitude
-            .add_point(self.data_t, rand::random::<f64>() * 30000.0);
-        self.data
-            .airpressure
-            .add_point(self.data_t, rand::random::<f64>() * 100.0);
-        self.data
-            .acceleration_x
-            .add_point(self.data_t, rand::random::<f64>() * 100.0);
-        self.data
-            .acceleration_y
-            .add_point(self.data_t, rand::random::<f64>() * 1000.0);
-        self.data
-            .acceleration_z
-            .add_point(self.data_t, rand::random::<f64>() * 100.0);
-        self.data_t += 0.1 / 60.0;
-
-        egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.label("BSLI Ground Control");
-
-                // ui.add_space(8.0);
-                ui.separator();
-                // ui.add_space(8.0);
-
-                ui.menu_button("File", |ui| {
-                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                });
-
-                ui.menu_button("Options", |ui| {
-                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                });
-
-                ui.menu_button("Help", |ui| {
-                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                });
-
-                egui::global_theme_preference_switch(ui);
-
-                // ui.add_space(8.0);
-                ui.separator();
-                // ui.add_space(8.0);
-
-                ui.toggle_value(&mut self.ui_showsidebar, "Sidebar");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Plot, "Plot");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Live, "Live");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Trajectory, "Trajectory");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Network, "Network");
-            });
-        });
-
-        egui::SidePanel::left("sidebar")
-            .resizable(false)
-            .default_width(160.0)
-            .min_width(160.0)
-            .show_animated(ctx, self.ui_showsidebar, |ui| {
-                // ui.add_space(4.0);
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    // serial port connection ui
-                    ui.collapsing("Serial port", |ui| {
-                        self.ui_add_serialportui(ui);
-                    });
-
-                    ui.collapsing("Logging", |ui| {
-                        ui.label("placeholder");
-                    });
-
-                    ui.collapsing("MAVLink", |ui| {
-                        ui.label("Packet rate: 0 p/s");
-                        ui.label("Error rate: 0%");
-                        ui.label("Recovery: disarmed");
-
-                        ui.collapsing("Arming", |ui| {
-                            ui.horizontal(|ui| {
-                                if ui.button("Arm").clicked() {
-                                    // TODO
-                                }
-                                if ui.button("Disarm").clicked() {
-                                    // TODO
-                                }
-                            });
-                        });
-                        ui.label("placeholder");
-
-                        ui.collapsing("Log", |ui| {
-                            for m in &self.serialport_messages {
-                                ui.label(m);
-                            }
-                        });
-                    });
-
-                    ui.collapsing("Data", |ui| {
-                        egui::Grid::new("sidebar-data-grid")
-                            .num_columns(2)
-                            .striped(true)
-                            .show(ui, |ui| {
-                                ui.label("Altitude:");
-                                ui.label("3000.0 m");
-                                ui.end_row();
-
-                                ui.label("Air pressure:");
-                                ui.label("0.0 Pa");
-                                ui.end_row();
-
-                                ui.label("Speed:");
-                                ui.label("299792458.0 m/s");
-                                ui.end_row();
-
-                                ui.label("Acceleration:");
-                                ui.label("0.0 m/s²");
-                                ui.end_row();
-                            });
-                        ui.label("placeholder");
-                    });
-                });
-            });
-
-        egui::CentralPanel::default().show(ctx, |ui| match self.ui_selectedtab {
-            AppTab::Plot => {
-                self.tab_plot.ui(ui, &self.data);
-            }
-            AppTab::Live => {
-                self.tab_live.ui(ui, &self.data);
-            }
-            AppTab::Trajectory => {
-                self.tab_trajectory.ui(ui, self.image_3dvis, ui.available_size());
-            }
-            AppTab::Network => {
-                ui.label("placeholder");
-            }
-        });
+        Default::default()
     }
 
     fn serialport_connect(&mut self) {
@@ -593,12 +294,185 @@ impl GroundControlApp {
     }
 }
 
-fn system_ui(
-    mut contexts: EguiContexts,
-    mut app: NonSendMut<GroundControlApp>,
-) {
-    let ctx = contexts.ctx_mut();
-    app.update(ctx);
+impl eframe::App for GroundControlApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.request_repaint();
+
+        // read serialport
+        // TODO: move to another thread
+        match &mut self.serialconnection.reader {
+            Some(r) => {
+                let mut buffer = String::new();
+                let _ = r.read_line(&mut buffer);
+                let _ = buffer.pop(); // remove trailing '\n'
+                self.serialport_messages.push(buffer);
+            }
+            None => {}
+        }
+
+        // add fake data
+        self.data
+            .altitude
+            .add_point(self.data_t, rand::random::<f64>() * 30000.0);
+        self.data
+            .airpressure
+            .add_point(self.data_t, rand::random::<f64>() * 100.0);
+        self.data
+            .acceleration_x
+            .add_point(self.data_t, rand::random::<f64>() * 100.0);
+        self.data
+            .acceleration_y
+            .add_point(self.data_t, rand::random::<f64>() * 1000.0);
+        self.data
+            .acceleration_z
+            .add_point(self.data_t, rand::random::<f64>() * 100.0);
+        self.data_t += 0.1 / 60.0;
+
+        egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.label("BSLI Ground Control");
+
+                // ui.add_space(8.0);
+                ui.separator();
+                // ui.add_space(8.0);
+
+                ui.menu_button("File", |ui| {
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                });
+
+                ui.menu_button("Options", |ui| {
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                });
+
+                ui.menu_button("Help", |ui| {
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                    if ui.add(egui::Button::new("Placeholder")).clicked() {
+                        ui.close_menu();
+                    }
+                });
+
+                egui::global_theme_preference_switch(ui);
+
+                // ui.add_space(8.0);
+                ui.separator();
+                // ui.add_space(8.0);
+
+                ui.toggle_value(&mut self.ui_showsidebar, "Sidebar");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Plot, "Plot");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Live, "Live");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Trajectory, "Trajectory");
+                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Network, "Network");
+            });
+        });
+
+        egui::SidePanel::left("sidebar")
+            .resizable(false)
+            .default_width(160.0)
+            .min_width(160.0)
+            .show_animated(ctx, self.ui_showsidebar, |ui| {
+                // ui.add_space(4.0);
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    // serial port connection ui
+                    ui.collapsing("Serial port", |ui| {
+                        self.ui_add_serialportui(ui);
+                    });
+
+                    ui.collapsing("Logging", |ui| {
+                        ui.label("placeholder");
+                    });
+
+                    ui.collapsing("MAVLink", |ui| {
+                        ui.label("Packet rate: 0 p/s");
+                        ui.label("Error rate: 0%");
+                        ui.label("Recovery: disarmed");
+
+                        ui.collapsing("Arming", |ui| {
+                            ui.horizontal(|ui| {
+                                if ui.button("Arm").clicked() {
+                                    // TODO
+                                }
+                                if ui.button("Disarm").clicked() {
+                                    // TODO
+                                }
+                            });
+                        });
+                        ui.label("placeholder");
+
+                        ui.collapsing("Log", |ui| {
+                            for m in &self.serialport_messages {
+                                ui.label(m);
+                            }
+                        });
+                    });
+
+                    ui.collapsing("Data", |ui| {
+                        egui::Grid::new("sidebar-data-grid")
+                            .num_columns(2)
+                            .striped(true)
+                            .show(ui, |ui| {
+                                ui.label("Altitude:");
+                                ui.label("3000.0 m");
+                                ui.end_row();
+
+                                ui.label("Air pressure:");
+                                ui.label("0.0 Pa");
+                                ui.end_row();
+
+                                ui.label("Speed:");
+                                ui.label("299792458.0 m/s");
+                                ui.end_row();
+
+                                ui.label("Acceleration:");
+                                ui.label("0.0 m/s²");
+                                ui.end_row();
+                            });
+                        ui.label("placeholder");
+                    });
+                });
+            });
+
+        egui::CentralPanel::default().show(ctx, |ui| match self.ui_selectedtab {
+            AppTab::Plot => {
+                self.tab_plot.ui(ui, &self.data);
+            }
+            AppTab::Live => {
+                self.tab_live.ui(ui, &self.data);
+            }
+            AppTab::Trajectory => {
+                self.tab_trajectory.ui(ui);
+            }
+            AppTab::Network => {
+                ui.label("placeholder");
+            }
+        });
+    }
 }
 
 impl Default for GroundControlApp {
@@ -624,17 +498,6 @@ impl Default for GroundControlApp {
 
             ui_showsidebar: true,
             ui_selectedtab: AppTab::Plot,
-
-            image_3dvis_handle: None,
-            image_3dvis: None,
         }
-    }
-}
-
-/// Rotates the inner cube (first pass)
-fn system_rotator(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
-    for mut transform in &mut query {
-        transform.rotate_x(std::f32::consts::TAU * time.delta_seconds());
-        //transform.rotate_z(1.3 * time.delta_seconds());
     }
 }
