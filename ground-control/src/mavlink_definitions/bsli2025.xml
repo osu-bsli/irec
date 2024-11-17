@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<mavlink>
+    <dialect>0</dialect>
+
+    <enums>
+        <enum name="STATUS_FLAGS">
+            <description>Type of landing target</description>
+            <entry value="1" name="STATUS_FLAGS_EMATCH_DROGUE_DEPLOYED">
+                <description>eMatch ignited to deploy the drogue parachute</description>
+            </entry>
+            <entry value="2" name="STATUS_FLAGS_EMATCH_MAIN_DEPLOYED">
+                <description>eMatch ignited to deploy the main parachute</description>
+            </entry>
+            <entry value="4" name="STATUS_FLAGS_ARMED">
+                <description>Rocket is armed</description>
+            </entry>
+        </enum>
+    </enums>
+
+    <messages>
+        <message id="100" name="status_flags">
+            <description>Status flags</description>
+            <field type="uint32_t" name="status_flags" enum="STATUS_FLAGS">Status Flags</field>
+        </message>
+
+        <message id="106" name="BSLI2025_COMPOSITE">
+            <description>BSLI2025 Composite Message</description>
+            <field type="uint32_t" name="time_boot_ms" units="ms">Timestamp (time since system boot)</field>
+            <field type="int16_t" name="xacc" units="mG">X acceleration</field>
+            <field type="int16_t" name="yacc" units="mG">Y acceleration</field>
+            <field type="int16_t" name="zacc" units="mG">Z acceleration</field>
+            <field type="int16_t" name="xgyro" units="mrad/s">Angular speed around X axis</field>
+            <field type="int16_t" name="ygyro" units="mrad/s">Angular speed around Y axis</field>
+            <field type="int16_t" name="zgyro" units="mrad/s">Angular speed around Z axis</field>
+            <field type="int16_t" name="xmag" units="mgauss">X Magnetic field</field>
+            <field type="int16_t" name="ymag" units="mgauss">Y Magnetic field</field>
+            <field type="int16_t" name="zmag" units="mgauss">Z Magnetic field</field>
+        </message>
+    </messages>
+
+</mavlink>

@@ -4,6 +4,7 @@ mod data;
 mod livetab;
 mod plottab;
 mod serialconnection;
+
 mod trajectorytab;
 use data::Data;
 use livetab::LiveTab;
@@ -28,7 +29,7 @@ fn main() -> eframe::Result {
             .with_min_inner_size([300.0, 220.0])
             .with_icon(
                 // NOTE: Adding an icon is optional
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/bsli_logo.png")[..])
+                eframe::icon_data::from_png_bytes(&include_bytes!("assets/bsli_logo.png")[..])
                     .expect("Failed to load icon"),
             ),
         ..Default::default()
