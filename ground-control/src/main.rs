@@ -1,23 +1,23 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod data;
-mod livetab;
-mod plottab;
-mod serialconnection;
+mod live_tab;
+mod plot_tab;
+mod trajectory_tab;
+mod serial_connection;
 
-mod trajectorytab;
 use data::Data;
-use livetab::LiveTab;
+use live_tab::LiveTab;
 use rand;
-use serialconnection::SerialConnection;
+use serial_connection::SerialConnection;
 use std::io::BufRead;
-use trajectorytab::TrajectoryTab;
+use trajectory_tab::TrajectoryTab;
 
 use log::{debug, error, info};
 
 use eframe::egui::{self, pos2, Color32, Context, Pos2};
 use egui_extras;
-use plottab::PlotTab;
+use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
 
 fn main() -> eframe::Result {
@@ -486,7 +486,7 @@ impl Default for GroundControlApp {
             data: Data::new(),
             data_t: 0.0,
 
-            serialconnection: serialconnection::SerialConnection::new(),
+            serialconnection: serial_connection::SerialConnection::new(),
 
             serialport_knownports: Vec::new(),
             serialport_selectedport: "".to_string(),
