@@ -1,6 +1,5 @@
-use eframe::egui::{self, pos2, Color32};
+use eframe::egui::{self};
 
-use crate::GroundControlApp;
 
 pub struct TrajectoryTab {
     size: egui::Vec2,

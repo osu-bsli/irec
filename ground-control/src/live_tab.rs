@@ -1,6 +1,5 @@
 use crate::data::Data;
 
-use log::{debug, info, error};
 
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};

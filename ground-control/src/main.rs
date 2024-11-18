@@ -8,15 +8,11 @@ mod trajectory_tab;
 
 use data::Data;
 use live_tab::LiveTab;
-use rand;
-use serial_connection::{Status, SerialConnection};
-use std::io::BufRead;
+use serial_connection::SerialConnection;
 use trajectory_tab::TrajectoryTab;
 
-use log::{debug, error, info};
 
-use eframe::egui::{self, pos2, Color32, Context, Pos2};
-use egui_extras;
+use eframe::egui::{self};
 use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
 

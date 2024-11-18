@@ -1,9 +1,6 @@
 #![feature(thread_sleep_until)]
 
-use ground_control::mavlink_generated;
 use ground_control::mavlink_generated::bsli2025::{MavMessage, BSLI2025_COMPOSITE_DATA};
-use mavlink_core::{write_v2_msg, MAVLinkV2MessageRaw};
-use serde::Serialize;
 
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
