@@ -2,7 +2,7 @@
 
 use ground_control::mavlink_generated;
 use ground_control::mavlink_generated::bsli2025::{MavMessage, BSLI2025_COMPOSITE_DATA};
-use mavlink_core::write_v2_msg;
+use mavlink_core::{write_v2_msg, MAVLinkV2MessageRaw};
 use serde::Serialize;
 
 use std::collections::VecDeque;
@@ -146,8 +146,6 @@ fn main() -> Result<(), io::Error> {
             mavlink_core::write_v2_msg(&mut port, mavlink_header(), &data).unwrap();
         }
     }
-
-    Ok(())
 }
 
 fn mavlink_header() -> mavlink_core::MavHeader {
