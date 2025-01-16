@@ -1,11 +1,11 @@
-# ground-system
+# BSLI IREC Ground Control
 
-Rocket ground control software for the [Buckeye Space Launch Initiative](https://bsli.space/) at the Ohio State University.
+Ground Control software for the BSLI IREC (International Rocket Engineering Competition) team.
 
-## Contributing
+This Ground Control software is designed to interface with the Flight Software found here: https://github.com/osu-bsli/flight-software
 
-Please do not push directly to this repo. Fork it, push your changes there, and make a pull request (PR).
+**GROUND CONTROL IS NOT INTENDED TO BE SAFETY-CRITICAL. SRAD PARACHUTE DEPLOYMENT DOES NOT INVOLVE THIS SOFTWARE.**
 
-Ideally PRs should be reviewed by at least one other person before merging.
-
-Please work on a feature branch (create one if one doesn't exist) and only push to that branch. **Please do not directly push to `main` or `dev`!** Once features are stable we can merge them into `dev`. Once `dev` is stable we can merge it into `main` as a release.
+## Notes
+* Currently telemetry-only.
+* Arming of the SRAD parachute deployment mechanism is done with a physical key on the rocket.
