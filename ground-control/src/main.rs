@@ -6,11 +6,14 @@ mod plot_tab;
 mod serial_connection;
 mod trajectory_tab;
 
+use std::{collections::VecDeque, io::Cursor};
+
 use data::Data;
+use ground_control::mavlink_generated::bsli2025::MavMessage;
 use live_tab::LiveTab;
+use mavlink_core::peek_reader::PeekReader;
 use serial_connection::SerialConnection;
 use trajectory_tab::TrajectoryTab;
-
 
 use eframe::egui::{self};
 use plot_tab::PlotTab;
@@ -20,6 +23,7 @@ fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let native_options = eframe::NativeOptions {
+        vsync: false,
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([400.0, 300.0])
             .with_min_inner_size([300.0, 220.0])
@@ -54,9 +58,13 @@ struct GroundControlApp {
     data_t: f64,
 
     serial: SerialConnection,
+    serial_received: PeekReader<VecDeque<u8>>,
 
     ui_showsidebar: bool,
     ui_selectedtab: AppTab,
+
+    frame_count: u64,
+    packets_received: u32,
 }
 
 impl GroundControlApp {
@@ -80,9 +88,13 @@ impl GroundControlApp {
             data_t: 0.0,
 
             serial: serial_connection::SerialConnection::new(),
+            serial_received: PeekReader::new(VecDeque::new()),
 
             ui_showsidebar: true,
             ui_selectedtab: AppTab::Plot,
+
+            frame_count: 0,
+            packets_received: 0,
         };
 
         app.serial.refresh_known_ports();
@@ -247,13 +259,34 @@ impl GroundControlApp {
 
 impl eframe::App for GroundControlApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Read all pending data from serial port buffer
+        self.frame_count += 1;
+
+        // Read all pending data from serial port buffer and place in recieve buffer for MAVLink library
         loop {
-            if let Ok(_) = self.serial.read_byte() {
+            if let Ok(b) = self.serial.read_byte() {
+                self.serial_received.reader_mut().push_back(b);
             } else {
                 break;
             }
         }
+
+        let msg: Result<
+            (
+                mavlink_core::MavHeader,
+                MavMessage,
+            ),
+            mavlink_core::error::MessageReadError,
+        > = mavlink_core::read_v2_msg(&mut self.serial_received);
+        if let Ok(msg) = msg {
+            self.packets_received += 1;
+            match msg.1 {
+                MavMessage::BSLI2025_COMPOSITE(data) => {}
+                _ => println!("Unhandled MAVLink packet type"),
+            }
+        }
+
+        /* Make sure packets are read at least every 0.1 seconds */
+        ctx.request_repaint_after_secs(0.1);
 
         egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -327,6 +360,10 @@ impl eframe::App for GroundControlApp {
                 // ui.add_space(4.0);
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     // serial port connection ui
+                    ui.collapsing("Info", |ui| {
+                        ui.label(format!("UI frame count: {}", self.frame_count));
+                    });
+
                     ui.collapsing("Serial port", |ui| {
                         self.ui_add_serialportui(ui);
                     });
@@ -336,6 +373,7 @@ impl eframe::App for GroundControlApp {
                     });
 
                     ui.collapsing("MAVLink", |ui| {
+                        ui.label(format!("Packets received: {}", self.packets_received));
                         ui.label("Packet rate: 0 p/s");
                         ui.label("Error rate: 0%");
                         ui.label("Recovery: disarmed");

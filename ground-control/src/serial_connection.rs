@@ -1,6 +1,5 @@
 use std::{
-    sync::mpsc,
-    time::Duration,
+    io::Read, sync::mpsc, time::Duration
 };
 
 use serialport::SerialPortInfo;
