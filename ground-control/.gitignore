@@ -1,13 +1,1 @@
-# python
-__pycache__/
-
-# pytest
-.pytest_cache/
-
-# vscode
-.vscode/
-
-# misc
-config.toml
-data/*
-.dll
+/target

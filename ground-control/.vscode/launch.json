@@ -1,0 +1,82 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'ground-control'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=ground-control",
+                    "--package=ground-control"
+                ],
+                "filter": {
+                    "name": "ground-control",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'ground-control'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=ground-control",
+                    "--package=ground-control"
+                ],
+                "filter": {
+                    "name": "ground-control",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'mavlink-simulator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=mavlink-simulator",
+                    "--package=ground-control"
+                ],
+                "filter": {
+                    "name": "mavlink-simulator",
+                    "kind": "bin"
+                }
+            },
+            "args": ["serial:COM3:10000"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'mavlink-simulator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=mavlink-simulator",
+                    "--package=ground-control"
+                ],
+                "filter": {
+                    "name": "mavlink-simulator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
