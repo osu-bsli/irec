@@ -1,23 +1,25 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod data;
-mod live_tab;
 mod plot_tab;
 mod serial_connection;
-mod trajectory_tab;
 
 use std::{collections::VecDeque, io::Cursor};
 
-use data::Data;
+use data::{Data, DataSeries};
 use ground_control::mavlink_generated::bsli2025::MavMessage;
-use live_tab::LiveTab;
 use mavlink_core::peek_reader::PeekReader;
 use serial_connection::SerialConnection;
-use trajectory_tab::TrajectoryTab;
 
 use eframe::egui::{self};
 use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
+
+// mG to m/s^2
+fn scale_mG_to_mps2(val: i16) -> f64 {
+    const G: f64 = 9.81;
+    val as f64 / 1000.0 * G
+}
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -35,7 +37,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "eframe template",
+        "BSLI IREC Ground Control",
         native_options,
         Box::new(|cc| Ok(Box::new(GroundControlApp::new(cc)))),
     )
@@ -44,24 +46,18 @@ fn main() -> eframe::Result {
 #[derive(PartialEq)]
 enum AppTab {
     Plot,
-    Live,
-    Trajectory, // TODO: 3d flight altitude and gps visualization
-    Network,    // TODO: packet log
 }
 
 struct GroundControlApp {
-    tab_plot: PlotTab,
-    tab_live: LiveTab,
-    tab_trajectory: TrajectoryTab,
+    plot_tab: PlotTab,
 
     data: data::Data,
-    data_t: f64,
 
     serial: SerialConnection,
     serial_received: PeekReader<VecDeque<u8>>,
 
     ui_showsidebar: bool,
-    ui_selectedtab: AppTab,
+    ui_selected_tab: AppTab,
 
     frame_count: u64,
     packets_received: u32,
@@ -80,18 +76,15 @@ impl GroundControlApp {
         // }
 
         let mut app = Self {
-            tab_plot: PlotTab::new(),
-            tab_live: LiveTab::new(),
-            tab_trajectory: TrajectoryTab::new(),
+            plot_tab: PlotTab::new(),
 
             data: Data::new(),
-            data_t: 0.0,
 
             serial: serial_connection::SerialConnection::new(),
             serial_received: PeekReader::new(VecDeque::new()),
 
             ui_showsidebar: true,
-            ui_selectedtab: AppTab::Plot,
+            ui_selected_tab: AppTab::Plot,
 
             frame_count: 0,
             packets_received: 0,
@@ -102,14 +95,7 @@ impl GroundControlApp {
         app
     }
 
-    fn serialport_disconnect(&mut self) {
-        self.serial.disconnect();
-    }
-
     fn ui_add_serialportui(&mut self, ui: &mut egui::Ui) {
-        // let mut settings_isenabled = false; // port name, baud rate, etc.
-        // let mut connect_isenabled = false; // connect button
-        // let mut disconnect_isenabled = true; // disconnect button
         let settings_isenabled = self.serial.connection_allowed();
         let connect_isenabled =
             self.serial.connection_allowed() && !self.serial.selected_port.is_empty();
@@ -158,57 +144,6 @@ impl GroundControlApp {
                     ui.selectable_value(&mut self.serial.baud_rate, 576000, "576000");
                     ui.selectable_value(&mut self.serial.baud_rate, 921600, "921600");
                 });
-
-            // data bits
-            egui::ComboBox::from_label("Data bits")
-                .selected_text(match self.serial.data_bits {
-                    serialport::DataBits::Five => "5",
-                    serialport::DataBits::Six => "6",
-                    serialport::DataBits::Seven => "7",
-                    serialport::DataBits::Eight => "8",
-                })
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut self.serial.data_bits,
-                        serialport::DataBits::Five,
-                        "5",
-                    );
-                    ui.selectable_value(&mut self.serial.data_bits, serialport::DataBits::Six, "6");
-                    ui.selectable_value(
-                        &mut self.serial.data_bits,
-                        serialport::DataBits::Seven,
-                        "7",
-                    );
-                    ui.selectable_value(
-                        &mut self.serial.data_bits,
-                        serialport::DataBits::Eight,
-                        "8",
-                    );
-                });
-
-            // parity
-            egui::ComboBox::from_label("Parity")
-                .selected_text(match self.serial.parity {
-                    serialport::Parity::Even => "Even",
-                    serialport::Parity::Odd => "Odd",
-                    serialport::Parity::None => "None",
-                })
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.serial.parity, serialport::Parity::None, "None");
-                    ui.selectable_value(&mut self.serial.parity, serialport::Parity::Even, "Even");
-                    ui.selectable_value(&mut self.serial.parity, serialport::Parity::Odd, "Odd");
-                });
-
-            // stop bits
-            egui::ComboBox::from_label("Stop bits")
-                .selected_text(match self.serial.stop_bits {
-                    serialport::StopBits::One => "1",
-                    serialport::StopBits::Two => "2",
-                })
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.serial.stop_bits, serialport::StopBits::One, "1");
-                    ui.selectable_value(&mut self.serial.stop_bits, serialport::StopBits::Two, "2");
-                });
         });
 
         // status
@@ -235,7 +170,7 @@ impl GroundControlApp {
 
             ui.add_enabled_ui(disconnect_isenabled, |ui| {
                 if ui.button("Disconnect").clicked() {
-                    self.serialport_disconnect();
+                    self.serial.disconnect();
                 }
             });
         });
@@ -261,7 +196,7 @@ impl eframe::App for GroundControlApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.frame_count += 1;
 
-        // Read all pending data from serial port buffer and place in recieve buffer for MAVLink library
+        /* Read all pending data from serial port buffer and place in recieve buffer for MAVLink library */
         loop {
             if let Ok(b) = self.serial.read_byte() {
                 self.serial_received.reader_mut().push_back(b);
@@ -270,18 +205,66 @@ impl eframe::App for GroundControlApp {
             }
         }
 
-        let msg: Result<
-            (
-                mavlink_core::MavHeader,
-                MavMessage,
-            ),
-            mavlink_core::error::MessageReadError,
-        > = mavlink_core::read_v2_msg(&mut self.serial_received);
-        if let Ok(msg) = msg {
-            self.packets_received += 1;
-            match msg.1 {
-                MavMessage::BSLI2025_COMPOSITE(data) => {}
-                _ => println!("Unhandled MAVLink packet type"),
+        /* Loop to keep decoding packets until we're out of data */
+        loop {
+            /* Decode MAVLink packet */
+            let msg: Result<
+                (mavlink_core::MavHeader, MavMessage),
+                mavlink_core::error::MessageReadError,
+            > = mavlink_core::read_v2_msg(&mut self.serial_received);
+            if let Ok(msg) = msg {
+                /* If we're here we know the packet was successfully decoded */
+                /* msg is of type enum ground_control::mavlink_generated::bsli2025::MavMessage */
+                self.packets_received += 1;
+                match msg.1 {
+                    MavMessage::BSLI2025_COMPOSITE(data) => {
+                        /* milliG to m/s^2 */
+                        self.data.x_acc.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            scale_mG_to_mps2(data.xacc),
+                        );
+                        self.data.y_acc.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            scale_mG_to_mps2(data.yacc),
+                        );
+                        self.data.z_acc.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            scale_mG_to_mps2(data.zacc),
+                        );
+
+                        /* mrad/s to rad/s */
+                        self.data.x_gyro.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            (data.xgyro as f64) / 1000.0,
+                        );
+                        self.data.y_gyro.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            (data.ygyro as f64) / 1000.0,
+                        );
+                        self.data.z_gyro.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            (data.zgyro as f64) / 1000.0,
+                        );
+
+                        /* mgauss to mgauss */
+                        self.data.x_mag.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            data.xmag as f64,
+                        );
+                        self.data.y_mag.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            data.ymag as f64,
+                        );
+                        self.data.z_mag.add_point(
+                            data.time_boot_ms as f64 / 1000.0,
+                            data.zmag as f64,
+                        );
+                        // TODO: The other measured values (gyro, magn)
+                    }
+                    _ => println!("Unhandled MAVLink packet type"),
+                }
+            } else {
+                break;
             }
         }
 
@@ -292,9 +275,7 @@ impl eframe::App for GroundControlApp {
             egui::menu::bar(ui, |ui| {
                 ui.label("BSLI Ground Control");
 
-                // ui.add_space(8.0);
                 ui.separator();
-                // ui.add_space(8.0);
 
                 ui.menu_button("File", |ui| {
                     ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
@@ -310,45 +291,12 @@ impl eframe::App for GroundControlApp {
                     }
                 });
 
-                ui.menu_button("Options", |ui| {
-                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                });
-
-                ui.menu_button("Help", |ui| {
-                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                    if ui.add(egui::Button::new("Placeholder")).clicked() {
-                        ui.close_menu();
-                    }
-                });
-
                 egui::global_theme_preference_switch(ui);
 
-                // ui.add_space(8.0);
                 ui.separator();
-                // ui.add_space(8.0);
 
                 ui.toggle_value(&mut self.ui_showsidebar, "Sidebar");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Plot, "Plot");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Live, "Live");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Trajectory, "Trajectory");
-                ui.selectable_value(&mut self.ui_selectedtab, AppTab::Network, "Network");
+                ui.selectable_value(&mut self.ui_selected_tab, AppTab::Plot, "Plot");
             });
         });
 
@@ -374,21 +322,7 @@ impl eframe::App for GroundControlApp {
 
                     ui.collapsing("MAVLink", |ui| {
                         ui.label(format!("Packets received: {}", self.packets_received));
-                        ui.label("Packet rate: 0 p/s");
-                        ui.label("Error rate: 0%");
-                        ui.label("Recovery: disarmed");
-
-                        ui.collapsing("Arming", |ui| {
-                            ui.horizontal(|ui| {
-                                if ui.button("Arm").clicked() {
-                                    // TODO
-                                }
-                                if ui.button("Disarm").clicked() {
-                                    // TODO
-                                }
-                            });
-                        });
-                        ui.label("placeholder");
+                        ui.label("Error rate: 0% (placeholder)");
                     });
 
                     ui.collapsing("Data", |ui| {
@@ -396,39 +330,29 @@ impl eframe::App for GroundControlApp {
                             .num_columns(2)
                             .striped(true)
                             .show(ui, |ui| {
-                                ui.label("Altitude:");
-                                ui.label("3000.0 m");
-                                ui.end_row();
+                                let mut display_data_series_label = |s: &DataSeries| {
+                                    ui.label(format!("{}:", s.name));
+                                    ui.label(format!("{} {}", s.last_y_str(), s.units));
+                                    ui.end_row();
+                                };
 
-                                ui.label("Air pressure:");
-                                ui.label("0.0 Pa");
-                                ui.end_row();
-
-                                ui.label("Speed:");
-                                ui.label("299792458.0 m/s");
-                                ui.end_row();
-
-                                ui.label("Acceleration:");
-                                ui.label("0.0 m/s²");
-                                ui.end_row();
+                                display_data_series_label(&self.data.y_acc);
+                                display_data_series_label(&self.data.x_acc);
+                                display_data_series_label(&self.data.z_acc);
+                                display_data_series_label(&self.data.x_gyro);
+                                display_data_series_label(&self.data.y_gyro);
+                                display_data_series_label(&self.data.z_gyro);
+                                display_data_series_label(&self.data.x_mag);
+                                display_data_series_label(&self.data.y_mag);
+                                display_data_series_label(&self.data.z_mag);
                             });
-                        ui.label("placeholder");
                     });
                 });
             });
 
-        egui::CentralPanel::default().show(ctx, |ui| match self.ui_selectedtab {
+        egui::CentralPanel::default().show(ctx, |ui| match self.ui_selected_tab {
             AppTab::Plot => {
-                self.tab_plot.ui(ui, &self.data);
-            }
-            AppTab::Live => {
-                self.tab_live.ui(ui, &self.data);
-            }
-            AppTab::Trajectory => {
-                self.tab_trajectory.ui(ui);
-            }
-            AppTab::Network => {
-                ui.label("placeholder");
+                self.plot_tab.ui(ui, &self.data);
             }
         });
     }

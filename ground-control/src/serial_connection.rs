@@ -33,9 +33,9 @@ pub struct SerialConnection {
     pub known_ports: Vec<SerialPortInfo>,
     pub selected_port: String, // the name of the port selected in the ui, "" if not connected
     pub baud_rate: u32,
-    pub data_bits: serialport::DataBits,
-    pub parity: serialport::Parity,
-    pub stop_bits: serialport::StopBits,
+    pub _data_bits: serialport::DataBits,
+    pub _parity: serialport::Parity,
+    pub _stop_bits: serialport::StopBits,
     // ^ None if disconnected
     status: Status,
     bytes_read: u32,
@@ -114,9 +114,9 @@ impl SerialConnection {
             known_ports: Vec::new(),
             selected_port: "".to_string(),
             baud_rate: 9600,
-            data_bits: serialport::DataBits::Eight,
-            parity: serialport::Parity::None,
-            stop_bits: serialport::StopBits::One,
+            _data_bits: serialport::DataBits::Eight,
+            _parity: serialport::Parity::None,
+            _stop_bits: serialport::StopBits::One,
             bytes_read: 0
         }
     }
