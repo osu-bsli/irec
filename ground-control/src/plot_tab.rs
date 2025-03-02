@@ -18,9 +18,9 @@ impl PlotTab {
             .link_cursor("cursorlinkgroup-1", Vec2b::new(true, false));
 
         plot.show(ui, |plotui| {
-            plotui.line((&data.x_acc).into());
-            plotui.line((&data.y_acc).into());
-            plotui.line((&data.z_acc).into());
+            plotui.line((&data.bmi323_accel_x).into());
+            plotui.line((&data.bmi323_accel_y).into());
+            plotui.line((&data.bmi323_accel_z).into());
         });
     }
 }

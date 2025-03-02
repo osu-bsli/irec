@@ -205,7 +205,7 @@ impl eframe::App for GroundControlApp {
             }
         }
 
-        /* Loop to keep decoding packets until we're out of data */
+        /* Loop to keep decoding packets until we're out of valid packet data */
         loop {
             /* Decode MAVLink packet */
             let msg: Result<
@@ -217,49 +217,21 @@ impl eframe::App for GroundControlApp {
                 /* msg is of type enum ground_control::mavlink_generated::bsli2025::MavMessage */
                 self.packets_received += 1;
                 match msg.1 {
-                    MavMessage::BSLI2025_COMPOSITE(data) => {
-                        /* milliG to m/s^2 */
-                        self.data.x_acc.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            scale_mG_to_mps2(data.xacc),
-                        );
-                        self.data.y_acc.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            scale_mG_to_mps2(data.yacc),
-                        );
-                        self.data.z_acc.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            scale_mG_to_mps2(data.zacc),
-                        );
-
-                        /* mrad/s to rad/s */
-                        self.data.x_gyro.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            (data.xgyro as f64) / 1000.0,
-                        );
-                        self.data.y_gyro.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            (data.ygyro as f64) / 1000.0,
-                        );
-                        self.data.z_gyro.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            (data.zgyro as f64) / 1000.0,
-                        );
-
-                        /* mgauss to mgauss */
-                        self.data.x_mag.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            data.xmag as f64,
-                        );
-                        self.data.y_mag.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            data.ymag as f64,
-                        );
-                        self.data.z_mag.add_point(
-                            data.time_boot_ms as f64 / 1000.0,
-                            data.zmag as f64,
-                        );
-                        // TODO: The other measured values (gyro, magn)
+                    MavMessage::IREC_SRAD_COMPOSITE(data) => {
+                        /* g to m/s^2 */
+                        const G_EARTH: f32 = 9.80665;
+                        let time_s = data.time_boot_ms as f64 / 1000.0;
+                        self.data.ms5607_pressure.add_point(time_s, data.ms5607_pressure as f64);
+                        self.data.ms5607_temperature.add_point(time_s, data.ms5607_temperature as f64);
+                        self.data.bmi323_accel_x.add_point(time_s, data.bmi323_accel_x as f64);
+                        self.data.bmi323_accel_y.add_point(time_s, data.bmi323_accel_y as f64);
+                        self.data.bmi323_accel_z.add_point(time_s, data.bmi323_accel_z as f64);
+                        self.data.bmi323_gyro_x.add_point(time_s, data.bmi323_gyro_x as f64);
+                        self.data.bmi323_gyro_y.add_point(time_s, data.bmi323_gyro_y as f64);
+                        self.data.bmi323_gyro_z.add_point(time_s, data.bmi323_gyro_z as f64);
+                        self.data.adxl375_accel_x.add_point(time_s, data.adxl375_accel_x as f64);
+                        self.data.adxl375_accel_y.add_point(time_s, data.adxl375_accel_y as f64);
+                        self.data.adxl375_accel_z.add_point(time_s, data.adxl375_accel_z as f64);
                     }
                     _ => println!("Unhandled MAVLink packet type"),
                 }
@@ -336,15 +308,17 @@ impl eframe::App for GroundControlApp {
                                     ui.end_row();
                                 };
 
-                                display_data_series_label(&self.data.y_acc);
-                                display_data_series_label(&self.data.x_acc);
-                                display_data_series_label(&self.data.z_acc);
-                                display_data_series_label(&self.data.x_gyro);
-                                display_data_series_label(&self.data.y_gyro);
-                                display_data_series_label(&self.data.z_gyro);
-                                display_data_series_label(&self.data.x_mag);
-                                display_data_series_label(&self.data.y_mag);
-                                display_data_series_label(&self.data.z_mag);
+                                display_data_series_label(&self.data.ms5607_pressure);
+                                display_data_series_label(&self.data.ms5607_temperature);
+                                display_data_series_label(&self.data.bmi323_accel_x);
+                                display_data_series_label(&self.data.bmi323_accel_y);
+                                display_data_series_label(&self.data.bmi323_accel_z);
+                                display_data_series_label(&self.data.bmi323_gyro_x);
+                                display_data_series_label(&self.data.bmi323_gyro_y);
+                                display_data_series_label(&self.data.bmi323_gyro_z);
+                                display_data_series_label(&self.data.adxl375_accel_x);
+                                display_data_series_label(&self.data.adxl375_accel_y);
+                                display_data_series_label(&self.data.adxl375_accel_z);
                             });
                     });
                 });

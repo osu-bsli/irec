@@ -23,18 +23,20 @@
             <field type="uint32_t" name="status_flags" enum="STATUS_FLAGS">Status Flags</field>
         </message>
 
-        <message id="106" name="BSLI2025_COMPOSITE">
-            <description>BSLI2025 Composite Message</description>
+        <message id="106" name="IREC_SRAD_COMPOSITE">
+            <description>IREC SRAD Composite Message</description>
             <field type="uint32_t" name="time_boot_ms" units="ms">Timestamp (time since system boot)</field>
-            <field type="int16_t" name="xacc" units="mG">X Acceleration</field>
-            <field type="int16_t" name="yacc" units="mG">Y Acceleration</field>
-            <field type="int16_t" name="zacc" units="mG">Z Acceleration</field>
-            <field type="int16_t" name="xgyro" units="mrad/s">Angular Velocity X</field>
-            <field type="int16_t" name="ygyro" units="mrad/s">Angular Velocity Y</field>
-            <field type="int16_t" name="zgyro" units="mrad/s">Angular Velocity Z</field>
-            <field type="int16_t" name="xmag" units="mgauss">X Magnetic Field</field>
-            <field type="int16_t" name="ymag" units="mgauss">Y Magnetic Field</field>
-            <field type="int16_t" name="zmag" units="mgauss">Z Magnetic Field</field>
+            <field type="float" name="ms5607_pressure" units="mbar">MS5607 Air Pressure</field>
+            <field type="float" name="ms5607_temperature" units="degC">MS5607 Temperature</field>
+            <field type="float" name="bmi323_accel_x" units="g">BMI323 Acceleration X</field>
+            <field type="float" name="bmi323_accel_y" units="g">BMI323 Acceleration Y</field>
+            <field type="float" name="bmi323_accel_z" units="g">BMI323 Acceleration Z</field>
+            <field type="float" name="bmi323_gyro_x" units="deg/s">BMI323 Gyroscope X</field>
+            <field type="float" name="bmi323_gyro_y" units="deg/s">BMI323 Gyroscope Y</field>
+            <field type="float" name="bmi323_gyro_z" units="deg/s">BMI323 Gyroscope Z</field>
+            <field type="float" name="adxl375_accel_x" units="g">ADXL375 Acceleration X</field>
+            <field type="float" name="adxl375_accel_y" units="g">ADXL375 Acceleration Y</field>
+            <field type="float" name="adxl375_accel_z" units="g">ADXL375 Acceleration Z</field>
         </message>
     </messages>
 

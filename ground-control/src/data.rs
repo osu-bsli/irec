@@ -4,29 +4,33 @@ use egui_plot::{Line, PlotPoints};
 use std::vec::Vec;
 
 pub(crate) struct Data {
-    pub x_acc: DataSeries, // acceleration, meters/second^2
-    pub y_acc: DataSeries,
-    pub z_acc: DataSeries,
-    pub x_gyro: DataSeries, // angular velocity, rad/s
-    pub y_gyro: DataSeries,
-    pub z_gyro: DataSeries,
-    pub x_mag: DataSeries, // magnetic field, gauss
-    pub y_mag: DataSeries,
-    pub z_mag: DataSeries,
+    pub ms5607_pressure: DataSeries,    // mbar
+    pub ms5607_temperature: DataSeries, // degrees C
+    pub bmi323_accel_x: DataSeries,     // acceleration, meters/second^2
+    pub bmi323_accel_y: DataSeries,
+    pub bmi323_accel_z: DataSeries,
+    pub bmi323_gyro_x: DataSeries, // angular velocity, deg/s
+    pub bmi323_gyro_y: DataSeries,
+    pub bmi323_gyro_z: DataSeries,
+    pub adxl375_accel_x: DataSeries,
+    pub adxl375_accel_y: DataSeries,
+    pub adxl375_accel_z: DataSeries,
 }
 
 impl Data {
     pub fn new() -> Self {
         Self {
-            x_acc: DataSeries::new("Acceleration X", "m/s²", hex_color!("FF7777")),
-            y_acc: DataSeries::new("Acceleration Y", "m/s²", hex_color!("77FF77")),
-            z_acc: DataSeries::new("Acceleration Z", "m/s²", hex_color!("7777FF")),
-            x_gyro: DataSeries::new("Angular Velocity X", "rad/s", hex_color!("FF7777")),
-            y_gyro: DataSeries::new("Angular Velocity Y", "rad/s", hex_color!("77FF77")),
-            z_gyro: DataSeries::new("Angular Velocity Z", "rad/s", hex_color!("7777FF")),
-            x_mag: DataSeries::new("Magnetic Field X", "milligauss", hex_color!("FF7777")),
-            y_mag: DataSeries::new("Magnetic Field Y", "milligauss", hex_color!("77FF77")),
-            z_mag: DataSeries::new("Magnetic Field Z", "milligauss", hex_color!("7777FF")),
+            ms5607_pressure: DataSeries::new("MS5607 Pressure", "milliGauss", hex_color!("FF7777")),
+            ms5607_temperature: DataSeries::new("MS5607 Temperature", "degC", hex_color!("FF7777")),
+            bmi323_accel_x: DataSeries::new("BMI323 Acceleration X", "m/s²", hex_color!("FF7777")),
+            bmi323_accel_y: DataSeries::new("BMI323 Acceleration Y", "m/s²", hex_color!("77FF77")),
+            bmi323_accel_z: DataSeries::new("BMI323 Acceleration Z", "m/s²", hex_color!("7777FF")),
+            bmi323_gyro_x: DataSeries::new("BMI323 Angular Velocity X", "deg/s", hex_color!("FF7777")),
+            bmi323_gyro_y: DataSeries::new("BMI323 Angular Velocity Y", "deg/s", hex_color!("77FF77")),
+            bmi323_gyro_z: DataSeries::new("BMI323 Angular Velocity Z", "deg/s", hex_color!("7777FF")),
+            adxl375_accel_x: DataSeries::new("ADXL375 Acceleration X", "m/s²", hex_color!("FF7777")),
+            adxl375_accel_y: DataSeries::new("ADXL375 Acceleration Y", "m/s²", hex_color!("77FF77")),
+            adxl375_accel_z: DataSeries::new("ADXL375 Acceleration Z", "m/s²", hex_color!("7777FF")),
         }
     }
 }

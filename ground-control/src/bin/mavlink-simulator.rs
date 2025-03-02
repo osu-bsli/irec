@@ -1,6 +1,6 @@
 #![feature(thread_sleep_until)]
 
-use ground_control::mavlink_generated::bsli2025::{MavMessage, BSLI2025_COMPOSITE_DATA};
+use ground_control::mavlink_generated::bsli2025::{MavMessage, BSLI2025};
 
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
