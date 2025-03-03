@@ -26,8 +26,8 @@
         <message id="106" name="IREC_SRAD_COMPOSITE">
             <description>IREC SRAD Composite Message</description>
             <field type="uint32_t" name="time_boot_ms" units="ms">Timestamp (time since system boot)</field>
-            <field type="float" name="ms5607_pressure" units="mbar">MS5607 Air Pressure</field>
-            <field type="float" name="ms5607_temperature" units="degC">MS5607 Temperature</field>
+            <field type="float" name="ms5607_pressure_mbar" units="mbar">MS5607 Air Pressure</field>
+            <field type="float" name="ms5607_temperature_c" units="degC">MS5607 Temperature</field>
             <field type="float" name="bmi323_accel_x" units="g">BMI323 Acceleration X</field>
             <field type="float" name="bmi323_accel_y" units="g">BMI323 Acceleration Y</field>
             <field type="float" name="bmi323_accel_z" units="g">BMI323 Acceleration Z</field>

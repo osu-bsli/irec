@@ -158,6 +158,7 @@ impl GroundControlApp {
             }
         ));
         ui.label(format!("Bytes read: {}", self.serial.bytes_read()));
+        ui.label(format!("Bytes in parsing buffer: {}", self.serial_received.reader_ref().len()));
         ui.label("Error rate: 0% (placeholder)");
 
         // connect/disconnect buttons
@@ -199,6 +200,7 @@ impl eframe::App for GroundControlApp {
         /* Read all pending data from serial port buffer and place in recieve buffer for MAVLink library */
         loop {
             if let Ok(b) = self.serial.read_byte() {
+                // print!("{:02x} ", b);
                 self.serial_received.reader_mut().push_back(b);
             } else {
                 break;
@@ -212,31 +214,56 @@ impl eframe::App for GroundControlApp {
                 (mavlink_core::MavHeader, MavMessage),
                 mavlink_core::error::MessageReadError,
             > = mavlink_core::read_v2_msg(&mut self.serial_received);
-            if let Ok(msg) = msg {
-                /* If we're here we know the packet was successfully decoded */
-                /* msg is of type enum ground_control::mavlink_generated::bsli2025::MavMessage */
-                self.packets_received += 1;
-                match msg.1 {
-                    MavMessage::IREC_SRAD_COMPOSITE(data) => {
-                        /* g to m/s^2 */
-                        const G_EARTH: f32 = 9.80665;
-                        let time_s = data.time_boot_ms as f64 / 1000.0;
-                        self.data.ms5607_pressure.add_point(time_s, data.ms5607_pressure as f64);
-                        self.data.ms5607_temperature.add_point(time_s, data.ms5607_temperature as f64);
-                        self.data.bmi323_accel_x.add_point(time_s, data.bmi323_accel_x as f64);
-                        self.data.bmi323_accel_y.add_point(time_s, data.bmi323_accel_y as f64);
-                        self.data.bmi323_accel_z.add_point(time_s, data.bmi323_accel_z as f64);
-                        self.data.bmi323_gyro_x.add_point(time_s, data.bmi323_gyro_x as f64);
-                        self.data.bmi323_gyro_y.add_point(time_s, data.bmi323_gyro_y as f64);
-                        self.data.bmi323_gyro_z.add_point(time_s, data.bmi323_gyro_z as f64);
-                        self.data.adxl375_accel_x.add_point(time_s, data.adxl375_accel_x as f64);
-                        self.data.adxl375_accel_y.add_point(time_s, data.adxl375_accel_y as f64);
-                        self.data.adxl375_accel_z.add_point(time_s, data.adxl375_accel_z as f64);
+            match msg {
+                Ok(msg) => {
+                    /* If we're here we know the packet was successfully decoded */
+                    /* msg is of type enum ground_control::mavlink_generated::bsli2025::MavMessage */
+                    self.packets_received += 1;
+                    match msg.1 {
+                        MavMessage::IREC_SRAD_COMPOSITE(data) => {
+                            /* g to m/s^2 */
+                            const G_EARTH: f32 = 9.80665;
+                            let time_s = data.time_boot_ms as f64 / 1000.0;
+                            self.data
+                                .ms5607_pressure_mbar
+                                .add_point(time_s, data.ms5607_pressure_mbar as f64);
+                            self.data
+                                .ms5607_temperature_c
+                                .add_point(time_s, data.ms5607_temperature_c as f64);
+                            self.data
+                                .bmi323_accel_x
+                                .add_point(time_s, data.bmi323_accel_x as f64);
+                            self.data
+                                .bmi323_accel_y
+                                .add_point(time_s, data.bmi323_accel_y as f64);
+                            self.data
+                                .bmi323_accel_z
+                                .add_point(time_s, data.bmi323_accel_z as f64);
+                            self.data
+                                .bmi323_gyro_x
+                                .add_point(time_s, data.bmi323_gyro_x as f64);
+                            self.data
+                                .bmi323_gyro_y
+                                .add_point(time_s, data.bmi323_gyro_y as f64);
+                            self.data
+                                .bmi323_gyro_z
+                                .add_point(time_s, data.bmi323_gyro_z as f64);
+                            self.data
+                                .adxl375_accel_x
+                                .add_point(time_s, data.adxl375_accel_x as f64);
+                            self.data
+                                .adxl375_accel_y
+                                .add_point(time_s, data.adxl375_accel_y as f64);
+                            self.data
+                                .adxl375_accel_z
+                                .add_point(time_s, data.adxl375_accel_z as f64);
+                        }
+                        _ => println!("Unhandled MAVLink packet type"),
                     }
-                    _ => println!("Unhandled MAVLink packet type"),
                 }
-            } else {
-                break;
+                Err(err) => {
+                    break;
+                }
             }
         }
 
@@ -308,8 +335,8 @@ impl eframe::App for GroundControlApp {
                                     ui.end_row();
                                 };
 
-                                display_data_series_label(&self.data.ms5607_pressure);
-                                display_data_series_label(&self.data.ms5607_temperature);
+                                display_data_series_label(&self.data.ms5607_pressure_mbar);
+                                display_data_series_label(&self.data.ms5607_temperature_c);
                                 display_data_series_label(&self.data.bmi323_accel_x);
                                 display_data_series_label(&self.data.bmi323_accel_y);
                                 display_data_series_label(&self.data.bmi323_accel_z);

@@ -4,8 +4,8 @@ use egui_plot::{Line, PlotPoints};
 use std::vec::Vec;
 
 pub(crate) struct Data {
-    pub ms5607_pressure: DataSeries,    // mbar
-    pub ms5607_temperature: DataSeries, // degrees C
+    pub ms5607_pressure_mbar: DataSeries,    // mbar
+    pub ms5607_temperature_c: DataSeries, // degrees C
     pub bmi323_accel_x: DataSeries,     // acceleration, meters/second^2
     pub bmi323_accel_y: DataSeries,
     pub bmi323_accel_z: DataSeries,
@@ -20,8 +20,8 @@ pub(crate) struct Data {
 impl Data {
     pub fn new() -> Self {
         Self {
-            ms5607_pressure: DataSeries::new("MS5607 Pressure", "milliGauss", hex_color!("FF7777")),
-            ms5607_temperature: DataSeries::new("MS5607 Temperature", "degC", hex_color!("FF7777")),
+            ms5607_pressure_mbar: DataSeries::new("MS5607 Pressure", "milliGauss", hex_color!("FF7777")),
+            ms5607_temperature_c: DataSeries::new("MS5607 Temperature", "degC", hex_color!("FF7777")),
             bmi323_accel_x: DataSeries::new("BMI323 Acceleration X", "m/s²", hex_color!("FF7777")),
             bmi323_accel_y: DataSeries::new("BMI323 Acceleration Y", "m/s²", hex_color!("77FF77")),
             bmi323_accel_z: DataSeries::new("BMI323 Acceleration Z", "m/s²", hex_color!("7777FF")),
