@@ -15,12 +15,17 @@ pub(crate) struct Data {
     pub adxl375_accel_x: DataSeries,
     pub adxl375_accel_y: DataSeries,
     pub adxl375_accel_z: DataSeries,
+
+    pub status_flag_ematch_drogue_deployed: bool,
+    pub status_flag_ematch_main_deployed: bool,
+    pub status_flag_recovery_armed: bool,
+    pub status_flag_sd_card_working: bool,
 }
 
 impl Data {
     pub fn new() -> Self {
         Self {
-            ms5607_pressure_mbar: DataSeries::new("MS5607 Pressure", "milliGauss", hex_color!("FF7777")),
+            ms5607_pressure_mbar: DataSeries::new("MS5607 Pressure", "milliBar", hex_color!("FF7777")),
             ms5607_temperature_c: DataSeries::new("MS5607 Temperature", "degC", hex_color!("FF7777")),
             bmi323_accel_x: DataSeries::new("BMI323 Acceleration X", "m/s²", hex_color!("FF7777")),
             bmi323_accel_y: DataSeries::new("BMI323 Acceleration Y", "m/s²", hex_color!("77FF77")),
@@ -31,6 +36,11 @@ impl Data {
             adxl375_accel_x: DataSeries::new("ADXL375 Acceleration X", "m/s²", hex_color!("FF7777")),
             adxl375_accel_y: DataSeries::new("ADXL375 Acceleration Y", "m/s²", hex_color!("77FF77")),
             adxl375_accel_z: DataSeries::new("ADXL375 Acceleration Z", "m/s²", hex_color!("7777FF")),
+
+            status_flag_recovery_armed: false,
+            status_flag_ematch_drogue_deployed: false,
+            status_flag_ematch_main_deployed: false,
+            status_flag_sd_card_working: false,
         }
     }
 }
@@ -45,7 +55,7 @@ pub(crate) struct DataSeries {
 }
 
 // convert to egui_plot data
-impl From<&DataSeries> for Line {
+impl From<&DataSeries> for Line<'_> {
     fn from(value: &DataSeries) -> Self {
         Line::new(PlotPoints::from(value.points.clone()))
             .name(value.name.clone())
