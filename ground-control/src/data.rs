@@ -4,27 +4,41 @@ use egui_plot::{Line, PlotPoints};
 use std::vec::Vec;
 
 pub(crate) struct Data {
-    pub ms5607_pressure_mbar: DataSeries,    // mbar
-    pub ms5607_temperature_c: DataSeries, // degrees C
-    pub bmi323_accel_x: DataSeries,     // acceleration, meters/second^2
+    pub pitch: DataSeries, 
+    pub yaw: DataSeries, 
+    pub roll: DataSeries, 
+    pub accel_magnitude: DataSeries,
+    
+    pub ms5607_pressure_mbar: DataSeries,
+    pub ms5607_temperature_c: DataSeries,
+    pub bmi323_accel_x: DataSeries,
     pub bmi323_accel_y: DataSeries,
     pub bmi323_accel_z: DataSeries,
-    pub bmi323_gyro_x: DataSeries, // angular velocity, deg/s
+    pub bmi323_gyro_x: DataSeries,
     pub bmi323_gyro_y: DataSeries,
     pub bmi323_gyro_z: DataSeries,
     pub adxl375_accel_x: DataSeries,
     pub adxl375_accel_y: DataSeries,
     pub adxl375_accel_z: DataSeries,
 
+    pub status_flag_recovery_armed: bool,
     pub status_flag_ematch_drogue_deployed: bool,
     pub status_flag_ematch_main_deployed: bool,
-    pub status_flag_recovery_armed: bool,
-    pub status_flag_sd_card_working: bool,
+    pub status_flag_sd_card_degraded: bool,
+    pub status_flag_adxl375_degraded: bool,
+    pub status_flag_bm1422_degraded: bool,
+    pub status_flag_bmi323_degraded: bool,
+    pub status_flag_ms5607_degraded: bool,
 }
 
 impl Data {
     pub fn new() -> Self {
         Self {
+            pitch: DataSeries::new("Pitch", "deg", hex_color!("FF7777")),
+            yaw: DataSeries::new("Yaw", "deg", hex_color!("77FF77")),
+            roll: DataSeries::new("Roll", "deg", hex_color!("7777FF")),
+            accel_magnitude: DataSeries::new("Acceleration Magnitude", "m/s²", hex_color!("FF7777")),
+
             ms5607_pressure_mbar: DataSeries::new("MS5607 Pressure", "milliBar", hex_color!("FF7777")),
             ms5607_temperature_c: DataSeries::new("MS5607 Temperature", "degC", hex_color!("FF7777")),
             bmi323_accel_x: DataSeries::new("BMI323 Acceleration X", "m/s²", hex_color!("FF7777")),
@@ -40,7 +54,11 @@ impl Data {
             status_flag_recovery_armed: false,
             status_flag_ematch_drogue_deployed: false,
             status_flag_ematch_main_deployed: false,
-            status_flag_sd_card_working: false,
+            status_flag_sd_card_degraded: false,
+            status_flag_adxl375_degraded: false,
+            status_flag_bm1422_degraded: false,
+            status_flag_bmi323_degraded: false,
+            status_flag_ms5607_degraded: false,
         }
     }
 }

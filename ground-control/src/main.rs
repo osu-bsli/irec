@@ -14,7 +14,7 @@ use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
 
 // G to m/s^2
-fn scale_G_to_mps2(val: f64) -> f64 {
+fn G_to_mps2(val: f64) -> f64 {
     const G: f64 = 9.81;
     val as f64 * G
 }
@@ -54,22 +54,18 @@ struct TelemetryPacket {
     crc16: u16, // CRC16 
     status_flags: u8, // StatusFlags bitfield
     time_boot_ms: u32, // Timestamp (ms since system boot)
-    ms5607_pressure_mbar: f32, // MS5607 Air Pressure
-    ms5607_temperature_c: f32, // MS5607 Temperature
-    bmi323_accel_x: f32, // BMI323 Acceleration X
-    bmi323_accel_y: f32, // BMI323 Acceleration Y
-    bmi323_accel_z: f32, // BMI323 Acceleration Z
-    bmi323_gyro_x: f32, // BMI323 Gyroscope X
-    bmi323_gyro_y: f32, // BMI323 Gyroscope Y
-    bmi323_gyro_z: f32, // BMI323 Gyroscope Z
-    adxl375_accel_x: f32, // ADXL375 Acceleration X
-    adxl375_accel_y: f32, // ADXL375 Acceleration Y
-    adxl375_accel_z: f32, // ADXL375 Acceleration Z
+    pitch: f32, // Fused sensor data (unit: Euler angle deg)
+    yaw: f32,   // Fused sensor data (unit: Euler angle deg)
+    roll: f32,  // Fused sensor data (unit: Euler angle deg)
+    accel_magnitude: f32, // Magnitude of acceleration (unit: G)
 }
 
 struct TelemetryDecoder {
     data: [u8; size_of::<TelemetryPacket>()],
-    data_pos: usize
+    data_pos: usize,
+
+    packets_accepted: usize,
+    packets_rejected: usize,
 }
 
 impl TelemetryDecoder {
@@ -79,6 +75,9 @@ impl TelemetryDecoder {
         Self {
             data: [0; size_of::<TelemetryPacket>()],
             data_pos: 0,
+
+            packets_accepted: 0,
+            packets_rejected: 0,
         }
     }
 
@@ -113,9 +112,11 @@ impl TelemetryDecoder {
                 let calculated_crc16 = crc16.checksum(&self.data);
                 if calculated_crc16 != packet_crc16 {
                     println!("warning: Telemetry packet CRC16 mismatch. In packet: {:#x} Calculated: {:#x}", packet_crc16, calculated_crc16);
+                    self.packets_rejected += 1;
                     return None;
                 }
 
+                self.packets_accepted += 1;
                 return Some(packet.clone());
             }
         }
@@ -136,7 +137,6 @@ struct GroundControlApp {
     ui_selected_tab: AppTab,
 
     frame_count: u64,
-    packets_received: u32,
 }
 
 impl GroundControlApp {
@@ -163,7 +163,6 @@ impl GroundControlApp {
             ui_selected_tab: AppTab::Plot,
 
             frame_count: 0,
-            packets_received: 0,
         };
 
         app.serial.refresh_known_ports();
@@ -276,26 +275,22 @@ impl eframe::App for GroundControlApp {
         loop {
             if let Ok(b) = self.serial.read_byte() {
                 if let Some(p) = self.telemetry_decoder.decode(b) {
-                    self.packets_received += 1;
-                    
                     let t: f64 = p.time_boot_ms as f64 / 1000.0; 
                     let time_boot_ms = p.time_boot_ms;
-                    self.data.ms5607_pressure_mbar.add_point(t, p.ms5607_pressure_mbar as f64);
-                    self.data.ms5607_temperature_c.add_point(t, p.ms5607_temperature_c as f64);
-                    self.data.bmi323_accel_x.add_point(t, scale_G_to_mps2(p.bmi323_accel_x as f64));
-                    self.data.bmi323_accel_y.add_point(t, scale_G_to_mps2(p.bmi323_accel_y as f64));
-                    self.data.bmi323_accel_z.add_point(t, scale_G_to_mps2(p.bmi323_accel_z as f64));
-                    self.data.bmi323_gyro_x.add_point(t, p.bmi323_gyro_x as f64);
-                    self.data.bmi323_gyro_y.add_point(t, p.bmi323_gyro_y as f64);
-                    self.data.bmi323_gyro_z.add_point(t, p.bmi323_gyro_z as f64);
-                    self.data.adxl375_accel_x.add_point(t, scale_G_to_mps2(p.adxl375_accel_x as f64));
-                    self.data.adxl375_accel_y.add_point(t, scale_G_to_mps2(p.adxl375_accel_y as f64));
-                    self.data.adxl375_accel_z.add_point(t, scale_G_to_mps2(p.adxl375_accel_z as f64));
-
+                   
+                    self.data.pitch.add_point(t, p.pitch as f64);
+                    self.data.yaw.add_point(t, p.yaw as f64);
+                    self.data.roll.add_point(t, p.roll as f64);
+                    self.data.accel_magnitude.add_point(t, G_to_mps2(p.accel_magnitude as f64));
+                   
                     self.data.status_flag_recovery_armed = p.status_flags & (1 << 0) != 0;
                     self.data.status_flag_ematch_drogue_deployed = p.status_flags & (1 << 1) != 0;
                     self.data.status_flag_ematch_main_deployed = p.status_flags & (1 << 2) != 0;
-                    self.data.status_flag_sd_card_working = p.status_flags & (1 << 3) != 0;
+                    self.data.status_flag_sd_card_degraded = p.status_flags & (1 << 3) != 0;
+                    self.data.status_flag_adxl375_degraded = p.status_flags & (1 << 4) != 0;
+                    self.data.status_flag_bm1422_degraded = p.status_flags & (1 << 5) != 0;
+                    self.data.status_flag_bmi323_degraded = p.status_flags & (1 << 6) != 0;
+                    self.data.status_flag_ms5607_degraded = p.status_flags & (1 << 7) != 0;
                 }
             } else {
                 break;
@@ -355,8 +350,8 @@ impl eframe::App for GroundControlApp {
                     });
 
                     ui.collapsing("Telemetry", |ui| {
-                        ui.label(format!("Packets received: {}", self.packets_received));
-                        ui.label("Error rate: 0% (placeholder)");
+                        ui.label(format!("Packets accepted: {}", self.telemetry_decoder.packets_accepted));
+                        ui.label(format!("Packets rejected: {}", self.telemetry_decoder.packets_rejected));
                     });
 
                     ui.collapsing("Data", |ui| {
@@ -370,7 +365,10 @@ impl eframe::App for GroundControlApp {
                                     ui.end_row();
                                 };
 
-                                display_data_series_label(&self.data.ms5607_pressure_mbar);
+                                display_data_series_label(&self.data.pitch);
+                                display_data_series_label(&self.data.yaw);
+                                display_data_series_label(&self.data.roll);
+                                display_data_series_label(&self.data.accel_magnitude);
                                 display_data_series_label(&self.data.ms5607_temperature_c);
                                 display_data_series_label(&self.data.bmi323_accel_x);
                                 display_data_series_label(&self.data.bmi323_accel_y);
@@ -382,8 +380,8 @@ impl eframe::App for GroundControlApp {
                                 display_data_series_label(&self.data.adxl375_accel_y);
                                 display_data_series_label(&self.data.adxl375_accel_z);
 
-                                ui.label("SD Card Working");
-                                ui.label(format!("{}", self.data.status_flag_sd_card_working));
+                                ui.label("SD Card Degraded");
+                                ui.label(format!("{}", self.data.status_flag_sd_card_degraded));
                                 ui.end_row();
                             });
                     });
