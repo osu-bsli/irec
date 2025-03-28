@@ -4,6 +4,7 @@ mod data;
 mod plot_tab;
 mod dashboard_tab;
 mod serial_connection;
+mod telemetry;
 
 use std::{collections::VecDeque, io::Cursor};
 use std::mem::size_of;
@@ -14,6 +15,7 @@ use serial_connection::SerialConnection;
 use eframe::egui::{self};
 use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
+use telemetry::TelemetryDecoder;
 
 // G to m/s^2
 fn G_to_mps2(val: f64) -> f64 {
@@ -48,86 +50,6 @@ enum AppTab {
     Plot,
     Dashboard,
 }
-
-#[repr(C, packed)]
-#[derive(Clone)]
-struct TelemetryPacket {
-    magic: [u8; 9], // 'FUCKPETER' in ASCII with no null terminator
-    size: u8, // Total size of struct
-    crc16: u16, // CRC16 
-    status_flags: u8, // StatusFlags bitfield
-    time_boot_ms: u32, // Timestamp (ms since system boot)
-    pitch: f32, // Fused sensor data (unit: Euler angle deg)
-    yaw: f32,   // Fused sensor data (unit: Euler angle deg)
-    roll: f32,  // Fused sensor data (unit: Euler angle deg)
-    accel_magnitude: f32, // Magnitude of acceleration (unit: G)
-}
-
-struct TelemetryDecoder {
-    data: [u8; size_of::<TelemetryPacket>()],
-    data_pos: usize,
-
-    packets_accepted: usize,
-    packets_rejected: usize,
-}
-
-impl TelemetryDecoder {
-    const MAGIC: &'static [u8] = "FUCKPETER".as_bytes();
-
-    fn new() -> Self {
-        Self {
-            data: [0; size_of::<TelemetryPacket>()],
-            data_pos: 0,
-
-            packets_accepted: 0,
-            packets_rejected: 0,
-        }
-    }
-
-    fn decode(&mut self, byte: u8) -> Option<TelemetryPacket> {
-        if self.data_pos < TelemetryDecoder::MAGIC.len() {
-            self.data[self.data_pos] = byte;
-
-            if byte == TelemetryDecoder::MAGIC[self.data_pos] {
-                self.data_pos += 1;
-            } else {
-                self.data_pos = 0;
-            }
-        } else {
-            // decode the packet!!!
-            self.data[self.data_pos] = byte;
-            self.data_pos += 1;
-
-            if self.data_pos >= size_of::<TelemetryPacket>() {
-                self.data_pos = 0;
-
-                // Cast array to telemetry packet :sob: 
-                let ptr = &mut self.data;
-                let packet = unsafe { &mut *(ptr as *mut [u8; size_of::<TelemetryPacket>()] as *mut TelemetryPacket) };
-
-                // extern crate hexdump;
-                // hexdump::hexdump(&self.data);
-
-                let packet_crc16 = packet.crc16;
-                // the crc16 in the packet is the CRC of the packet data with the crc16 field zeroed out
-                packet.crc16 = 0;
-                const crc16: crc::Crc<u16> = crc::Crc::<u16>::new(&crc::CRC_16_MODBUS);
-                let calculated_crc16 = crc16.checksum(&self.data);
-                if calculated_crc16 != packet_crc16 {
-                    println!("warning: Telemetry packet CRC16 mismatch. In packet: {:#x} Calculated: {:#x}", packet_crc16, calculated_crc16);
-                    self.packets_rejected += 1;
-                    return None;
-                }
-
-                self.packets_accepted += 1;
-                return Some(packet.clone());
-            }
-        }
-
-        None
-    }
-}
-
 struct GroundControlApp {
     plot_tab: PlotTab,
 
@@ -142,6 +64,8 @@ struct GroundControlApp {
     frame_count: u64,
 
     rocket_angle_ema: f32,
+
+    last_packet_fc_time: f64,
 }
 
 impl GroundControlApp {
@@ -172,6 +96,8 @@ impl GroundControlApp {
             frame_count: 0,
 
             rocket_angle_ema: 0.0,
+
+            last_packet_fc_time: 0.0,
         };
 
         app.serial.refresh_known_ports();
@@ -285,12 +211,18 @@ impl eframe::App for GroundControlApp {
             if let Ok(b) = self.serial.read_byte() {
                 if let Some(p) = self.telemetry_decoder.decode(b) {
                     let t: f64 = p.time_boot_ms as f64 / 1000.0; 
-                    let time_boot_ms = p.time_boot_ms;
+
+                    // Reset all data if flight computer time goes backwards
+                    if t < self.last_packet_fc_time {
+                        self.data = Data::new();
+                    }
+                    self.last_packet_fc_time = t;
                    
                     self.data.pitch.add_point(t, p.pitch as f64);
                     self.data.yaw.add_point(t, p.yaw as f64);
                     self.data.roll.add_point(t, p.roll as f64);
                     self.data.accel_magnitude.add_point(t, G_to_mps2(p.accel_magnitude as f64));
+                    self.data.ms5607_pressure_mbar.add_point(t, p.ms5607_pressure_mbar as f64);
                    
                     self.data.status_flag_recovery_armed = p.status_flags & (1 << 0) != 0;
                     self.data.status_flag_ematch_drogue_deployed = p.status_flags & (1 << 1) != 0;
@@ -380,6 +312,7 @@ impl eframe::App for GroundControlApp {
                                 display_data_series_label(&self.data.roll);
                                 display_data_series_label(&self.data.accel_magnitude);
                                 display_data_series_label(&self.data.ms5607_temperature_c);
+                                display_data_series_label(&self.data.ms5607_pressure_mbar);
                                 display_data_series_label(&self.data.bmi323_accel_x);
                                 display_data_series_label(&self.data.bmi323_accel_y);
                                 display_data_series_label(&self.data.bmi323_accel_z);
