@@ -2,11 +2,13 @@
 
 mod data;
 mod plot_tab;
+mod dashboard_tab;
 mod serial_connection;
 
 use std::{collections::VecDeque, io::Cursor};
 use std::mem::size_of;
 
+use dashboard_tab::dashboard_tab;
 use data::{Data, DataSeries};
 use serial_connection::SerialConnection; 
 use eframe::egui::{self};
@@ -44,6 +46,7 @@ fn main() -> eframe::Result {
 #[derive(PartialEq)]
 enum AppTab {
     Plot,
+    Dashboard,
 }
 
 #[repr(C, packed)]
@@ -137,11 +140,15 @@ struct GroundControlApp {
     ui_selected_tab: AppTab,
 
     frame_count: u64,
+
+    rocket_angle_ema: f32,
 }
 
 impl GroundControlApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        egui_extras::install_image_loaders(&cc.egui_ctx);
+
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -163,6 +170,8 @@ impl GroundControlApp {
             ui_selected_tab: AppTab::Plot,
 
             frame_count: 0,
+
+            rocket_angle_ema: 0.0,
         };
 
         app.serial.refresh_known_ports();
@@ -326,6 +335,7 @@ impl eframe::App for GroundControlApp {
 
                 ui.toggle_value(&mut self.ui_showsidebar, "Sidebar");
                 ui.selectable_value(&mut self.ui_selected_tab, AppTab::Plot, "Plot");
+                ui.selectable_value(&mut self.ui_selected_tab, AppTab::Dashboard, "Dashboard");
             });
         });
 
@@ -391,6 +401,9 @@ impl eframe::App for GroundControlApp {
         egui::CentralPanel::default().show(ctx, |ui| match self.ui_selected_tab {
             AppTab::Plot => {
                 self.plot_tab.ui(ui, &self.data);
+            },
+            AppTab::Dashboard => {
+                dashboard_tab(ui, self);
             }
         });
     }

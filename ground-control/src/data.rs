@@ -124,4 +124,12 @@ impl DataSeries {
             String::from("N/A")
         }
     }
+
+    pub fn last_y(&self) -> Option<f64> {
+        if let Some(last) = self.points.last() {
+            Some(last[1])
+        } else {
+            None
+        }
+    }
 }
