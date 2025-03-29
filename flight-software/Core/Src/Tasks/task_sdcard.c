@@ -80,7 +80,7 @@ static void sdcard_mount()
   }
 }
 
-static FIL sdcard_and_logging_init()
+static FRESULT sdcard_and_logging_init(FIL *file)
 {
 
   /* Set up SD card */
@@ -110,8 +110,7 @@ static FIL sdcard_and_logging_init()
   } while ((fr_status = f_stat(file_name, NULL)) == FR_OK);
 
   /* Open the file */
-  FIL file;
-  fr_status = f_open(&file, file_name, FA_CREATE_NEW | FA_WRITE);
+  fr_status = f_open(file, file_name, FA_CREATE_NEW | FA_WRITE);
   if (fr_status == FR_OK)
   {
     SEGGER_RTT_printf(0, "Opened file \"%s\" for telemetry logging\n", file_name);
@@ -121,7 +120,7 @@ static FIL sdcard_and_logging_init()
     SEGGER_RTT_printf(0, "Failed to open file \"%s\", f_open return code: %d\n", file_name, fr_status);
   }
 
-  return file;
+  return fr_status;
 }
 
 void sdcard_write_to_log_file(uint8_t *data, uint32_t len)
@@ -144,28 +143,33 @@ static void task_sdcard(void *argument)
 {
   UNUSED(argument);
 
-  FIL log_file = sdcard_and_logging_init();
+  FIL log_file;
+  FRESULT fr_status = sdcard_and_logging_init(&log_file);
 
-  FATFS *fs;
-  uint32_t fre_clust;
-  f_getfree(SDPath, &fre_clust, &fs);
+  if (fr_status == FR_OK) {
+    // Doing all of this after the sdcard doesn't init properly freezes the system
 
-  /* Get total sectors and free sectors */
-  uint32_t tot_sect = (fs->n_fatent - 2) * fs->csize;
-  uint32_t fre_sect = fre_clust * fs->csize;
+    FATFS *fs;
+    uint32_t fre_clust;
+    f_getfree(SDPath, &fre_clust, &fs);
 
-  /* Get sector size */
-  uint16_t sect_size;
-  disk_ioctl(fs->drv, GET_SECTOR_SIZE, &sect_size);
-  
-  uint32_t bytes_free = sect_size * fre_sect;
-  SEGGER_RTT_printf(0, "task_sdcard: Free bytes: %d\n", bytes_free);
+    /* Get total sectors and free sectors */
+    uint32_t tot_sect = (fs->n_fatent - 2) * fs->csize;
+    uint32_t fre_sect = fre_clust * fs->csize;
 
-  uint32_t logging_bytes_per_second = 1000 / (float)LOG_INTERVAL_MS * sizeof(struct log_packet);
-  uint32_t seconds_of_log_space_remaining = bytes_free / logging_bytes_per_second;
-  uint32_t minutes_of_log_space_remaining = seconds_of_log_space_remaining / 60;
-  
-  SEGGER_RTT_printf(0, "task_sdcard: Minutes of log space remaining: %d\n", minutes_of_log_space_remaining);
+    /* Get sector size */
+    uint16_t sect_size;
+    disk_ioctl(fs->drv, GET_SECTOR_SIZE, &sect_size);
+    
+    uint32_t bytes_free = sect_size * fre_sect;
+    SEGGER_RTT_printf(0, "task_sdcard: Free bytes: %d\n", bytes_free);
+
+    uint32_t logging_bytes_per_second = 1000 / (float)LOG_INTERVAL_MS * sizeof(struct log_packet);
+    uint32_t seconds_of_log_space_remaining = bytes_free / logging_bytes_per_second;
+    uint32_t minutes_of_log_space_remaining = seconds_of_log_space_remaining / 60;
+    
+    SEGGER_RTT_printf(0, "task_sdcard: Minutes of log space remaining: %d\n", minutes_of_log_space_remaining);
+  }
   
   while (true)
   {
