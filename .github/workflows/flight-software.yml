@@ -1,0 +1,21 @@
+name: Flight Software CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: install dependencies
+      run: sudo apt install gcc-arm-none-eabi cppcheck
+    - name: make
+      run: cd flight-software && make
+    - name: make check
+      run: cd flight-software && make check
