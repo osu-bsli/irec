@@ -118,7 +118,7 @@ void S2LP::begin(void)
   SRadioInit xRadioInit = {
     lFrequencyBase, /* base carrier frequency */
     MOD_2FSK,       /* modulation type */
-    9600,          /* data rate */
+    38400,          /* data rate */
     20000,          /* frequency deviation */
     57000          /* bandwidth */
   };
