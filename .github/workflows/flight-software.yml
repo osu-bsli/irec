@@ -15,9 +15,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: install dependencies
       run: sudo apt install gcc-arm-none-eabi cppcheck
-    - name: enter flight software
-      run: cd flight-software
     - name: make
-      run: make
+      run: cd flight-software && make
     - name: make check
-      run: make check
+      run: cd flight-software && make check
