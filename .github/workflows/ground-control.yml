@@ -16,5 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: sudo apt install libudev-dev
     - name: Build
       run: cd ground-control && cargo build --verbose
