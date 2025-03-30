@@ -2,10 +2,12 @@
 
 mod data;
 mod plot_tab;
+mod vis3d;
 mod dashboard_tab;
 mod serial_connection;
 mod telemetry;
 
+use std::sync::{Arc, Mutex};
 use std::{collections::VecDeque, io::Cursor};
 use std::mem::size_of;
 
@@ -16,6 +18,7 @@ use eframe::egui::{self};
 use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
 use telemetry::TelemetryDecoder;
+use vis3d::RotatingTriangle;
 
 // G to m/s^2
 fn G_to_mps2(val: f64) -> f64 {
@@ -50,6 +53,7 @@ enum AppTab {
     Plot,
     Dashboard,
 }
+
 struct GroundControlApp {
     plot_tab: PlotTab,
 
@@ -66,6 +70,8 @@ struct GroundControlApp {
     rocket_angle_ema: f32,
 
     last_packet_fc_time: f64,
+    triangle: Arc<Mutex<RotatingTriangle>>,
+    triangle_angle: f32
 }
 
 impl GroundControlApp {
@@ -82,6 +88,11 @@ impl GroundControlApp {
         //     return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         // }
 
+        let gl = cc
+            .gl
+            .as_ref()
+            .expect("You need to run eframe with the glow backend");
+
         let mut app = Self {
             plot_tab: PlotTab::new(),
 
@@ -96,8 +107,9 @@ impl GroundControlApp {
             frame_count: 0,
 
             rocket_angle_ema: 0.0,
-
             last_packet_fc_time: 0.0,
+            triangle: Arc::new(Mutex::new(RotatingTriangle::new(gl))),
+            triangle_angle: 0.0
         };
 
         app.serial.refresh_known_ports();

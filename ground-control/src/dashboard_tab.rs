@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use eframe::egui_glow;
 use egui::{Label, RichText, Vec2};
 
 use crate::GroundControlApp;
@@ -7,6 +8,13 @@ use crate::GroundControlApp;
 #[allow(dead_code)]
 pub fn dashboard_tab(ui: &mut egui::Ui, app: &mut GroundControlApp) {
     ui.ctx().request_repaint();
+
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        ui.label("The triangle is being painted using ");
+        ui.hyperlink_to("glow", "https://github.com/grovesNL/glow");
+        ui.label(" (OpenGL).");
+    });
 
     egui::SidePanel::left("left_panel")
         .resizable(true)
@@ -23,6 +31,28 @@ pub fn dashboard_tab(ui: &mut egui::Ui, app: &mut GroundControlApp) {
             });
         });
 
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::Frame::canvas(ui.style()).show(ui, |ui| {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
+
+            app.triangle_angle += response.drag_motion().x * 0.01;
+
+            // Clone locals so we can move them into the paint callback:
+            let angle = app.triangle_angle;
+            let triangle = app.triangle.clone();
+
+            let callback = egui::PaintCallback {
+                rect,
+                callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
+                    triangle.lock().unwrap().paint(painter.gl(), angle);
+                })),
+            };
+            ui.painter().add(callback);
+        });
+        ui.label("Drag to rotate!");
+    });
+
     egui::SidePanel::right("right_panel")
         .resizable(true)
         .default_width(500.0)
@@ -34,7 +64,7 @@ pub fn dashboard_tab(ui: &mut egui::Ui, app: &mut GroundControlApp) {
                 let x = pitch.cos() * yaw.cos();
                 let y = pitch.cos() * yaw.sin();
                 let z = pitch.sin();
-                
+
                 // angle from horizon
                 let rocket_angle = z / (x.powf(2.0) + y.powf(2.0)).sqrt();
 
