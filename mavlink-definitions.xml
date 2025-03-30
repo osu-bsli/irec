@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<mavlink>
+    <dialect>0</dialect>
+
+    <enums>
+        <enum name="status_flags">
+            <entry value="1" name="STATUS_FLAGS_RECOVERY_ARMED"></entry>
+            <entry value="2" name="STATUS_FLAGS_EMATCH_DROGUE_DEPLOYED"></entry>
+            <entry value="4" name="STATUS_FLAGS_EMATCH_MAIN_DEPLOYED"></entry>
+            <entry value="8" name="STATUS_FLAGS_SD_CARD_DEGRADED"></entry>
+            <entry value="16" name="STATUS_FLAGS_ADXL375_DEGRADED"></entry>
+            <entry value="32" name="STATUS_FLAGS_BM1422_DEGRADED"></entry>
+            <entry value="64" name="STATUS_FLAGS_BMI323_DEGRADED"></entry>
+            <entry value="128" name="STATUS_FLAGS_MS5607_DEGRADED"></entry>
+        </enum>
+    </enums>
+
+    <messages>
+        <message id="100" name="telemetry_packet">
+            <field type="uint8_t"  name="status_flags"                      >status_flags bitfield</field>
+            <field type="uint32_t" name="time_boot_ms"         units="ms"   >Timestamp (ms since system boot)</field>
+            <field type="float"    name="pitch"                units="deg"  >Fused sensor data</field>
+            <field type="float"    name="yaw"                  units="deg"  >Fused sensor data</field>
+            <field type="float"    name="roll"                 units="deg"  >Fused sensor data</field>
+            <field type="float"    name="accel_magnitude"      units="G"    >Magnitude of acceleration</field>
+            <field type="float"    name="ms5607_pressure_mbar" units="mbar" >Pressure</field>
+        </message>
+
+        <message id="101" name="log_packet">
+            <field type="uint8_t"  name="status_flags"                      >StatusFlags bitfield</field>
+            <field type="uint32_t" name="time_boot_ms"         units="ms"   >Timestamp (ms since system boot)</field>
+            <field type="float"    name="ms5607_pressure_mbar" units="mbar" >MS5607 Air Pressure</field>
+            <field type="float"    name="ms5607_temperature_c" units="degC" >MS5607 Temperature</field>
+            <field type="float"    name="bmi323_accel_x"       units="G"    >BMI323 Acceleration X</field>
+            <field type="float"    name="bmi323_accel_y"       units="G"    >BMI323 Acceleration Y</field>
+            <field type="float"    name="bmi323_accel_z"       units="G"    >BMI323 Acceleration Z</field>
+            <field type="float"    name="bmi323_gyro_x"        units="deg/s">BMI323 Gyroscope X</field>
+            <field type="float"    name="bmi323_gyro_y"        units="deg/s">BMI323 Gyroscope Y</field>
+            <field type="float"    name="bmi323_gyro_z"        units="deg/s">BMI323 Gyroscope Z</field>
+            <field type="float"    name="adxl375_accel_x"      units="G"    >ADXL375 Acceleration X</field>
+            <field type="float"    name="adxl375_accel_y"      units="G"    >ADXL375 Acceleration Y</field>
+            <field type="float"    name="adxl375_accel_z"      units="G"    >ADXL375 Acceleration Z</field>
+        </message>
+    </messages>
+</mavlink>
+
+    
