@@ -4,6 +4,7 @@
 
     <enums>
         <enum name="status_flags">
+            <description>Status Flags</description>
             <entry value="1" name="STATUS_FLAGS_RECOVERY_ARMED"></entry>
             <entry value="2" name="STATUS_FLAGS_EMATCH_DROGUE_DEPLOYED"></entry>
             <entry value="4" name="STATUS_FLAGS_EMATCH_MAIN_DEPLOYED"></entry>
@@ -17,6 +18,7 @@
 
     <messages>
         <message id="100" name="telemetry_packet">
+            <description>Telemetry Packet</description>
             <field type="uint8_t"  name="status_flags"                      >status_flags bitfield</field>
             <field type="uint32_t" name="time_boot_ms"         units="ms"   >Timestamp (ms since system boot)</field>
             <field type="float"    name="pitch"                units="deg"  >Fused sensor data</field>
