@@ -91,6 +91,7 @@ Core/Src/Tasks/task_main.c \
 Core/Src/Tasks/task_sdcard.c \
 Core/Src/Tasks/task_sensors.c \
 Core/Src/common.c \
+Core/Src/flight_staging.c \
 Core/Src/Sensors/adxl375.c \
 Core/Src/Sensors/bmi323.c \
 Core/Src/Sensors/bm1422.c \
