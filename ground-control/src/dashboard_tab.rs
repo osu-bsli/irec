@@ -7,7 +7,7 @@ use crate::GroundControlApp;
 
 #[allow(dead_code)]
 pub fn dashboard_tab(ui: &mut egui::Ui, app: &mut GroundControlApp) {
-    ui.ctx().request_repaint();
+    ui.ctx().request_repaint_after_secs(1.0 / 30.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
@@ -74,7 +74,7 @@ pub fn dashboard_tab(ui: &mut egui::Ui, app: &mut GroundControlApp) {
                 let theta = app.data.euler_a.last_y().unwrap_or(0.0).to_radians() as f32;
                 let phi = app.data.euler_b.last_y().unwrap_or(0.0).to_radians() as f32;
                 let rocket_angle = -(phi.cos() * theta.cos()).asin();
-                const ALPHA: f32 = 0.02;
+                const ALPHA: f32 = 0.1;
 
                 let new_rocket_angle_ema =
                     rocket_angle * ALPHA + app.rocket_angle_ema * (1.0 - ALPHA);
