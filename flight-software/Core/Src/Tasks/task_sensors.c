@@ -89,7 +89,7 @@ static void sensors_init()
     if (status != HAL_OK) retry = true;
     sensor_print_init_success_state("ms5607", status == HAL_OK);
 
-  } while (retry && num_retries < 20);
+  } while (retry && num_retries < 50);
 }
 
 static void task_sensors(void *argument)
@@ -117,7 +117,7 @@ static void task_sensors(void *argument)
     struct fc_adxl375_data adxl375_data;
     fc_adxl375_process(&adxl375, &adxl375_data);
 
-    struct fc_bm1422_data bm1422_data;
+    struct fc_bm1422_data bm1422_data = {0};
     fc_bm1422_process(&bm1422, &bm1422_data);
 
     struct fc_bmi323_data bmi323_data;
@@ -247,5 +247,5 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
-  SEGGER_RTT_printf(0, "HAL_I2C_ErrorCallback called\n");
+  SEGGER_RTT_printf(0, "HAL_I2C_ErrorCallback called, error code: %d\n", HAL_I2C_GetError(hi2c));
 }
