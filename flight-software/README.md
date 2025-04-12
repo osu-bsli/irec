@@ -110,3 +110,5 @@ https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743
 #define ENABLE_SD_DMA_CACHE_MAINTENANCE  1
 /* USER CODE END enableSDDmaCacheMaintenance */
 ```
+
+3. The night before the 4/12/2025 test launch, the sensors on I2C4 were sporadically failing. I resoldered them many times, to absolutely no avail. I even replaced the 0-ohm jumpers connecting the I2C4 line to the MCU. After hours of debugging, THE ISSUE TURNED OUT TO BE THAT THE MCU PIN FOR SDA ON I2C4 WAS NOT PROPERLY SOLDERED.  
