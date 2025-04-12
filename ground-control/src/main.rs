@@ -230,9 +230,9 @@ impl eframe::App for GroundControlApp {
                     }
                     self.last_packet_fc_time = t;
                    
-                    self.data.pitch.add_point(t, p.pitch as f64);
-                    self.data.yaw.add_point(t, p.yaw as f64);
-                    self.data.roll.add_point(t, p.roll as f64);
+                    self.data.euler_a.add_point(t, p.euler_a as f64);
+                    self.data.euler_b.add_point(t, p.euler_b as f64);
+                    self.data.euler_y.add_point(t, p.euler_y as f64);
                     self.data.accel_magnitude.add_point(t, G_to_mps2(p.accel_magnitude as f64));
                     self.data.ms5607_pressure_mbar.add_point(t, p.ms5607_pressure_mbar as f64);
                    
@@ -319,9 +319,9 @@ impl eframe::App for GroundControlApp {
                                     ui.end_row();
                                 };
 
-                                display_data_series_label(&self.data.pitch);
-                                display_data_series_label(&self.data.yaw);
-                                display_data_series_label(&self.data.roll);
+                                display_data_series_label(&self.data.euler_a);
+                                display_data_series_label(&self.data.euler_b);
+                                display_data_series_label(&self.data.euler_y);
                                 display_data_series_label(&self.data.accel_magnitude);
                                 display_data_series_label(&self.data.ms5607_temperature_c);
                                 display_data_series_label(&self.data.ms5607_pressure_mbar);

@@ -4,9 +4,9 @@ use egui_plot::{Line, PlotPoints};
 use std::vec::Vec;
 
 pub(crate) struct Data {
-    pub pitch: DataSeries, 
-    pub yaw: DataSeries, 
-    pub roll: DataSeries, 
+    pub euler_a: DataSeries, 
+    pub euler_b: DataSeries, 
+    pub euler_y: DataSeries, 
     pub accel_magnitude: DataSeries,
     
     pub ms5607_pressure_mbar: DataSeries,
@@ -34,9 +34,10 @@ pub(crate) struct Data {
 impl Data {
     pub fn new() -> Self {
         Self {
-            pitch: DataSeries::new("Pitch", "deg", hex_color!("FF7777")),
-            yaw: DataSeries::new("Yaw", "deg", hex_color!("77FF77")),
-            roll: DataSeries::new("Roll", "deg", hex_color!("7777FF")),
+            // in NWU axes
+            euler_a: DataSeries::new("Euler α", "deg", hex_color!("FF7777")),
+            euler_b: DataSeries::new("Euler β", "deg", hex_color!("77FF77")),
+            euler_y: DataSeries::new("Euler γ", "deg", hex_color!("7777FF")),
             accel_magnitude: DataSeries::new("Acceleration Magnitude", "m/s²", hex_color!("FF7777")),
 
             ms5607_pressure_mbar: DataSeries::new("MS5607 Pressure", "milliBar", hex_color!("FF7777")),
