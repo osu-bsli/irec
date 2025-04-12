@@ -18,9 +18,9 @@ impl PlotTab {
             .link_cursor("cursorlinkgroup-1", Vec2b::new(true, false));
 
         plot.show(ui, |plotui| {
-            plotui.line((&data.pitch).into());
-            plotui.line((&data.yaw).into());
-            plotui.line((&data.roll).into());
+            plotui.line((&data.euler_a).into());
+            plotui.line((&data.euler_b).into());
+            plotui.line((&data.euler_y).into());
         });
     }
 }

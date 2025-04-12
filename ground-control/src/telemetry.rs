@@ -7,9 +7,9 @@ pub struct TelemetryPacket {
     pub crc16: u16, // CRC16 
     pub status_flags: u8, // StatusFlags bitfield
     pub time_boot_ms: u32, // Timestamp (ms since system boot)
-    pub pitch: f32, // Fused sensor data (unit: Euler angle deg)
-    pub yaw: f32,   // Fused sensor data (unit: Euler angle deg)
-    pub roll: f32,  // Fused sensor data (unit: Euler angle deg)
+    pub euler_a: f32, // Fused sensor data (unit: Euler angle deg)
+    pub euler_b: f32,   // Fused sensor data (unit: Euler angle deg)
+    pub euler_y: f32,  // Fused sensor data (unit: Euler angle deg)
     pub accel_magnitude: f32, // Magnitude of acceleration (unit: G)
     pub ms5607_pressure_mbar: f32, // Pressure (unit: mbar)
 }
