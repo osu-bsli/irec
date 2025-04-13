@@ -25,6 +25,8 @@ bitflags = "2.9.0"
 hexdump = "0.1.2"
 crc = "3.2.1"
 bytemuck = "1.22.0"
+rfd = "0.15.3"
+zstd = "0.13.3"
 
 # Enable full optimization in the dev profile for dependencies.
 [profile.dev.package."*"]
@@ -34,4 +36,6 @@ opt-level = 3
 default = ["serde"]
 serde = []
 
-[dev-dependencies]
+[build-dependencies]
+bindgen = "0.71.1"
+cc = "1.2.19"

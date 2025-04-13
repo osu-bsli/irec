@@ -7,17 +7,24 @@ mod serial_connection;
 mod sidebar;
 mod telemetry;
 mod vis3d;
+mod data_log_replay;
 
 use std::mem::size_of;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use std::{collections::VecDeque, io::Cursor};
 
 use data::{Data, DataSeries};
+use data_log_replay::DataLogV1;
 use eframe::egui::{self};
+use egui::RichText;
+use ground_control::FusionAhrs;
 use serial_connection::SerialConnection;
 use serialport::SerialPortInfo;
-use telemetry::{TelemetryDecoder, TelemetryPacket};
+use telemetry::{LogPacketV1, TelemetryDecoder, TelemetryPacket};
 use vis3d::RotatingTriangle;
+
+use crate::telemetry::TelemetryDecoderResult::Packet;
 
 // G to m/s^2
 fn G_to_mps2(val: f64) -> f64 {
@@ -56,6 +63,8 @@ enum AppTab {
 struct GroundControlApp {
     data: data::Data,
 
+    last_t: Instant,
+
     serial: SerialConnection,
     telemetry_decoder: TelemetryDecoder<TelemetryPacket>,
 
@@ -69,6 +78,12 @@ struct GroundControlApp {
     last_packet_fc_time: f64,
     triangle: Arc<Mutex<RotatingTriangle>>,
     triangle_angle: f32,
+
+    data_log: Option<DataLogV1>,
+    data_log_status: RichText,
+    data_log_replay_time_ms: f64,
+    data_log_replay_playing: bool,
+    data_log_replay_next_packet_index: usize,
 }
 
 impl GroundControlApp {
@@ -93,8 +108,10 @@ impl GroundControlApp {
         let mut app = Self {
             data: Data::new(),
 
+            last_t: Instant::now(),
+
             serial: serial_connection::SerialConnection::new(),
-            telemetry_decoder: TelemetryDecoder::new(b"FUCKPETER"),
+            telemetry_decoder: TelemetryDecoder::new(),
 
             ui_showsidebar: true,
             ui_selected_tab: AppTab::Plot,
@@ -105,95 +122,17 @@ impl GroundControlApp {
             last_packet_fc_time: 0.0,
             triangle: Arc::new(Mutex::new(RotatingTriangle::new(gl))),
             triangle_angle: 0.0,
+
+            data_log: None,
+            data_log_status: RichText::new(""),
+            data_log_replay_time_ms: 0.,
+            data_log_replay_playing: false,
+            data_log_replay_next_packet_index: 0,
         };
 
         app.serial.refresh_known_ports();
 
         app
-    }
-
-    fn ui_add_serialportui(&mut self, ui: &mut egui::Ui) {
-        let settings_isenabled = self.serial.connection_allowed();
-        let connect_isenabled =
-            self.serial.connection_allowed() && !self.serial.selected_port.is_empty();
-        let disconnect_isenabled = self.serial.disconnection_allowed();
-
-        // port settings
-        ui.add_enabled_ui(settings_isenabled, |ui| {
-            // port selection
-            ui.horizontal(|ui| {
-                GroundControlApp::ui_draw_serialportdropdown(
-                    ui,
-                    &mut self.serial.known_ports,
-                    &mut self.serial.selected_port,
-                );
-                ui.label("Port");
-                if ui.button("Refresh").clicked() {
-                    self.serial.refresh_known_ports();
-                }
-            });
-
-            const BAUD_RATES: [u32; 23] = [
-                50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800, 9600, 19200, 28800,
-                38400, 57600, 76800, 115200, 230400, 460800, 576000, 921600,
-            ];
-            // baud rate
-            egui::ComboBox::from_label("Baud rate")
-                .selected_text(format!("{}", self.serial.baud_rate))
-                .show_ui(ui, |ui| {
-                    for baud_rate in BAUD_RATES {
-                        ui.selectable_value(
-                            &mut self.serial.baud_rate,
-                            baud_rate,
-                            format!("{}", baud_rate),
-                        );
-                    }
-                });
-        });
-
-        // status
-        ui.label(format!(
-            "Status: {}",
-            match self.serial.connection_status() {
-                serial_connection::Status::Connected => "Connected",
-                serial_connection::Status::Connecting => "Connecting...",
-                serial_connection::Status::Disconnected => "Disconnected",
-                serial_connection::Status::Disconnecting => "Disconnecting...",
-                serial_connection::Status::Failed => "Failed",
-            }
-        ));
-        ui.label(format!("Bytes read: {}", self.serial.bytes_read()));
-        ui.label("Error rate: 0% (placeholder)");
-
-        // connect/disconnect buttons
-        ui.horizontal(|ui| {
-            ui.add_enabled_ui(connect_isenabled, |ui| {
-                if ui.button("Connect").clicked() {
-                    self.serial.connect(self.serial.selected_port.clone());
-                }
-            });
-
-            ui.add_enabled_ui(disconnect_isenabled, |ui| {
-                if ui.button("Disconnect").clicked() {
-                    self.serial.disconnect();
-                }
-            });
-        });
-    }
-
-    fn ui_draw_serialportdropdown(
-        ui: &mut egui::Ui,
-        availableports: &mut Vec<SerialPortInfo>,
-        selectedport: &mut String,
-    ) {
-        egui::ComboBox::from_id_salt("serialport-name")
-            .selected_text(selectedport.clone())
-            .show_ui(ui, |ui| {
-                for p in availableports {
-                    ui.selectable_value(selectedport, p.port_name.clone(), p.port_name.clone());
-                    // TODO: cloning port info every time is probably horrible lol
-                }
-            });
     }
 }
 
@@ -201,10 +140,14 @@ impl eframe::App for GroundControlApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.frame_count += 1;
 
+        let t = Instant::now();
+        let t_elapsed = t - self.last_t;
+        self.last_t = t;
+
         /* Read all pending data from serial port buffer and place in recieve buffer */
         loop {
             if let Ok(b) = self.serial.read_byte() {
-                if let Some(p) = self.telemetry_decoder.decode(b) {
+                if let Packet(p) = self.telemetry_decoder.decode(b) {
                     let t: f64 = p.time_boot_ms as f64 / 1000.0;
 
                     // Reset all data if flight computer time goes backwards
@@ -235,6 +178,10 @@ impl eframe::App for GroundControlApp {
             } else {
                 break;
             }
+        }
+
+        if self.data_log_replay_playing {
+            self.replay_until_time_ms(self.data_log_replay_time_ms + t_elapsed.as_secs_f64() * 1000.0);
         }
 
         /* Make sure packets are read at least every 0.1 seconds */
