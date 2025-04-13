@@ -1,7 +1,0 @@
-[package]
-name = "irec-mavgen"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-xmltree = "0.11.0"
