@@ -17,6 +17,10 @@ enum StatusFlags {
     STATUS_FLAGS_MS5607_DEGRADED = 1 << 7,
 };
 
+/*
+ * UNALIGNED ACCESSES ARE OK ON CORTEX-M7 BUT NOT CORTEX-M0. BE AWARE!!
+ */
+
 struct __attribute__((packed)) telemetry_packet {
     char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
     uint8_t size; // Total size of struct
@@ -31,8 +35,8 @@ struct __attribute__((packed)) telemetry_packet {
     float ms5607_pressure_mbar; // Pressure (unit: mbar)
 };
 
-struct __attribute__((packed)) log_packet {
-    char magic[9]; // 'COREYMAYS' in ASCII with no null terminator
+struct __attribute__((packed)) log_packet_v2 {
+    char magic[9]; // 'COREYMAYT' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
 
@@ -49,7 +53,10 @@ struct __attribute__((packed)) log_packet {
     float adxl375_accel_x; // ADXL375 Acceleration X (unit: G)
     float adxl375_accel_y; // ADXL375 Acceleration Y (unit: G)
     float adxl375_accel_z; // ADXL375 Acceleration Z (unit: G)
+    float bm1422_magn_x; // BM1422 Magnetic Field X (unit: milliGauss)
+    float bm1422_magn_y; // BM1422 Magnetic Field Y (unit: milliGauss)
+    float bm1422_magn_z; // BM1422 Magnetic Field Z (unit: milliGauss)
 };
 
 void telemetry_packet_make_header(struct telemetry_packet *p);
-void logging_packet_make_header(struct log_packet *p);
+void log_packet_v2_make_header(struct log_packet_v2 *p);

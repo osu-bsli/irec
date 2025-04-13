@@ -59,7 +59,7 @@ static void sdcard_mount()
   FRESULT fr_status = f_mount(&SDFatFS, SDPath, 1);
   if (fr_status == FR_OK)
   {
-    SEGGER_RTT_printf(0, "SD Card f_mount success\n", fr_status);
+    SEGGER_RTT_printf(0, "SD Card f_mount success\n");
     sdcard_set_not_degraded();
   }
   else
@@ -67,11 +67,11 @@ static void sdcard_mount()
     switch (fr_status)
     {
     case FR_NOT_READY:
-      SEGGER_RTT_printf(0, "SD Card f_mount error: not ready. Perhaps there is no SD card inserted.\n", fr_status);
+      SEGGER_RTT_printf(0, "SD Card f_mount error: not ready. Perhaps there is no SD card inserted.\n");
       SEGGER_RTT_printf(0, "If this error happens after f_mount takes a really long time, maybe the SDMMC DMA cannot access the memory it has been commanded to access.\n");
       break;
     case FR_NO_FILESYSTEM:
-      SEGGER_RTT_printf(0, "SD Card f_mount error: there is no filesystem on the SD card\n", fr_status);
+      SEGGER_RTT_printf(0, "SD Card f_mount error: there is no filesystem on the SD card\n");
       break;
     default:
       SEGGER_RTT_printf(0, "SD Card f_mount error, code: %d\n", fr_status);
@@ -164,7 +164,7 @@ static void task_sdcard(void *argument)
     uint32_t bytes_free = sect_size * fre_sect;
     SEGGER_RTT_printf(0, "task_sdcard: Free bytes: %d\n", bytes_free);
 
-    uint32_t logging_bytes_per_second = 1000 / (float)LOG_INTERVAL_MS * sizeof(struct log_packet);
+    uint32_t logging_bytes_per_second = 1000 / (float)LOG_INTERVAL_MS * sizeof(struct log_packet_v2);
     uint32_t seconds_of_log_space_remaining = bytes_free / logging_bytes_per_second;
     uint32_t minutes_of_log_space_remaining = seconds_of_log_space_remaining / 60;
     

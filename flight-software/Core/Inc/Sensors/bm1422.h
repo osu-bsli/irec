@@ -20,9 +20,9 @@ struct fc_bm1422 {
 };
 
 struct fc_bm1422_data {
-	float magnetic_strength_x;
-	float magnetic_strength_y;
-	float magnetic_strength_z;
+	float magn_x;
+	float magn_y;
+	float magn_z;
 };
 
 /* Functions */
