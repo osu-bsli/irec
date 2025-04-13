@@ -13,7 +13,8 @@
         "cstdint": "cpp",
         "checksum.h": "c",
         "fatfs_platform.h": "c",
-        "airbrakes.h": "c"
+        "airbrakes.h": "c",
+        "stdbool.h": "c"
     },
     "search.exclude": {
         "build/": true

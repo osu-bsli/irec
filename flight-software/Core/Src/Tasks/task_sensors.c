@@ -136,7 +136,7 @@ static void task_sensors(void *argument)
     /* FC axes are oriented with +X being from the STM32 to the SD card slot, and +Y being from the STM32 to the SWD port */
     const FusionVector accelerometer = {-bmi323_data.accel_x, -bmi323_data.accel_y, bmi323_data.accel_z};
     const FusionVector gyroscope = {-bmi323_data.gyro_x, -bmi323_data.gyro_y, -bmi323_data.gyro_z};
-    const FusionVector magnetometer = {-bm1422_data.magnetic_strength_y, bm1422_data.magnetic_strength_x, bm1422_data.magnetic_strength_z};
+    const FusionVector magnetometer = {-bm1422_data.magn_y, bm1422_data.magn_x, bm1422_data.magn_z};
     FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, interval_ms / 1000.0);
     const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
 
@@ -170,7 +170,7 @@ static void task_sensors(void *argument)
       // SEGGER_RTT_printf(0, "Sent telemetry packet\n");
     }
 
-    struct log_packet log_p = {
+    struct log_packet_v2 log_p = {
       .status_flags = status_flags,
       .time_boot_ms = time_boot_ms,
       .ms5607_pressure_mbar = ms5607_data.pressure_mbar,
@@ -184,8 +184,11 @@ static void task_sensors(void *argument)
       .adxl375_accel_x = adxl375_data.accel_x,
       .adxl375_accel_y = adxl375_data.accel_y,
       .adxl375_accel_z = adxl375_data.accel_z,
+      .bm1422_magn_x = bm1422_data.magn_x,
+      .bm1422_magn_y = bm1422_data.magn_y,
+      .bm1422_magn_z = bm1422_data.magn_z,
     };
-    logging_packet_make_header(&log_p);
+    log_packet_v2_make_header(&log_p);
     sdcard_write_to_log_file((uint8_t*)&log_p, sizeof(log_p));
 
     vTaskDelayUntil(&time, interval_ms);

@@ -141,9 +141,9 @@ HAL_StatusTypeDef fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_d
 	float scale = 0.042; // 0.042 microTesla / LSB
 
 	/* Process Raw Data */
-	data->magnetic_strength_x = (float)raw_magnetic_strength_x * scale;
-	data->magnetic_strength_y = (float)raw_magnetic_strength_y * scale;
-	data->magnetic_strength_z = (float)raw_magnetic_strength_z * scale;
+	data->magn_x = (float)raw_magnetic_strength_x * scale;
+	data->magn_y = (float)raw_magnetic_strength_y * scale;
+	data->magn_z = (float)raw_magnetic_strength_z * scale;
 
 	// char buf[64];
 	// snprintf(buf, 64, SENSOR_NAME ": mag x: %f\n", data->magnetic_strength_x);
