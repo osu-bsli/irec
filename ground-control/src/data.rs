@@ -95,7 +95,7 @@ impl DataSeries {
     }
 
     pub fn add_point(&mut self, x: f64, y: f64) {
-        if x > self.max_x {
+        if x >= self.max_x {
             self.points.push([x, y]);
             self.max_x = x;
         } else {

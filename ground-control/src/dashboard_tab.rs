@@ -42,7 +42,7 @@ impl GroundControlApp {
                     ui.label(RichText::new("ACCELERATION").size(40.0));
                     if let Some(acceleration) = self.data.accel_magnitude.last_y() {
                         ui.label(
-                            RichText::new(format!("{:.0} m/s²", acceleration))
+                            RichText::new(format!("{:.1} m/s²", acceleration))
                                 .size(120.0)
                                 .strong(),
                         );

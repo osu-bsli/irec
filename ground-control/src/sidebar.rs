@@ -1,6 +1,96 @@
-use crate::{DataSeries, GroundControlApp};
+use std::time::Instant;
+
+use egui::{Color32, RichText};
+use serialport::SerialPortInfo;
+
+use crate::{data_log_replay::load_zstd_data_log_v1, serial_connection, DataSeries, GroundControlApp};
 
 impl GroundControlApp {
+    
+    fn ui_add_serialportui(&mut self, ui: &mut egui::Ui) {
+        let settings_isenabled = self.serial.connection_allowed();
+        let connect_isenabled =
+            self.serial.connection_allowed() && !self.serial.selected_port.is_empty();
+        let disconnect_isenabled = self.serial.disconnection_allowed();
+
+        // port settings
+        ui.add_enabled_ui(settings_isenabled, |ui| {
+            // port selection
+            ui.horizontal(|ui| {
+                GroundControlApp::ui_draw_serialportdropdown(
+                    ui,
+                    &mut self.serial.known_ports,
+                    &mut self.serial.selected_port,
+                );
+                ui.label("Port");
+                if ui.button("Refresh").clicked() {
+                    self.serial.refresh_known_ports();
+                }
+            });
+
+            const BAUD_RATES: [u32; 23] = [
+                50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800, 9600, 19200, 28800,
+                38400, 57600, 76800, 115200, 230400, 460800, 576000, 921600,
+            ];
+            // baud rate
+            egui::ComboBox::from_label("Baud rate")
+                .selected_text(format!("{}", self.serial.baud_rate))
+                .show_ui(ui, |ui| {
+                    for baud_rate in BAUD_RATES {
+                        ui.selectable_value(
+                            &mut self.serial.baud_rate,
+                            baud_rate,
+                            format!("{}", baud_rate),
+                        );
+                    }
+                });
+        });
+
+        // status
+        ui.label(format!(
+            "Status: {}",
+            match self.serial.connection_status() {
+                serial_connection::Status::Connected => "Connected",
+                serial_connection::Status::Connecting => "Connecting...",
+                serial_connection::Status::Disconnected => "Disconnected",
+                serial_connection::Status::Disconnecting => "Disconnecting...",
+                serial_connection::Status::Failed => "Failed",
+            }
+        ));
+        ui.label(format!("Bytes read: {}", self.serial.bytes_read()));
+        ui.label("Error rate: 0% (placeholder)");
+
+        // connect/disconnect buttons
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(connect_isenabled, |ui| {
+                if ui.button("Connect").clicked() {
+                    self.serial.connect(self.serial.selected_port.clone());
+                }
+            });
+
+            ui.add_enabled_ui(disconnect_isenabled, |ui| {
+                if ui.button("Disconnect").clicked() {
+                    self.serial.disconnect();
+                }
+            });
+        });
+    }
+
+    fn ui_draw_serialportdropdown(
+        ui: &mut egui::Ui,
+        availableports: &mut Vec<SerialPortInfo>,
+        selectedport: &mut String,
+    ) {
+        egui::ComboBox::from_id_salt("serialport-name")
+            .selected_text(selectedport.clone())
+            .show_ui(ui, |ui| {
+                for p in availableports {
+                    ui.selectable_value(selectedport, p.port_name.clone(), p.port_name.clone());
+                    // TODO: cloning port info every time is probably horrible lol
+                }
+            });
+    }
+    
     pub fn sidebar(&mut self, ui: &mut egui::Ui) {
         // ui.add_space(4.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -14,7 +104,38 @@ impl GroundControlApp {
             });
 
             ui.collapsing("Data log replay", |ui| {
-                ui.label("placeholder");
+                if ui.button("Open data log file").clicked() {
+                    let path = rfd::FileDialog::new().pick_file().unwrap();
+                    if let Ok(data_log) = load_zstd_data_log_v1(path) {
+                        self.data_log_status = RichText::new(format!(
+                            "Data log successfully loaded!\n{} packets\n{} bad packets",
+                            data_log.entries.len(),
+                            data_log.num_packets_crc_mismatch
+                        ));
+                        self.data_log = Some(data_log);
+                    } else {
+                        self.data_log_status = RichText::new(
+                            "Error loading data log. It should be compressed with zstd, is it?",
+                        )
+                        .color(Color32::RED);
+                    }
+                }
+
+                ui.add_enabled_ui(self.data_log.is_some(), |ui| {
+                    if ui.button("Begin replay").clicked() {
+                        self.data_log_replay_playing = true;
+                    }
+
+                    if ui.button("Skip ahead to launch").clicked() {
+                        self.replay_skip_ahead_to_launch();
+                    }
+                });
+
+                if self.data_log.is_some() {
+                    ui.label(format!("Replay time: {} ms", self.data_log_replay_time_ms));
+                }
+
+                ui.label(self.data_log_status.clone());
             });
 
             ui.collapsing("Telemetry", |ui| {
@@ -54,7 +175,7 @@ impl GroundControlApp {
                         display_data_series_label(&self.data.adxl375_accel_x);
                         display_data_series_label(&self.data.adxl375_accel_y);
                         display_data_series_label(&self.data.adxl375_accel_z);
-                       
+
                         let mut display_bool_label = |label: &str, value: bool| {
                             ui.label(label);
                             ui.label(format!("{}", value));
@@ -62,13 +183,34 @@ impl GroundControlApp {
                         };
 
                         display_bool_label("Recovery Armed", self.data.status_flag_recovery_armed);
-                        display_bool_label("Ematch Drogue Deployed", self.data.status_flag_ematch_drogue_deployed);
-                        display_bool_label("Ematch Main Deployed", self.data.status_flag_ematch_main_deployed);
-                        display_bool_label("SD Card Degraded", self.data.status_flag_sd_card_degraded);
-                        display_bool_label("ADXL375 Degraded", self.data.status_flag_adxl375_degraded);
-                        display_bool_label("BM1422 Degraded", self.data.status_flag_bm1422_degraded);
-                        display_bool_label("BMI323 Degraded", self.data.status_flag_bmi323_degraded);
-                        display_bool_label("MS5607 Degraded", self.data.status_flag_ms5607_degraded);
+                        display_bool_label(
+                            "Ematch Drogue Deployed",
+                            self.data.status_flag_ematch_drogue_deployed,
+                        );
+                        display_bool_label(
+                            "Ematch Main Deployed",
+                            self.data.status_flag_ematch_main_deployed,
+                        );
+                        display_bool_label(
+                            "SD Card Degraded",
+                            self.data.status_flag_sd_card_degraded,
+                        );
+                        display_bool_label(
+                            "ADXL375 Degraded",
+                            self.data.status_flag_adxl375_degraded,
+                        );
+                        display_bool_label(
+                            "BM1422 Degraded",
+                            self.data.status_flag_bm1422_degraded,
+                        );
+                        display_bool_label(
+                            "BMI323 Degraded",
+                            self.data.status_flag_bmi323_degraded,
+                        );
+                        display_bool_label(
+                            "MS5607 Degraded",
+                            self.data.status_flag_ms5607_degraded,
+                        );
                     });
             });
         });
