@@ -17,7 +17,7 @@ use serial_connection::SerialConnection;
 use eframe::egui::{self};
 use plot_tab::PlotTab;
 use serialport::SerialPortInfo;
-use telemetry::TelemetryDecoder;
+use telemetry::{TelemetryDecoder, TelemetryPacket};
 use vis3d::RotatingTriangle;
 
 // G to m/s^2
@@ -60,7 +60,7 @@ struct GroundControlApp {
     data: data::Data,
 
     serial: SerialConnection,
-    telemetry_decoder: TelemetryDecoder,
+    telemetry_decoder: TelemetryDecoder<TelemetryPacket>,
 
     ui_showsidebar: bool,
     ui_selected_tab: AppTab,
@@ -99,7 +99,7 @@ impl GroundControlApp {
             data: Data::new(),
 
             serial: serial_connection::SerialConnection::new(),
-            telemetry_decoder: TelemetryDecoder::new(),
+            telemetry_decoder: TelemetryDecoder::new(b"FUCKPETER"),
 
             ui_showsidebar: true,
             ui_selected_tab: AppTab::Plot,
@@ -299,7 +299,7 @@ impl eframe::App for GroundControlApp {
                         self.ui_add_serialportui(ui);
                     });
 
-                    ui.collapsing("Logging", |ui| {
+                    ui.collapsing("Data log replay", |ui| {
                         ui.label("placeholder");
                     });
 
