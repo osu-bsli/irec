@@ -1,21 +1,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+mod dashboard_tab;
 mod data;
 mod plot_tab;
-mod vis3d;
-mod dashboard_tab;
 mod serial_connection;
+mod sidebar;
 mod telemetry;
+mod vis3d;
 
+use std::mem::size_of;
 use std::sync::{Arc, Mutex};
 use std::{collections::VecDeque, io::Cursor};
-use std::mem::size_of;
 
-use dashboard_tab::dashboard_tab;
 use data::{Data, DataSeries};
-use serial_connection::SerialConnection; 
 use eframe::egui::{self};
-use plot_tab::PlotTab;
+use serial_connection::SerialConnection;
 use serialport::SerialPortInfo;
 use telemetry::{TelemetryDecoder, TelemetryPacket};
 use vis3d::RotatingTriangle;
@@ -55,8 +54,6 @@ enum AppTab {
 }
 
 struct GroundControlApp {
-    plot_tab: PlotTab,
-
     data: data::Data,
 
     serial: SerialConnection,
@@ -71,7 +68,7 @@ struct GroundControlApp {
 
     last_packet_fc_time: f64,
     triangle: Arc<Mutex<RotatingTriangle>>,
-    triangle_angle: f32
+    triangle_angle: f32,
 }
 
 impl GroundControlApp {
@@ -94,8 +91,6 @@ impl GroundControlApp {
             .expect("You need to run eframe with the glow backend");
 
         let mut app = Self {
-            plot_tab: PlotTab::new(),
-
             data: Data::new(),
 
             serial: serial_connection::SerialConnection::new(),
@@ -109,7 +104,7 @@ impl GroundControlApp {
             rocket_angle_ema: 0.0,
             last_packet_fc_time: 0.0,
             triangle: Arc::new(Mutex::new(RotatingTriangle::new(gl))),
-            triangle_angle: 0.0
+            triangle_angle: 0.0,
         };
 
         app.serial.refresh_known_ports();
@@ -138,33 +133,21 @@ impl GroundControlApp {
                 }
             });
 
+            const BAUD_RATES: [u32; 23] = [
+                50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800, 9600, 19200, 28800,
+                38400, 57600, 76800, 115200, 230400, 460800, 576000, 921600,
+            ];
             // baud rate
             egui::ComboBox::from_label("Baud rate")
                 .selected_text(format!("{}", self.serial.baud_rate))
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.serial.baud_rate, 50, "50");
-                    ui.selectable_value(&mut self.serial.baud_rate, 75, "75");
-                    ui.selectable_value(&mut self.serial.baud_rate, 110, "110");
-                    ui.selectable_value(&mut self.serial.baud_rate, 134, "134");
-                    ui.selectable_value(&mut self.serial.baud_rate, 150, "150");
-                    ui.selectable_value(&mut self.serial.baud_rate, 200, "200");
-                    ui.selectable_value(&mut self.serial.baud_rate, 300, "300");
-                    ui.selectable_value(&mut self.serial.baud_rate, 600, "600");
-                    ui.selectable_value(&mut self.serial.baud_rate, 1200, "1200");
-                    ui.selectable_value(&mut self.serial.baud_rate, 1800, "1800");
-                    ui.selectable_value(&mut self.serial.baud_rate, 2400, "2400");
-                    ui.selectable_value(&mut self.serial.baud_rate, 4800, "4800");
-                    ui.selectable_value(&mut self.serial.baud_rate, 9600, "9600");
-                    ui.selectable_value(&mut self.serial.baud_rate, 19200, "19200");
-                    ui.selectable_value(&mut self.serial.baud_rate, 28800, "28800");
-                    ui.selectable_value(&mut self.serial.baud_rate, 38400, "38400");
-                    ui.selectable_value(&mut self.serial.baud_rate, 57600, "57600");
-                    ui.selectable_value(&mut self.serial.baud_rate, 76800, "76800");
-                    ui.selectable_value(&mut self.serial.baud_rate, 115200, "115200");
-                    ui.selectable_value(&mut self.serial.baud_rate, 230400, "230400");
-                    ui.selectable_value(&mut self.serial.baud_rate, 460800, "460800");
-                    ui.selectable_value(&mut self.serial.baud_rate, 576000, "576000");
-                    ui.selectable_value(&mut self.serial.baud_rate, 921600, "921600");
+                    for baud_rate in BAUD_RATES {
+                        ui.selectable_value(
+                            &mut self.serial.baud_rate,
+                            baud_rate,
+                            format!("{}", baud_rate),
+                        );
+                    }
                 });
         });
 
@@ -222,20 +205,24 @@ impl eframe::App for GroundControlApp {
         loop {
             if let Ok(b) = self.serial.read_byte() {
                 if let Some(p) = self.telemetry_decoder.decode(b) {
-                    let t: f64 = p.time_boot_ms as f64 / 1000.0; 
+                    let t: f64 = p.time_boot_ms as f64 / 1000.0;
 
                     // Reset all data if flight computer time goes backwards
                     if t < self.last_packet_fc_time {
                         self.data = Data::new();
                     }
                     self.last_packet_fc_time = t;
-                   
+
                     self.data.euler_a.add_point(t, p.euler_a as f64);
                     self.data.euler_b.add_point(t, p.euler_b as f64);
                     self.data.euler_y.add_point(t, p.euler_y as f64);
-                    self.data.accel_magnitude.add_point(t, G_to_mps2(p.accel_magnitude as f64));
-                    self.data.ms5607_pressure_mbar.add_point(t, p.ms5607_pressure_mbar as f64);
-                   
+                    self.data
+                        .accel_magnitude
+                        .add_point(t, G_to_mps2(p.accel_magnitude as f64));
+                    self.data
+                        .ms5607_pressure_mbar
+                        .add_point(t, p.ms5607_pressure_mbar as f64);
+
                     self.data.status_flag_recovery_armed = p.status_flags & (1 << 0) != 0;
                     self.data.status_flag_ematch_drogue_deployed = p.status_flags & (1 << 1) != 0;
                     self.data.status_flag_ematch_main_deployed = p.status_flags & (1 << 2) != 0;
@@ -288,67 +275,15 @@ impl eframe::App for GroundControlApp {
             .default_width(160.0)
             .min_width(160.0)
             .show_animated(ctx, self.ui_showsidebar, |ui| {
-                // ui.add_space(4.0);
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    // serial port connection ui
-                    ui.collapsing("Info", |ui| {
-                        ui.label(format!("UI frame count: {}", self.frame_count));
-                    });
-
-                    ui.collapsing("Serial port", |ui| {
-                        self.ui_add_serialportui(ui);
-                    });
-
-                    ui.collapsing("Data log replay", |ui| {
-                        ui.label("placeholder");
-                    });
-
-                    ui.collapsing("Telemetry", |ui| {
-                        ui.label(format!("Packets accepted: {}", self.telemetry_decoder.packets_accepted));
-                        ui.label(format!("Packets rejected: {}", self.telemetry_decoder.packets_rejected));
-                    });
-
-                    ui.collapsing("Data", |ui| {
-                        egui::Grid::new("sidebar-data-grid")
-                            .num_columns(2)
-                            .striped(true)
-                            .show(ui, |ui| {
-                                let mut display_data_series_label = |s: &DataSeries| {
-                                    ui.label(format!("{}:", s.name));
-                                    ui.label(format!("{} {}", s.last_y_str(), s.units));
-                                    ui.end_row();
-                                };
-
-                                display_data_series_label(&self.data.euler_a);
-                                display_data_series_label(&self.data.euler_b);
-                                display_data_series_label(&self.data.euler_y);
-                                display_data_series_label(&self.data.accel_magnitude);
-                                display_data_series_label(&self.data.ms5607_temperature_c);
-                                display_data_series_label(&self.data.ms5607_pressure_mbar);
-                                display_data_series_label(&self.data.bmi323_accel_x);
-                                display_data_series_label(&self.data.bmi323_accel_y);
-                                display_data_series_label(&self.data.bmi323_accel_z);
-                                display_data_series_label(&self.data.bmi323_gyro_x);
-                                display_data_series_label(&self.data.bmi323_gyro_y);
-                                display_data_series_label(&self.data.bmi323_gyro_z);
-                                display_data_series_label(&self.data.adxl375_accel_x);
-                                display_data_series_label(&self.data.adxl375_accel_y);
-                                display_data_series_label(&self.data.adxl375_accel_z);
-
-                                ui.label("SD Card Degraded");
-                                ui.label(format!("{}", self.data.status_flag_sd_card_degraded));
-                                ui.end_row();
-                            });
-                    });
-                });
+                self.sidebar(ui);
             });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.ui_selected_tab {
             AppTab::Plot => {
-                self.plot_tab.ui(ui, &self.data);
-            },
+                self.plot_tab(ui);
+            }
             AppTab::Dashboard => {
-                dashboard_tab(ui, self);
+                self.dashboard_tab(ui);
             }
         });
     }
