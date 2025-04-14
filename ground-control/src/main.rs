@@ -9,7 +9,9 @@ mod telemetry;
 mod vis3d;
 mod data_log_replay;
 
+use std::env;
 use std::mem::size_of;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::{collections::VecDeque, io::Cursor};
@@ -19,6 +21,7 @@ use data_log_replay::DataLogV1;
 use eframe::egui::{self};
 use egui::RichText;
 use ground_control::FusionAhrs;
+use image::open;
 use serial_connection::SerialConnection;
 use serialport::SerialPortInfo;
 use telemetry::{LogPacketV1, TelemetryDecoder, TelemetryPacket};
@@ -35,6 +38,9 @@ fn G_to_mps2(val: f64) -> f64 {
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
+    let args: Vec<String> = env::args().collect();
+    let open_data_log_path = args.get(1);
+
     let native_options = eframe::NativeOptions {
         vsync: false,
         viewport: egui::ViewportBuilder::default()
@@ -50,7 +56,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "BSLI IREC Ground Control",
         native_options,
-        Box::new(|cc| Ok(Box::new(GroundControlApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(GroundControlApp::new(cc, open_data_log_path.cloned())))),
     )
 }
 
@@ -88,7 +94,7 @@ struct GroundControlApp {
 
 impl GroundControlApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, open_data_log_path: Option<String>) -> Self {
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
         // This is also where you can customize the look and feel of egui using
@@ -130,6 +136,10 @@ impl GroundControlApp {
             data_log_replay_next_packet_index: 0,
         };
 
+        if let Some(open_data_log_path) = open_data_log_path {
+            app.open_data_log_v1(open_data_log_path.into());
+        }
+        
         app.serial.refresh_known_ports();
 
         app
