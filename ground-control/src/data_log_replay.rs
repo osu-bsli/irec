@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-use egui::RichText;
+use egui::{Color32, RichText};
 use ground_control::{
     FusionAhrs, FusionAhrsGetGravity, FusionAhrsGetLinearAcceleration, FusionAhrsGetQuaternion,
     FusionAhrsInitialise, FusionAhrsSetSettings, FusionAhrsSettings, FusionAhrsUpdate,
@@ -66,6 +66,8 @@ pub fn load_zstd_data_log_v1(path: PathBuf) -> Result<DataLogV1, std::io::Error>
         let mut offset = offset.assume_init();
         let mut ahrs = ahrs.assume_init();
 
+        let mut disable_accel = false;
+
         let mut last_time_ms = 0;
         let mut buf = vec![0; 1048576];
         loop {
@@ -119,28 +121,36 @@ pub fn load_zstd_data_log_v1(path: PathBuf) -> Result<DataLogV1, std::io::Error>
 
                         FusionOffsetUpdate(&mut offset, gyroscope);
 
-                        // set gain to favor gyro if angular velocities are high
-                        let favor_gyro = p.bmi323_gyro_x.abs() > 3.0
-                            || p.bmi323_gyro_y.abs() > 3.0
-                            || p.bmi323_gyro_z.abs() > 3.0;
-                        if favor_gyro {
-                            settings.gain = 0.5;
+                        if !disable_accel {
+                            // set gain to favor gyro if angular velocities are high
+                            let favor_gyro = p.bmi323_gyro_x.abs() > 3.0
+                                || p.bmi323_gyro_y.abs() > 3.0
+                                || p.bmi323_gyro_z.abs() > 3.0;
+                            if favor_gyro {
+                                settings.gain = 0.;
+                            } else {
+                                settings.gain = 0.5;
+                            }
                         } else {
-                            settings.gain = 0.5;
+                            settings.gain = 0.;
                         }
                         FusionAhrsSetSettings(&mut ahrs, &settings);
 
-                        for i in 0..(time_elapsed_ms / INTERVAL_MS) {
+                        for _ in 0..(time_elapsed_ms / INTERVAL_MS) {
                             FusionAhrsUpdateNoMagnetometer(
                                 &mut ahrs,
                                 gyroscope,
                                 accelerometer,
                                 INTERVAL_MS as f32 / 1000.0,
-                            );    
+                            );
                         }
                         let euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
 
                         let fused_accel_rel_earth = FusionAhrsGetLinearAcceleration(&ahrs);
+                        // once launched disable the accel (threshold in G)
+                        if FusionVectorMagnitude(fused_accel_rel_earth) > 4.0 && !disable_accel {
+                            disable_accel = true;
+                        }
 
                         let euler_a = euler.angle.roll;
                         let euler_b = euler.angle.pitch;
@@ -171,6 +181,21 @@ pub fn load_zstd_data_log_v1(path: PathBuf) -> Result<DataLogV1, std::io::Error>
 }
 
 impl GroundControlApp {
+    pub fn open_data_log_v1(&mut self, path: PathBuf) {
+        if let Ok(data_log) = load_zstd_data_log_v1(path) {
+            self.data_log_status = RichText::new(format!(
+                "Data log successfully loaded!\n{} packets\n{} bad packets",
+                data_log.entries.len(),
+                data_log.num_packets_crc_mismatch
+            ));
+            self.data_log = Some(data_log);
+        } else {
+            self.data_log_status =
+                RichText::new("Error loading data log. It should be compressed with zstd, is it?")
+                    .color(Color32::RED);
+        }
+    }
+
     pub fn replay_until_time_ms(&mut self, time_ms: f64) {
         let data_log = self.data_log.as_ref().unwrap();
 

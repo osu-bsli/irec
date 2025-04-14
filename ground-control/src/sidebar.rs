@@ -3,10 +3,13 @@ use std::time::Instant;
 use egui::{Color32, RichText};
 use serialport::SerialPortInfo;
 
-use crate::{data_log_replay::load_zstd_data_log_v1, serial_connection, Data, DataSeries, GroundControlApp};
+use crate::{
+    data_log_replay::load_zstd_data_log_v1,
+    serial_connection::{self, Status},
+    Data, DataSeries, GroundControlApp,
+};
 
 impl GroundControlApp {
-    
     fn ui_add_serialportui(&mut self, ui: &mut egui::Ui) {
         let settings_isenabled = self.serial.connection_allowed();
         let connect_isenabled =
@@ -90,7 +93,7 @@ impl GroundControlApp {
                 }
             });
     }
-    
+
     pub fn sidebar(&mut self, ui: &mut egui::Ui) {
         // ui.add_space(4.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -100,45 +103,40 @@ impl GroundControlApp {
             });
 
             ui.collapsing("Serial port", |ui| {
-                self.ui_add_serialportui(ui);
+                ui.add_enabled_ui(self.data_log.is_none(), |ui| {
+                    self.ui_add_serialportui(ui);
+                });
             });
 
             ui.collapsing("Data log replay", |ui| {
-                if ui.button("Open data log file").clicked() {
-                    let path = rfd::FileDialog::new().pick_file().unwrap();
-                    if let Ok(data_log) = load_zstd_data_log_v1(path) {
-                        self.data_log_status = RichText::new(format!(
-                            "Data log successfully loaded!\n{} packets\n{} bad packets",
-                            data_log.entries.len(),
-                            data_log.num_packets_crc_mismatch
-                        ));
-                        self.data_log = Some(data_log);
-                    } else {
-                        self.data_log_status = RichText::new(
-                            "Error loading data log. It should be compressed with zstd, is it?",
-                        )
-                        .color(Color32::RED);
-                    }
-                }
+                ui.add_enabled_ui(
+                    self.serial.connection_status() == Status::Disconnected,
+                    |ui| {
+                        if ui.button("Open data log file").clicked() {
+                            let path = rfd::FileDialog::new().pick_file().unwrap();
+                            self.open_data_log_v1(path);
+                        }
 
-                ui.add_enabled_ui(self.data_log.is_some(), |ui| {
-                    if ui.button("Begin replay").clicked() {
-                        self.data = Data::new();
-                        self.data_log_replay_playing = true;
-                        self.data_log_replay_time_ms = 0.;
-                        self.data_log_replay_next_packet_index = 0;
-                    }
+                        ui.add_enabled_ui(self.data_log.is_some(), |ui| {
+                            if ui.button("Begin replay").clicked() {
+                                self.data = Data::new();
+                                self.data_log_replay_playing = true;
+                                self.data_log_replay_time_ms = 0.;
+                                self.data_log_replay_next_packet_index = 0;
+                            }
 
-                    if ui.button("Skip ahead to launch").clicked() {
-                        self.replay_skip_ahead_to_launch();
-                    }
-                });
+                            if ui.button("Skip ahead to launch").clicked() {
+                                self.replay_skip_ahead_to_launch();
+                            }
+                        });
 
-                if self.data_log.is_some() {
-                    ui.label(format!("Replay time: {} ms", self.data_log_replay_time_ms));
-                }
+                        if self.data_log.is_some() {
+                            ui.label(format!("Replay time: {} ms", self.data_log_replay_time_ms));
+                        }
 
-                ui.label(self.data_log_status.clone());
+                        ui.label(self.data_log_status.clone());
+                    },
+                );
             });
 
             ui.collapsing("Telemetry", |ui| {
