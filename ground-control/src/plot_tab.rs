@@ -15,7 +15,7 @@ impl GroundControlApp {
             // plotui.line((&self.data.euler_a).into());
             // plotui.line((&self.data.euler_b).into());
             // plotui.line((&self.data.euler_y).into());
-            plotui.line((&self.data.accel_magnitude).into());
+            plotui.line(self.data.fused_accel_magnitude.as_line());
         });
     }
 }
