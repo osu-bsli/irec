@@ -5,6 +5,24 @@ use egui::{Label, RichText, Vec2};
 
 use crate::GroundControlApp;
 
+fn pressure_mbar_to_altitude(pressure_mbar: f64) -> f64 {
+    // TODO: Adjustable QNH
+    145366.45 * (1.0 - (pressure_mbar / 1013.25).powf(0.190284))
+}
+
+fn dashboard_numerical_display(ui: &mut egui::Ui, title: &str, value: String) {
+    let id = ui.make_persistent_id("dashboard numerical display entry height");
+
+    let before = ui.cursor().top();
+    ui.add(Label::new(RichText::new(title).size(40.0)).wrap_mode(egui::TextWrapMode::Truncate));
+    ui.add(
+        Label::new(RichText::new(value).size(120.0).strong())
+            .wrap_mode(egui::TextWrapMode::Truncate),
+    );
+    let height = ui.cursor().top() - before;
+    ui.data_mut(|d| d.insert_temp(id, height));
+}
+
 impl GroundControlApp {
     #[allow(dead_code)]
     pub fn dashboard_tab(&mut self, ui: &mut egui::Ui) {
@@ -22,32 +40,51 @@ impl GroundControlApp {
             .default_width(500.0)
             .show_inside(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    // TODO
-                    ui.add_space(200.0);
-                    let pressure_mbar = self.data.ms5607_pressure_mbar.last_y();
-                    ui.label(RichText::new("PRESSURE ALTITUDE").size(40.0));
-                    if let Some(pressure_mbar) = pressure_mbar {
-                        // TODO: Adjustable QNH
-                        let altitude_ft =
-                            145366.45 * (1.0 - (pressure_mbar / 1013.25).powf(0.190284));
-                        ui.label(
-                            RichText::new(format!("{:.0} ft", altitude_ft))
-                                .size(120.0)
-                                .strong(),
-                        );
-                    } else {
-                        ui.label(RichText::new("N/A").size(120.0).strong());
-                    }
-                    ui.add_space(300.0);
-                    ui.label(RichText::new("ACCELERATION").size(40.0));
-                    if let Some(acceleration) = self.data.accel_magnitude.last_y() {
-                        ui.label(
-                            RichText::new(format!("{:.1} m/s²", acceleration))
-                                .size(120.0)
-                                .strong(),
-                        );
-                    } else {
-                        ui.label(RichText::new("N/A").size(120.0).strong());
+                    let id = ui.make_persistent_id("dashboard numerical display entry height");
+                    let entry_height = ui.data(|d| d.get_temp(id).unwrap_or(0.0));
+
+                    let entries = [
+                        (
+                            "PRESSURE ALTITUDE",
+                            if let Some(pressure_mbar) = self.data.ms5607_pressure_mbar.last_y() {
+                                format!("{:.0} ft", pressure_mbar_to_altitude(pressure_mbar))
+                            } else {
+                                "N/A".to_string()
+                            },
+                        ),
+                        (
+                            "APOGEE",
+                            if let Some(pressure_mbar_apogee) =
+                                self.data.ms5607_pressure_mbar.min_y()
+                            {
+                                format!("{:.0} ft", pressure_mbar_to_altitude(pressure_mbar_apogee))
+                            } else {
+                                "N/A".to_string()
+                            },
+                        ),
+                        (
+                            "ACCELERATION",
+                            if let Some(acceleration) = self.data.fused_accel_magnitude.last_y() {
+                                format!("{:.1} m/s²", acceleration)
+                            } else {
+                                "N/A".to_string()
+                            },
+                        ),
+                    ];
+
+                    let padding = (ui.available_height()
+                        - entry_height * entries.len() as f32)
+                        / entries.len() as f32
+                        / 2.;
+
+                    for i in 0..entries.len() {
+                        let e = &entries[i];
+                        if i == 0 {
+                            ui.add_space(padding * 2.);
+                        } else {
+                            ui.add_space(padding);
+                        }
+                        dashboard_numerical_display(ui, e.0, e.1.clone());
                     }
                 });
             });

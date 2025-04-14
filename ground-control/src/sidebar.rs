@@ -3,7 +3,7 @@ use std::time::Instant;
 use egui::{Color32, RichText};
 use serialport::SerialPortInfo;
 
-use crate::{data_log_replay::load_zstd_data_log_v1, serial_connection, DataSeries, GroundControlApp};
+use crate::{data_log_replay::load_zstd_data_log_v1, serial_connection, Data, DataSeries, GroundControlApp};
 
 impl GroundControlApp {
     
@@ -123,7 +123,10 @@ impl GroundControlApp {
 
                 ui.add_enabled_ui(self.data_log.is_some(), |ui| {
                     if ui.button("Begin replay").clicked() {
+                        self.data = Data::new();
                         self.data_log_replay_playing = true;
+                        self.data_log_replay_time_ms = 0.;
+                        self.data_log_replay_next_packet_index = 0;
                     }
 
                     if ui.button("Skip ahead to launch").clicked() {
@@ -163,7 +166,7 @@ impl GroundControlApp {
                         display_data_series_label(&self.data.euler_a);
                         display_data_series_label(&self.data.euler_b);
                         display_data_series_label(&self.data.euler_y);
-                        display_data_series_label(&self.data.accel_magnitude);
+                        display_data_series_label(&self.data.fused_accel_magnitude);
                         display_data_series_label(&self.data.ms5607_temperature_c);
                         display_data_series_label(&self.data.ms5607_pressure_mbar);
                         display_data_series_label(&self.data.bmi323_accel_x);

@@ -160,7 +160,7 @@ impl eframe::App for GroundControlApp {
                     self.data.euler_b.add_point(t, p.euler_b as f64);
                     self.data.euler_y.add_point(t, p.euler_y as f64);
                     self.data
-                        .accel_magnitude
+                        .fused_accel_magnitude
                         .add_point(t, G_to_mps2(p.accel_magnitude as f64));
                     self.data
                         .ms5607_pressure_mbar
