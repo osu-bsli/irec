@@ -1,7 +1,7 @@
 # BSLI IREC Avionics Flight Software
 
 Flight Software for the BSLI IREC (International Rocket Engineering Competition) student researched and developed flight computer.
-The flight computer connects to a radio board for telemetry and has onboard power electronics for ejection charge detonation (parachute deployment). 
+The flight computer connects to a radio board for telemetry and has onboard power electronics for ejection charge ignition (parachute deployment). 
 
 # Table of Contents
 
@@ -11,6 +11,7 @@ The flight computer connects to a radio board for telemetry and has onboard powe
   - [Code Examples](#code-examples)
   - [Required Dependencies](#required-dependencies)
   - [Compiling and Uploading to Flight Computer](#compiling-and-uploading-to-flight-computer)
+- [Pre-Flight Checklist](#pre-flight-checklist)
 - [Contact](#contact)
 - [BRIAN JIA'S NOTES FROM DEBUGGING HELL](#brian-jias-notes-from-debugging-hell)
 
@@ -51,8 +52,6 @@ On Windows, probe-rs is only obtainable through **cargo**, the package manager f
   - Homebrew install command: `brew install probe-rs-tools`
 - **STM32CubeMX** for generating code for the flight software
   - Get it from the STMicroelectronics website: https://www.st.com/en/development-tools/stm32cubemx.html
-- **Python 3.11 or later**
-  - Get it from https://python.org 
 
 ## Compiling and Uploading to Flight Computer
 
@@ -72,6 +71,13 @@ Check code using cppcheck:
 ```
 make check
 ```
+
+# Pre-Flight Checklist
+- [ ] Ensure ALL sensors are fully functional.
+- [ ] Ensure ALL sensor data is being logged to SD Card. Test this by opening recorded data logs in Ground Control.
+- [ ] Ensure the SD Card is empty.
+- [ ] Ensure sensor data loop is running at the full 100 Hz.
+- [ ] Ensure SRAD radio communications are functional.
 
 # Contact
 
