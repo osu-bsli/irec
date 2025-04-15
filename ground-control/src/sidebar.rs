@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{fs::OpenOptions, io::ErrorKind, time::Instant};
 
 use egui::{Color32, RichText};
 use serialport::SerialPortInfo;
@@ -113,8 +113,9 @@ impl GroundControlApp {
                     self.serial.connection_status() == Status::Disconnected,
                     |ui| {
                         if ui.button("Open data log file").clicked() {
-                            let path = rfd::FileDialog::new().pick_file().unwrap();
-                            self.open_data_log_v1(path);
+                            if let Some(path) = rfd::FileDialog::new().pick_file() {
+                                self.open_data_log_v1(path);
+                            }
                         }
 
                         ui.add_enabled_ui(self.data_log.is_some(), |ui| {
@@ -125,8 +126,43 @@ impl GroundControlApp {
                                 self.data_log_replay_next_packet_index = 0;
                             }
 
-                            if ui.button("Skip ahead to launch").clicked() {
-                                self.replay_skip_ahead_to_launch();
+                            ui.separator();
+
+                            ui.horizontal(|ui| {
+                                if ui.button("Skip ahead to launch").clicked() {
+                                    self.replay_skip_ahead_to_launch(
+                                        self.replay_skip_ms_before_launch,
+                                    );
+                                }
+                                ui.add(
+                                    egui::DragValue::new(&mut self.replay_skip_ms_before_launch)
+                                        .speed(0.1),
+                                );
+                                ui.label("ms before");
+                            });
+
+                            if ui.button("Export flight (10 seconds before launch to end of data log) as .csv").clicked() {
+                                if let Some(path) = rfd::FileDialog::new().save_file() {
+                                    let file =
+                                        OpenOptions::new().write(true).create_new(true).open(path);
+
+                                    match file {
+                                        Ok(file) => {
+                                            self.data_log.as_ref().unwrap().flight_to_csv(file);
+
+                                            self.data_log_status =
+                                                RichText::new("Successfully exported .csv!")
+                                                    .color(Color32::DARK_GREEN);
+                                        }
+                                        Err(err) => {
+                                            self.data_log_status = RichText::new(format!(
+                                                "Error exporting .csv: {}",
+                                                err
+                                            ))
+                                            .color(Color32::RED);
+                                        }
+                                    }
+                                }
                             }
                         });
 

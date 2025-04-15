@@ -2,12 +2,12 @@
 
 mod dashboard_tab;
 mod data;
+mod data_log_replay;
 mod plot_tab;
 mod serial_connection;
 mod sidebar;
 mod telemetry;
 mod vis3d;
-mod data_log_replay;
 
 use std::env;
 use std::mem::size_of;
@@ -22,6 +22,7 @@ use eframe::egui::{self};
 use egui::RichText;
 use ground_control::FusionAhrs;
 use image::open;
+use num_traits::Float;
 use serial_connection::SerialConnection;
 use serialport::SerialPortInfo;
 use telemetry::{LogPacketV1, TelemetryDecoder, TelemetryPacket};
@@ -30,9 +31,13 @@ use vis3d::RotatingTriangle;
 use crate::telemetry::TelemetryDecoderResult::Packet;
 
 // G to m/s^2
-fn G_to_mps2(val: f64) -> f64 {
-    const G: f64 = 9.81;
-    val as f64 * G
+#[macro_export]
+macro_rules! G_to_mps2 {
+    ($val:expr) => {
+        {
+            $val * 9.81
+        }
+    };
 }
 
 fn main() -> eframe::Result {
@@ -56,7 +61,12 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "BSLI IREC Ground Control",
         native_options,
-        Box::new(|cc| Ok(Box::new(GroundControlApp::new(cc, open_data_log_path.cloned())))),
+        Box::new(|cc| {
+            Ok(Box::new(GroundControlApp::new(
+                cc,
+                open_data_log_path.cloned(),
+            )))
+        }),
     )
 }
 
@@ -90,6 +100,8 @@ struct GroundControlApp {
     data_log_replay_time_ms: f64,
     data_log_replay_playing: bool,
     data_log_replay_next_packet_index: usize,
+
+    replay_skip_ms_before_launch: u32,
 }
 
 impl GroundControlApp {
@@ -134,12 +146,14 @@ impl GroundControlApp {
             data_log_replay_time_ms: 0.,
             data_log_replay_playing: false,
             data_log_replay_next_packet_index: 0,
+
+            replay_skip_ms_before_launch: 5000,
         };
 
         if let Some(open_data_log_path) = open_data_log_path {
             app.open_data_log_v1(open_data_log_path.into());
         }
-        
+
         app.serial.refresh_known_ports();
 
         app
@@ -171,7 +185,7 @@ impl eframe::App for GroundControlApp {
                     self.data.euler_y.add_point(t, p.euler_y as f64);
                     self.data
                         .fused_accel_magnitude
-                        .add_point(t, G_to_mps2(p.accel_magnitude as f64));
+                        .add_point(t, G_to_mps2!(p.accel_magnitude as f64));
                     self.data
                         .ms5607_pressure_mbar
                         .add_point(t, p.ms5607_pressure_mbar as f64);
@@ -191,7 +205,9 @@ impl eframe::App for GroundControlApp {
         }
 
         if self.data_log_replay_playing {
-            self.replay_until_time_ms(self.data_log_replay_time_ms + t_elapsed.as_secs_f64() * 1000.0);
+            self.replay_until_time_ms(
+                self.data_log_replay_time_ms + t_elapsed.as_secs_f64() * 1000.0,
+            );
         }
 
         /* Make sure packets are read at least every 0.1 seconds */
