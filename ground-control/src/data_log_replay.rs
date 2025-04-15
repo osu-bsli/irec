@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Write},
     mem::MaybeUninit,
     num,
     path::PathBuf,
@@ -15,6 +15,7 @@ use ground_control::{
     FusionVectorMagnitude,
 };
 use num_traits::{ops::bytes, Float, Pow};
+use serde::Serialize;
 
 use crate::{
     telemetry::{LogPacketV1, TelemetryDecoder},
@@ -31,9 +32,75 @@ pub struct DataLogV1Entry {
     pub fused_accel_rel_earth: FusionVector, // G
 }
 
+#[derive(Serialize)]
+pub struct LogPacketV1Csv {
+    pub time_boot_ms: u32,
+    pub ms5607_pressure_mbar: f32,
+    pub ms5607_temperature_c: f32,
+    pub bmi323_accel_x_mps2_fc_frame: f32,
+    pub bmi323_accel_y_mps2_fc_frame: f32,
+    pub bmi323_accel_z_mps2_fc_frame: f32,
+    pub bmi323_gyro_x_rps_fc_frame: f32,
+    pub bmi323_gyro_y_rps_fc_frame: f32,
+    pub bmi323_gyro_z_rps_fc_frame: f32,
+    pub adxl375_accel_x_mps2_fc_frame: f32,
+    pub adxl375_accel_y_mps2_fc_frame: f32,
+    pub adxl375_accel_z_mps2_fc_frame: f32,
+}
+
 pub struct DataLogV1 {
     pub entries: Vec<DataLogV1Entry>,
     pub num_packets_crc_mismatch: u32,
+}
+
+impl DataLogV1 {
+    pub fn get_launch_time_ms(&self) -> Option<u32> {
+        let mut time_ms = None;
+        // println!("{}", self.data_log.as_ref().unwrap().entries.len());
+        for e in &self.entries {
+            unsafe {
+                let accel_magnitude = FusionVectorMagnitude(e.fused_accel_rel_earth);
+                if accel_magnitude > 10. {
+                    // this value is in G
+                    time_ms = Some(e.packet.time_boot_ms);
+                    break;
+                }
+            }
+        }
+
+        time_ms
+    }
+
+    pub fn flight_to_csv<T: Write>(&self, out: T) {
+        let mut wtr = csv::Writer::from_writer(out);
+
+        let launch_time_ms = self.get_launch_time_ms().unwrap() - 10000;
+
+        for e in &self.entries {
+            let p = e.packet;
+
+            if p.time_boot_ms >= launch_time_ms {
+                let entry_csv = LogPacketV1Csv {
+                    time_boot_ms: p.time_boot_ms,
+                    ms5607_pressure_mbar: p.ms5607_pressure_mbar,
+                    ms5607_temperature_c: p.ms5607_temperature_c,
+                    bmi323_accel_x_mps2_fc_frame: G_to_mps2!(-p.bmi323_accel_x_g),
+                    bmi323_accel_y_mps2_fc_frame: G_to_mps2!(-p.bmi323_accel_y_g),
+                    bmi323_accel_z_mps2_fc_frame: G_to_mps2!(p.bmi323_accel_z_g),
+                    bmi323_gyro_x_rps_fc_frame: -p.bmi323_gyro_x_dps.to_radians(),
+                    bmi323_gyro_y_rps_fc_frame: -p.bmi323_gyro_y_dps.to_radians(),
+                    bmi323_gyro_z_rps_fc_frame: p.bmi323_gyro_z_dps.to_radians(),
+                    adxl375_accel_x_mps2_fc_frame: G_to_mps2!(-p.adxl375_accel_x_g),
+                    adxl375_accel_y_mps2_fc_frame: G_to_mps2!(-p.adxl375_accel_y_g),
+                    adxl375_accel_z_mps2_fc_frame: G_to_mps2!(p.adxl375_accel_z_g),
+                };
+
+                wtr.serialize(entry_csv).unwrap();
+            }
+        }
+
+        wtr.flush().unwrap();
+    }
 }
 
 pub fn load_zstd_data_log_v1(path: PathBuf) -> Result<DataLogV1, std::io::Error> {
@@ -86,22 +153,22 @@ pub fn load_zstd_data_log_v1(path: PathBuf) -> Result<DataLogV1, std::io::Error>
                         // TODO: - The Fusion AHRS library cannot take into account that the ADXL375 is off the center of mass and therefore will register accelerations when the rocket rotates about its center of mass.
                         // TODO: make these not use hardcoded offsets as calibration lol
                         let adxl_offs_x = -0.75 / 9.81;
-                        let adxl_offs_y = -3.8 / 9.81;
+                        let adxl_offs_y = -3.5 / 9.81;
                         let adxl_offs_z = -8.19 / 9.81;
 
                         let bmi323_accel_offs_x = 0.;
                         let bmi323_accel_offs_y = 0.;
                         let bmi323_accel_offs_z = 0.;
 
-                        let bmi323_gyro_offs_x = 0.5;
+                        let bmi323_gyro_offs_x = 0.;
                         let bmi323_gyro_offs_y = 0.;
                         let bmi323_gyro_offs_z = 0.;
 
                         let accelerometer = FusionVector {
                             array: [
-                                -(p.adxl375_accel_x + adxl_offs_x),
-                                -(p.adxl375_accel_y + adxl_offs_y),
-                                p.adxl375_accel_z + adxl_offs_z,
+                                -(p.adxl375_accel_x_g + adxl_offs_x),
+                                -(p.adxl375_accel_y_g + adxl_offs_y),
+                                p.adxl375_accel_z_g + adxl_offs_z,
                             ],
                         };
                         // let accelerometer = FusionVector {
@@ -111,21 +178,21 @@ pub fn load_zstd_data_log_v1(path: PathBuf) -> Result<DataLogV1, std::io::Error>
                         //         p.bmi323_accel_z + bmi323_accel_offs_z,
                         //     ],
                         // };
-                        let gyroscope = FusionVector {
+                        let mut gyroscope = FusionVector {
                             array: [
-                                -(p.bmi323_gyro_x + bmi323_gyro_offs_x),
-                                -(p.bmi323_gyro_y + bmi323_gyro_offs_y),
-                                -(p.bmi323_gyro_z + bmi323_gyro_offs_z),
+                                -(p.bmi323_gyro_x_dps + bmi323_gyro_offs_x),
+                                -(p.bmi323_gyro_y_dps + bmi323_gyro_offs_y),
+                                p.bmi323_gyro_z_dps + bmi323_gyro_offs_z,
                             ],
                         };
 
-                        FusionOffsetUpdate(&mut offset, gyroscope);
+                        gyroscope = FusionOffsetUpdate(&mut offset, gyroscope);
 
                         if !disable_accel {
                             // set gain to favor gyro if angular velocities are high
-                            let favor_gyro = p.bmi323_gyro_x.abs() > 3.0
-                                || p.bmi323_gyro_y.abs() > 3.0
-                                || p.bmi323_gyro_z.abs() > 3.0;
+                            let favor_gyro = p.bmi323_gyro_x_dps.abs() > 3.0
+                                || p.bmi323_gyro_y_dps.abs() > 3.0
+                                || p.bmi323_gyro_z_dps.abs() > 3.0;
                             if favor_gyro {
                                 settings.gain = 0.;
                             } else {
@@ -218,16 +285,16 @@ impl GroundControlApp {
                 let accel_magnitude = FusionVectorMagnitude(fused.fused_accel_rel_earth);
                 self.data
                     .fused_accel_magnitude
-                    .add_point(t, G_to_mps2(accel_magnitude as f64));
+                    .add_point(t, G_to_mps2!(accel_magnitude as f64));
                 self.data
                     .fused_accel_x
-                    .add_point(t, G_to_mps2(fused.fused_accel_rel_earth.axis.x as f64));
+                    .add_point(t, G_to_mps2!(fused.fused_accel_rel_earth.axis.x as f64));
                 self.data
                     .fused_accel_y
-                    .add_point(t, G_to_mps2(fused.fused_accel_rel_earth.axis.y as f64));
+                    .add_point(t, G_to_mps2!(fused.fused_accel_rel_earth.axis.y as f64));
                 self.data
                     .fused_accel_z
-                    .add_point(t, G_to_mps2(fused.fused_accel_rel_earth.axis.z as f64));
+                    .add_point(t, G_to_mps2!(fused.fused_accel_rel_earth.axis.z as f64));
             }
 
             self.data
@@ -236,33 +303,33 @@ impl GroundControlApp {
 
             self.data
                 .bmi323_accel_x
-                .add_point(t, G_to_mps2(p.bmi323_accel_x as f64));
+                .add_point(t, G_to_mps2!(p.bmi323_accel_x_g as f64));
             self.data
                 .bmi323_accel_y
-                .add_point(t, G_to_mps2(p.bmi323_accel_y as f64));
+                .add_point(t, G_to_mps2!(p.bmi323_accel_y_g as f64));
             self.data
                 .bmi323_accel_z
-                .add_point(t, G_to_mps2(p.bmi323_accel_z as f64));
+                .add_point(t, G_to_mps2!(p.bmi323_accel_z_g as f64));
 
             self.data
                 .bmi323_gyro_x
-                .add_point(t, (p.bmi323_gyro_x as f64));
+                .add_point(t, (p.bmi323_gyro_x_dps as f64));
             self.data
                 .bmi323_gyro_y
-                .add_point(t, (p.bmi323_gyro_y as f64));
+                .add_point(t, (p.bmi323_gyro_y_dps as f64));
             self.data
                 .bmi323_gyro_z
-                .add_point(t, (p.bmi323_gyro_z as f64));
+                .add_point(t, (p.bmi323_gyro_z_dps as f64));
 
             self.data
                 .adxl375_accel_x
-                .add_point(t, G_to_mps2(p.adxl375_accel_x as f64));
+                .add_point(t, G_to_mps2!(p.adxl375_accel_x_g as f64));
             self.data
                 .adxl375_accel_y
-                .add_point(t, G_to_mps2(p.adxl375_accel_y as f64));
+                .add_point(t, G_to_mps2!(p.adxl375_accel_y_g as f64));
             self.data
                 .adxl375_accel_z
-                .add_point(t, G_to_mps2(p.adxl375_accel_z as f64));
+                .add_point(t, G_to_mps2!(p.adxl375_accel_z_g as f64));
 
             self.data.status_flag_recovery_armed = p.status_flags & (1 << 0) != 0;
             self.data.status_flag_ematch_drogue_deployed = p.status_flags & (1 << 1) != 0;
@@ -279,20 +346,10 @@ impl GroundControlApp {
         self.data_log_status = RichText::new("Playback complete");
     }
 
-    pub fn replay_skip_ahead_to_launch(&mut self) {
-        // skip to 5 seconds before something hits a high accel
-        let mut time_ms = 0;
-        // println!("{}", self.data_log.as_ref().unwrap().entries.len());
-        for e in &self.data_log.as_ref().unwrap().entries {
-            unsafe {
-                let accel_magnitude = FusionVectorMagnitude(e.fused_accel_rel_earth);
-                if accel_magnitude > 10. {
-                    // this value is in G
-                    time_ms = e.packet.time_boot_ms;
-                    break;
-                }
-            }
+    pub fn replay_skip_ahead_to_launch(&mut self, ms_before_launch: u32) {
+        let time_ms = self.data_log.as_ref().unwrap().get_launch_time_ms();
+        if let Some(time_ms) = time_ms {
+            self.replay_until_time_ms((time_ms - ms_before_launch) as f64);
         }
-        self.replay_until_time_ms((time_ms - 5000) as f64);
     }
 }
