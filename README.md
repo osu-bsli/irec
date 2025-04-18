@@ -23,6 +23,8 @@ Radio transceiver that requires a custom RF frontend.
 * Reliable Radio Regiment (2023-2024 Radio Capstone Group)
 * Responsive Reliable Radio Regiment (2024-2025 Radio Capstone Group)
 
+Both groups ended the year with non-functioning radio boards.
+
 ### Why it seems like a good idea
 * It is an ST part, so it must be easy to use with our STM32 microcontroller, right?
 
