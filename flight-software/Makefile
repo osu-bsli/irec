@@ -82,6 +82,7 @@ Middlewares/Third_Party/FreeRTOS/Source/tasks.c \
 Middlewares/Third_Party/FreeRTOS/Source/timers.c \
 Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c \
 Core/Src/sysmem.c \
+Core/Src/slip.c \
 Core/Src/syscalls.c \
 Core/Src/SEGGER_RTT.c \
 Core/Src/SEGGER_RTT_printf.c \

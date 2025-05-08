@@ -5,7 +5,7 @@
   - [SRAD Stackup](#srad-stackup)
 - [2026 Avionics System Plans](#2026-avionics-system-plans)
   - [COTS Stackup](#cots-stackup-1)
-  - [A "For The People" SRAD Stackup](#a-for-the-people-srad-stackup)
+  - [SRAD Stackup](#srad-stackup-1)
 - [AVIONICS NO BUY LIST](#avionics-no-buy-list)
   - [STMicroelectronics S2-LP](#stmicroelectronics-s2-lp)
   - [STMicroelectronics TESEO-LIV3S GNSS Module](#stmicroelectronics-teseo-liv3s-gnss-module)
@@ -36,12 +36,17 @@ As of 4/24/2025 this is the current avionics setup.
 
 All 3 flight computers (2x EasyMini, 1x SRAD) have their own battery
 
+### 2025 Interim Comms Stack
+* ESP32+LoRa on ground side and rocket side
+* We building our own 433 MHz yagi
+* No laptop ground control on the ground side, instead a yagi with mounted ESP32+LoRa, display (maybe e-ink?) and battery.
+
 # 2026 Avionics System Plans
 
 ## COTS Stackup
 Same as the 2025 system above.
 
-## A "For The People" SRAD Stackup
+## SRAD Stackup
 
 The 2023-2025 SRAD stack - the STM32-based flight computer sitting atop a power board - is technically impressive but creates a lonely, high-pressure working environment in which only a select few are able to contribute to the system due to its complexity. For the past two years, the SRAD stackup has existed in hardware but the IREC Avionics team has been unable to develop the software to a point where it is able to deploy parachutes. The team's slow progress is not being caused by a lack of manpower, discipline, or dedication, but the alienating nature of the SRAD stack itself. This is not only due to the technical complexity of the STM32 but also ST's extremely poor documentation and developer tools.
 
@@ -52,6 +57,17 @@ Currently, ordering the flight computer is an expensive, once-per-year ritual wh
 We currently have stack-level modularity, but in name only. We have a separate radio board, power board, and flight computer, but replacing any of those boards is unacceptably expensive. We need component-level modularity - the ability to design and test things like new pyro circuits, or another GPS chip, any time of year, without significant time or monetary investment.
 
 Also, the ESP32 is simply of the most well-documented embedded platforms to ever exist. Even better than Arduino. And the only thing better than writing documentation is NOT NEEDING to write documentation in the first place. By switching to ESP32, we get to offload documentation about how our microcontroller works to the excellent existing Espressif wiki.
+
+### Parts
+* Brain: ESP32+LoRa+GPS+WiFi+Bluetooth module (https://heltec.org/project/wireless-tracker/)
+* Everything is mounted as a module using SOLDERED 2.54mm pins on a 4-layer motherboard with no active components
+* 2.54mm headers for ultimate breadboardability.
+* Avionics stack split up into three boards:
+  * Interface board: Contains pyro circuit, stepper interface, and remove-before-flight tags,
+  * Upper board: Contains secondary modules and will contain empty module spaces for unforeseen needs. A large module space will be reserved for the radio capstone group.
+  * Lower board: Contains the brain and modules for power, sensors, and flash memory (most likely will be eMMC).
+* Each board will be connected to the next using 2.54mm pins, and only one row of pins so it can be breadboarded.
+* With the current avionics bay size, each board can only have 28 pins of 2.54mm to the next. If we use them wisely, that should be enough.
 
 # AVIONICS NO BUY LIST
 

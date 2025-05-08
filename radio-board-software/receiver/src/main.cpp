@@ -6,6 +6,8 @@
 #include <LoRa.h>
 #include <TFT_eSPI.h> // Hardware-specific library
 
+#define PIN_LED 13
+
 TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
 
 void setup()
@@ -29,11 +31,15 @@ void setup()
   LoRa.setPins(16, 15, 4);
   while (!LoRa.begin(433E6))
   {
-    pinMode(13, OUTPUT);
-    digitalWrite(13, !digitalRead(13));
+    pinMode(PIN_LED, OUTPUT);
+    digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     // tft.print(".");
     delay(500);
   }
+
+  LoRa.setSignalBandwidth(125E3);
+  LoRa.setSpreadingFactor(12);
+  LoRa.setPreambleLength(8);
 
   digitalWrite(13, 1);
 
@@ -42,4 +48,24 @@ void setup()
 
 void loop()
 {
+  int packetSize = LoRa.parsePacket(11);
+  if (packetSize)
+  {
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.setTextSize(4);
+    // tft.println("Packet recv'd");
+    tft.print("SF: ");
+    tft.println(LoRa.getSpreadingFactor());
+    tft.print("BW: ");
+    tft.println(LoRa.getSignalBandwidth());
+    tft.println("Message:");
+    tft.println(LoRa.readString());
+    tft.println("RSSI:");
+    tft.setTextSize(10);
+    tft.println(LoRa.packetRssi());
+
+    pinMode(PIN_LED, OUTPUT);
+    digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+  }
 }

@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define TELEMETRY_PACKET_MAX_LEN 255
-#define TELEMETRY_PACKET_MAGIC "FUCKPETER"
+#define TELEMETRY_PACKET_MAGIC "KF8EBM"
 #define LOGGING_PACKET_MAGIC "COREYMAYS"
 
 enum StatusFlags {
@@ -22,17 +22,12 @@ enum StatusFlags {
  */
 
 struct __attribute__((packed)) telemetry_packet {
-    char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
-    uint8_t size; // Total size of struct
-    uint16_t crc16;
+    char magic[6]; // 'KF8EBM' in ASCII with no null terminator - Brian Jia's callsign
 
     uint8_t status_flags; // StatusFlags bitfield
     uint32_t time_boot_ms; // Timestamp (ms since system boot)
-    float pitch; // Fused sensor data (unit: Euler angle deg)
-    float yaw;   // Fused sensor data (unit: Euler angle deg)
-    float roll;  // Fused sensor data (unit: Euler angle deg)
-    float accel_magnitude; // Magnitude of acceleration (unit: G)
     float ms5607_pressure_mbar; // Pressure (unit: mbar)
+    float ms5607_pressure_mbar_min; // Pressure minimum recorded (unit: mbar)
 };
 
 struct __attribute__((packed)) log_packet_v2 {
