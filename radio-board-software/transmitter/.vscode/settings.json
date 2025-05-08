@@ -1,17 +1,23 @@
 {
-    "C_Cpp.intelliSenseEngine": "default",
-    "idf.espIdfPathWin": "d:\\Espressif\\frameworks\\esp-idf-v5.4",
-    "idf.pythonInstallPath": "C:\\Users\\zjia0\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
-    "idf.openOcdConfigs": [
-        "interface/ftdi/esp32_devkitj_v1.cfg",
-        "target/esp32.cfg"
-    ],
-    "idf.portWin": "COM4",
-    "idf.toolsPathWin": "C:\\Users\\zjia0\\.espressif",
-    "idf.flashType": "JTAG",
-    "idf.customExtraVars": {
-        "OPENOCD_SCRIPTS": "/home/brian/.espressif/tools/openocd-esp32/v0.12.0-esp32-20230921/openocd-esp32/share/openocd/scripts",
-        "ESP_ROM_ELF_DIR": "/home/brian/.espressif/tools/esp-rom-elfs/20230320/",
-        "IDF_TARGET": "esp32"
+    "files.associations": {
+        "array": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp",
+        "cctype": "cpp",
+        "cinttypes": "cpp",
+        "cmath": "cpp",
+        "cstdint": "cpp",
+        "cstdio": "cpp",
+        "cstdlib": "cpp",
+        "cwchar": "cpp",
+        "cwctype": "cpp",
+        "functional": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp"
     }
 }
