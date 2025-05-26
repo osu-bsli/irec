@@ -1,6 +1,1 @@
-.cache/
-build/
-compile_commands.json
-
-Core/Inc/mavlink_generated
-*.map
+.pio
