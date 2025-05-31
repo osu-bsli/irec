@@ -88,13 +88,15 @@ esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
 	status = read_registers(device, REGISTER_WIA, &data, 1);
 	if (status != ESP_OK)
 	{
-		goto error;
+		device->is_in_degraded_state = true;
+		return status;
 	}
 	if (data != WHO_AM_I)
 	{
 		Serial.printf(SENSOR_NAME ": WHO_AM_I mismatch: %d\n", data);
 		status = ESP_FAIL;
-		goto error;
+		device->is_in_degraded_state = true;
+		return status;
 	}
 
 	// power on
@@ -106,7 +108,8 @@ esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
 	if (status != ESP_OK)
 	{
 		Serial.printf(SENSOR_NAME ": CNTL1 write failed\n");
-		goto error;
+		device->is_in_degraded_state = true;
+		return status;
 	}
 
 	// write anything to CNTL4 high byte (0x5D) to set RSTB_LV=1
@@ -115,7 +118,8 @@ esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
 	if (status != ESP_OK)
 	{
 		Serial.printf(SENSOR_NAME ": CNTL4 write failed\n");
-		goto error;
+		device->is_in_degraded_state = true;
+		return status;
 	}
 
 	// FORCE (bit 6) = 1 in CNTL3 to start measurements
@@ -124,14 +128,11 @@ esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
 	if (status != ESP_OK)
 	{
 		Serial.printf(SENSOR_NAME ": CNTL3 write failed\n");
-		goto error;
+		device->is_in_degraded_state = true;
+		return status;
 	}
 
 	return ESP_OK;
-
-error:
-	device->is_in_degraded_state = true;
-	return status;
 }
 
 esp_err_t fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
@@ -144,7 +145,8 @@ esp_err_t fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *dat
 	if (status != ESP_OK)
 	{
 		Serial.printf(SENSOR_NAME ": read failure\n");
-		goto error;
+		device->is_in_degraded_state = true;
+		return status;
 	}
 
 	int16_t raw_magnetic_strength_x = (int16_t)((raw_data[1] << 8) | raw_data[0]);
@@ -167,8 +169,4 @@ esp_err_t fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *dat
 	// SEGGER_RTT_WriteString(0, buf);
 
 	return ESP_OK;
-
-error:
-	device->is_in_degraded_state = true;
-	return status;
 }

@@ -4,6 +4,7 @@
 #include <CWLibrary.hpp>
 #include <Wire.h>
 
+#include "AltimeterFilter.h"
 #include "sensors/adxl375.h"
 #include "sensors/bm1422.h"
 #include "sensors/bmi323.h"

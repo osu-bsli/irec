@@ -114,20 +114,20 @@
  * This function will block the current FreeRTOS task until the read finishes. */
 static esp_err_t read_registers(struct fc_bmi323 *device, uint8_t reg, uint8_t *data, uint8_t length)
 {
-	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-	Wire.write(reg);
-	if (Wire.endTransmission() != 0)
-	{
-		return ESP_FAIL;
-	}
+    Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+    Wire.write(reg);
+    if (Wire.endTransmission() != 0)
+    {
+        return ESP_FAIL;
+    }
 
-	if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
-	{
-		return ESP_FAIL;
-	}
-	Wire.readBytes(data, length);
+    if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+    {
+        return ESP_FAIL;
+    }
+    Wire.readBytes(data, length);
 
-	return ESP_OK;
+    return ESP_OK;
 }
 
 /* Starts writing multiple bytes starting from a register (useful for batch writing to multiple
@@ -135,10 +135,10 @@ static esp_err_t read_registers(struct fc_bmi323 *device, uint8_t reg, uint8_t *
  * This function will block the current FreeRTOS task until the write finishes. */
 static esp_err_t write_registers(struct fc_bmi323 *device, uint8_t reg, uint8_t *data, uint8_t length)
 {
-	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-	Wire.write(reg);
-	Wire.write(data, length);
-	return Wire.endTransmission() ? ESP_FAIL : ESP_OK;
+    Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+    Wire.write(reg);
+    Wire.write(data, length);
+    return Wire.endTransmission() ? ESP_FAIL : ESP_OK;
 }
 
 esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
@@ -156,39 +156,44 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     /* check chip id (datasheet pg. 66) */
     uint16_t chip_id_value[2] = {0x1234, 0x5678};
-    status = read_registers(bmi323, REGISTER_CHIP_ID, (uint8_t*)chip_id_value, sizeof(chip_id_value));
+    status = read_registers(bmi323, REGISTER_CHIP_ID, (uint8_t *)chip_id_value, sizeof(chip_id_value));
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     if ((chip_id_value[1] & 0xFF) != 0x43u)
     {
         Serial.printf("bmi323: device ID does not match expected\n");
         status = ESP_FAIL;
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     /* check ERR_REG before enabling sensors (datasheet pg. 67) */
     uint16_t err_value[2] = {0x1234, 0x5678};
-    status = read_registers(bmi323, REGISTER_ERR_REG, (uint8_t*)err_value, sizeof(err_value));
+    status = read_registers(bmi323, REGISTER_ERR_REG, (uint8_t *)err_value, sizeof(err_value));
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     if (err_value[1])
     {
         status = ESP_FAIL;
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     /* check STATUS */
     uint16_t status_value[2] = {0x1234, 0x5678};
-    status = read_registers(bmi323, REGISTER_STATUS, (uint8_t*)status_value, sizeof(status_value));
+    status = read_registers(bmi323, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     // The BMI323 doesn't reset when the STM32 does, so the powerup flag may not always be set
@@ -199,7 +204,8 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     status = write_registers(bmi323, REGISTER_INT_CONF, &int_conf_data[2], 2);
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     /* =================================================================================== */
@@ -210,7 +216,8 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     status = read_registers(bmi323, REGISTER_ACC_CONF, acc_conf_bytes, sizeof(acc_conf_bytes));
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     /* ACC_CONF.acc_mode =    0b111  for normal power mode (datasheet pg. 22)
@@ -229,7 +236,8 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     status = write_registers(bmi323, REGISTER_ACC_CONF, &acc_conf_bytes[2], 2); /* no dummy bytes when writing */
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     /* =================================================================================== */
@@ -240,7 +248,8 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     status = read_registers(bmi323, REGISTER_GYR_CONF, gyr_conf_bytes, sizeof(acc_conf_bytes));
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     /* GYR_CONF.gyr_mode =    0b111  for normal power mode (datasheet pg. 22)
@@ -260,7 +269,8 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
                              sizeof(gyr_conf_bytes) - 2); /* no dummy bytes when writing */
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     // TODO: Double check these
@@ -268,14 +278,11 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     status = write_registers(bmi323, REGISTER_INT_MAP2, int_map2_bytes, sizeof(int_map2_bytes));
     if (status != ESP_OK)
     {
-        goto error;
+        bmi323->is_in_degraded_state = true;
+        return status;
     }
 
     return ESP_OK;
-
-error:
-    bmi323->is_in_degraded_state = true;
-    return status;
 }
 
 esp_err_t fc_bmi323_process(struct fc_bmi323 *bmi323, struct fc_bmi323_data *data)
@@ -290,30 +297,29 @@ esp_err_t fc_bmi323_process(struct fc_bmi323 *bmi323, struct fc_bmi323_data *dat
     // TODO: Also think about using actual GPIO interrupts to handle data ready.
 
     esp_err_t status;
-    
+
     int16_t sensor_data[8]; // dummy, 3-axis accel, 3-axis gyro, temp
-    status = read_registers(bmi323, REGISTER_ACC_DATA_X, (uint8_t*)sensor_data, sizeof(sensor_data));
+    status = read_registers(bmi323, REGISTER_ACC_DATA_X, (uint8_t *)sensor_data, sizeof(sensor_data));
     if (status != ESP_OK)
-        goto error;
+    {
+        bmi323->is_in_degraded_state = true;
+        return status;
+    }
 
     // multiplier to convert an int16_t to the sensor range
     // (65535 is the max of an int16_t)
 
     data->accel_x = (float)sensor_data[1] / 8.19 / 1000.0; // +/-4g, 8.19 LSB/mg
-    data->accel_y = (float)sensor_data[2] / 8.19 / 1000.0; 
-    data->accel_z = (float)sensor_data[3] / 8.19 / 1000.0; 
-    
+    data->accel_y = (float)sensor_data[2] / 8.19 / 1000.0;
+    data->accel_z = (float)sensor_data[3] / 8.19 / 1000.0;
+
     data->gyro_x = (float)sensor_data[4] / 131.072; // +/-250deg, 131.072 LSB/deg/s
     data->gyro_y = (float)sensor_data[5] / 131.072;
     data->gyro_z = (float)sensor_data[6] / 131.072;
-    
+
     data->temp = (float)sensor_data[7] / 512.0f + 23.0f;
-    
+
     data->kernel_timestamp = xTaskGetTickCount();
 
     return ESP_OK;
-
-error:
-    bmi323->is_in_degraded_state = true;
-    return status;
 }

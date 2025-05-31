@@ -79,11 +79,12 @@ static esp_err_t read_registers(struct fc_adxl375 *device, uint8_t reg,
     return ESP_FAIL;
   }
 
-  if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length) {
+  if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+  {
     return ESP_FAIL;
   }
   Wire.readBytes(data, length);
-  
+
   return ESP_OK;
 }
 
@@ -144,13 +145,15 @@ esp_err_t fc_adxl375_initialize(struct fc_adxl375 *device)
   status = read_registers(device, REGISTER_DEVID, &data, sizeof(data));
   if (status != ESP_OK)
   {
-    goto error;
+    device->is_in_degraded_state = true;
+    return status;
   }
   if (data != DEVICE_ID)
   {
     Serial.printf("adxl375: device ID does not match (expected: %d, got: %d)\n", DEVICE_ID, data);
     status = ESP_FAIL;
-    goto error;
+    device->is_in_degraded_state = true;
+    return status;
   }
 
   /* Set measure bit in POWER_CTL register (pg. 22) */
@@ -158,28 +161,27 @@ esp_err_t fc_adxl375_initialize(struct fc_adxl375 *device)
   status = write_registers(device, REGISTER_POWER_CTL, &data, sizeof(data));
   if (status != ESP_OK)
   {
-    goto error;
+    device->is_in_degraded_state = true;
+    return status;
   }
 
   data = 0b00001011;
   status = write_registers(device, REGISTER_DATA_FORMAT, &data, sizeof(data));
   if (status != ESP_OK)
   {
-    goto error;
+    device->is_in_degraded_state = true;
+    return status;
   }
 
   data = REGISTER_BW_RATE_100HZ; // disable low power, 100 Hz
   status = write_registers(device, REGISTER_BW_RATE, &data, sizeof(data));
   if (status != ESP_OK)
   {
-    goto error;
+    device->is_in_degraded_state = true;
+    return status;
   }
 
   return ESP_OK;
-
-error:
-  device->is_in_degraded_state = true;
-  return status;
 }
 
 esp_err_t fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *data)
@@ -196,7 +198,8 @@ esp_err_t fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *
   status = read_registers(device, REGISTER_DATAX0, raw_accel_data, sizeof(raw_accel_data));
   if (status != ESP_OK)
   {
-    goto error;
+    device->is_in_degraded_state = true;
+    return status;
   }
 
   /* ===================================== */
@@ -231,8 +234,4 @@ esp_err_t fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *
   // Serial.printf("adxl375: accel z: %s\n", buf);
 
   return ESP_OK;
-
-error:
-  device->is_in_degraded_state = true;
-  return status;
 }
