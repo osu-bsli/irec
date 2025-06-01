@@ -122,7 +122,6 @@ struct AltimeterFilterOutput AltimeterFilterProcess(float altitude_m, float sens
         break;
     case STAGE_BURNOUT:
         // In burnout:
-
         if (GetVelocity() < 0)
         {
             // TODO: FIRE DA EJECTION CHARGEEEEEE

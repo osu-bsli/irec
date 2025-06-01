@@ -21,4 +21,5 @@ INCLUDE_DIRS
     .
     SCServo
     arduino-LoRa
+    airbrakes
 )

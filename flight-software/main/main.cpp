@@ -199,7 +199,10 @@ void setup()
   {
     auto pressure_mbar = ms5607_pressure_mbar[i];
     auto accel_z_mps2 = adxl375_accel_z_mps2_fc_frame[i];
-    airbrakes_process(pressure_mbar, accel_z_mps2);
+    auto filter_out = airbrakes_process(pressure_mbar, accel_z_mps2);
+    if (i % 10 == 0) {
+      airbrakes_check_for_retraction(filter_out);
+    }
     xTaskDelayUntil(&t, 10);
     if (i % 100 == 0) {
       Serial.println(i);
