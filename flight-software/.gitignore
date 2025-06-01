@@ -1,1 +1,4 @@
 .pio
+build/
+managed_components/
+

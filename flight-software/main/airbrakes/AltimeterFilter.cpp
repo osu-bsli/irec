@@ -34,36 +34,6 @@ struct AltimeterFilter
     float t_apogee;
 };
 
-// this is for asteria II IREC 2025
-float rocket_mass_kg = 17.63996;
-float drag_model_scale = 1.0;
-
-float drag_newtons_airbrakes_stowed(float mach_number)
-{
-    float x = mach_number;
-    return -2.09 + 13 * x + 96.2 * powf(x, 2);
-}
-
-float rocket_drag_newtons(float speed) {
-    auto speed_of_sound = 343; // TODO: Speed of sound varies with altitude
-    auto mach_number = speed / speed_of_sound;
-    return drag_newtons_airbrakes_stowed(mach_number) * drag_model_scale;
-}
-
-typedef boost::array<double, 4> state_type;
-void projectile_motion_rocket(const state_type &x, state_type &dxdt, double t)
-{
-    float speed = sqrtf(powf(x[2], 2) + powf(x[3], 2));
-    float drag_newtons = rocket_drag_newtons(speed);
-    // float angle = atan2f(x[1], x[0]);
-    // float drag_x_newtons = -drag_newtons * sinf(angle);
-    float drag_y_newtons = -drag_newtons * 1;
-    dxdt[0] = x[2]; // = v_x
-    dxdt[1] = x[3]; // = v_y
-    dxdt[2] = 0 / rocket_mass_kg;
-    dxdt[3] = -G + drag_y_newtons / rocket_mass_kg;
-}
-
 struct AltimeterFilter f;
 
 static void AltimeterFilterPrint()

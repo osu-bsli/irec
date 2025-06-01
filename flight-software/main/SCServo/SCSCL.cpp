@@ -31,7 +31,6 @@ int SCSCL::WritePos(u8 ID, u16 Position, u16 Time, u16 Speed)
 
 int SCSCL::WritePosEx(u8 ID, s16 Position, u16 Speed, u8 ACC)
 {
-	ACC = 0;
 	u16 Time = 0;
 	u8 bBuf[6];
 	Host2SCS(bBuf+0, bBuf+1, Position);

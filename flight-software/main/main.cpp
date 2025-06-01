@@ -1,7 +1,6 @@
 #include <SPI.h>
 #include <LoRa.h>
 #include <SD.h>
-#include <CWLibrary.hpp>
 #include <Wire.h>
 
 #include "AltimeterFilter.h"
@@ -9,6 +8,8 @@
 #include "sensors/bm1422.h"
 #include "sensors/bmi323.h"
 #include "sensors/ms5607.h"
+
+#include "test_data.h"
 
 const char *text_err_lora = "ERR LORA";
 const char *text_err_sd = "ERR SD";
@@ -56,7 +57,6 @@ static fs::File sdcard_and_logging_init()
 
 static fs::File log_file;
 
-
 static void sensor_print_init_success_state(const char *name, bool was_successful)
 {
   if (was_successful)
@@ -76,7 +76,7 @@ static struct fc_bm1422 bm1422;
 
 static void sensors_init()
 {
-  Wire.begin(0, 1, 200000);
+  Wire.begin(13, 12, 200000);
 
   /* Initialize sensor drivers */
   esp_err_t status;
@@ -116,12 +116,12 @@ static void sensors_init()
   } while (retry && num_retries < 50);
 }
 
-
 /*
 Ping the servo to check if it is ready.
 */
 
 #include <SCServo.h>
+#include "airbrakes.h"
 
 SMS_STS sms_sts;
 // the uart used to control servos.
@@ -153,8 +153,9 @@ void ping_servo()
     delay(2000);
   }
 }
+
 void lora_and_sd_setup()
-{  
+{
   SPI.begin(7, 6, 5);
   LoRa.setSPI(SPI);
   LoRa.setPins(4, 18);
@@ -178,7 +179,6 @@ void lora_and_sd_setup()
   LoRa.setSpreadingFactor(12);
   LoRa.setPreambleLength(8);
 
-
   log_file = sdcard_and_logging_init();
 }
 
@@ -186,10 +186,26 @@ void setup()
 {
   Serial.begin(115200);
 
-
-  lora_and_sd_setup();
-  sensors_init();
+  // lora_and_sd_setup();
+  // sensors_init();
   // setup_servo();
+
+  TickType_t t = 0;
+
+  airbrakes_init();
+
+  int i = 0;
+  while (i < DATA_LEN)
+  {
+    auto pressure_mbar = ms5607_pressure_mbar[i];
+    auto accel_z_mps2 = adxl375_accel_z_mps2_fc_frame[i];
+    airbrakes_process(pressure_mbar, accel_z_mps2);
+    xTaskDelayUntil(&t, 10);
+    if (i % 100 == 0) {
+      Serial.println(i);
+    }
+    i++;
+  }
 }
 
 void loop()
@@ -206,6 +222,6 @@ void loop()
   // LoRa.println("KF8EBM Hello World!");
   // Serial.println("KF8EBM Hello World!");
   // LoRa.endPacket();
-  
-  delay(2000);
+
+  delay(100);
 }
