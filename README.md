@@ -66,6 +66,7 @@ Written by Brian Jia, 2025.
 * Reading the above, you're probably thinking to yourself, "Just make them talk more." But what if the team was structured so they just naturally communicate? With the guiding principle that the team's structure should naturally facilitate communication:
 * Strata will be deleted. Project management will be done in a "figure it out amongst ourselves" manner, where individuals voluntarily pick up work that there is to do, which is perfectly appropriate or even ideal for an R&D team of this size (6-10 people).
 * "Figure it out amongst ourselves" is LITERALLY communication.
+* At my internship at Vertiv, where I work on software and dev tooling for a ridiculously tightly coupled embedded Linux system, we do not have static assignments of responsibility for each part of the system. You just do whatever you need to do, PR any repository you need to PR to move things along.
 
 ### SRAD
 
