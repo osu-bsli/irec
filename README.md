@@ -70,13 +70,14 @@ Written by Brian Jia, 2025.
 
 ### SRAD
 
-* The SRAD R&D effort in 2025 and 2026 was directed at creating an avionics stack with as few COTS PCBs as much as possible. These efforts never produced a working stack that is able to deploy parachutes or control airbrakes.
+* The SRAD R&D effort for 2024 and 2025 was directed at creating an avionics stack with as few COTS PCBs as much as possible. These efforts never produced a working stack that is able to deploy parachutes or control airbrakes.
 * While you can argue that using all SRAD PCBs has a certain cool factor to it, you know what's cooler? Launching the rocket and deploying parachutes yourself. And deploying airbrakes. And winning the IREC. When you spend all your resources on making your systems "look professional" (e.g. by using only custom PCBs), you have no time or money to do the REAL cool things with your stack. 
 * So, if we want to win the 2026 IREC, we must redirect our efforts toward the well-executed integration of COTS parts, creating SRAD PCBs when only necessary. Even when trying to maximize the use of COTS parts, there will be a lot of SRAD PCBs that have to be made (pyro PCB, flight computer mount, etc.). So there will be plenty of chances for us to spin our own boards, still.
 * Nintendo created the Switch, the 3rd best-selling console of all time, by performing an extremely well-executed integration of mostly boring COTS parts.
 * The Falcon 9 is the well-executed integration of ancient rocket engine technology (gas-generator cycle lol), COMBINED with the ability to perform retropropulsive landings.
 * A good question: "How do I write an SPI/I2C sensor driver for the MS5607 barometer? What should our naming conventions be?"  
 * A **$#%@ing amazing great question**: "Do we even need to write this MS5607 barometer driver? Should we copy paste it from Altus Metrum, so that if our rocket lawn darts, we know it's not that piece of code that did it?"
+* Also, my opinion is that manual assembly of PCBs, especially the installation of passives, should generally be avoided, mostly because of environmental concerns. If we have JLCPCB assemble passives, they use their pick&place machines which already have common passives loaded into them. If we install passives ourselves, that means DigiKey has to package those parts (with an outrageous amount of single-use plastics), and then ship them to us.
 
 ### An example of an SRAD stack that adheres to this philosophy
 
