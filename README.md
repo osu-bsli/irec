@@ -1,15 +1,12 @@
 # IREC Monorepo
 - [IREC Monorepo](#irec-monorepo)
-- [Avionics System Overview](#avionics-system-overview)
-  - [COTS Stackup](#cots-stackup)
-  - [SRAD Stackup](#srad-stackup)
-- [2026 Avionics System Plans](#2026-avionics-system-plans)
-  - [COTS Stackup](#cots-stackup-1)
-  - [SRAD Stackup](#srad-stackup-1)
-- [AVIONICS NO BUY LIST](#avionics-no-buy-list)
-  - [STMicroelectronics S2-LP](#stmicroelectronics-s2-lp)
-  - [STMicroelectronics TESEO-LIV3S GNSS Module](#stmicroelectronics-teseo-liv3s-gnss-module)
-  - [SPI Flash Chips](#spi-flash-chips)
+- [Avionics Systems Overview](#avionics-systems-overview)
+  - [2026 Planned Stackup](#2026-planned-stackup)
+  - [2025 Stackup](#2025-stackup)
+- [Leadership Manual](#leadership-manual)
+  - [Case Study: Avionics 2024 and 2025](#case-study-avionics-2024-and-2025)
+  - [Avionics 2026 - The Plan](#avionics-2026---the-plan)
+  - [AVIONICS NO BUY LIST](#avionics-no-buy-list)
 
 This monorepo contains:
 * `flight-software` - Flight Software for the SRAD Flight Computer
@@ -19,16 +16,28 @@ This monorepo contains:
 * Documentation for the avionics system
 * 
 
-# Avionics System Overview
+# Avionics Systems Overview
 
-As of 4/24/2025 this is the current avionics setup.
 
-## COTS Stackup
+
+## 2026 Planned Stackup
+
+### COTS Stackup
+Same as the 2025 system below.
+
+### SRAD Stackup
+To be determined.
+
+
+
+## 2025 Stackup
+
+### COTS Stackup
 * Altus Metrum EasyMini - Primary parachute deployment computer 
 * Altus Metrum EasyMini - Backup parachute deployment computer
 * Altus Metrum TeleGPS for recovery
 
-## SRAD Stackup
+### SRAD Stackup
 * Radio Board
 * Interface Board (for airbrakes servo)
 * Flight Computer
@@ -41,98 +50,106 @@ All 3 flight computers (2x EasyMini, 1x SRAD) have their own battery
 * We building our own 433 MHz yagi
 * No laptop ground control on the ground side, instead a yagi with mounted ESP32+LoRa, display (maybe e-ink?) and battery.
 
-# 2026 Avionics System Plans
 
-## COTS Stackup
-Same as the 2025 system above.
 
-## SRAD Stackup
+# Leadership Manual
 
-The 2023-2025 SRAD stack - the STM32-based flight computer sitting atop a power board - is technically impressive but creates a lonely, high-pressure working environment in which only a select few are able to contribute to the system due to its complexity. For the past two years, the SRAD stackup has existed in hardware but the IREC Avionics team has been unable to develop the software to a point where it is able to deploy parachutes. The team's slow progress is not being caused by a lack of manpower, discipline, or dedication, but the alienating nature of the SRAD stack itself. This is not only due to the technical complexity of the STM32 but also ST's extremely poor documentation and developer tools.
+Written by Brian Jia, 2025.
 
-Next year, I (Brian) propose that we replace the board stackup with a single flight computer motherboard that runs an $20 off-the-shelf ESP32+LoRa+OLED module as its brains. This module, along with every other one of the flight computer's modules, will be soldered to the motherboard with the most universal connector of all: 2.54mm pins. Most of these modules can be designed in-house. If we properly modularize the flight computer, splitting it up into a pyro module, an eMMC module, a power module, among others, the avionics team will be able to distribute work far more efficiently among its software developers and PCB designers.
+## Case Study: Avionics 2024 and 2025
 
-Currently, ordering the flight computer is an expensive, once-per-year ritual where a single mistake or error can threaten the success of the project for the forthcoming year. This is not okay for an experimental SRAD setup that flies in an experimental rocket at an event sanctioned by the Experimental Sounding Rocket Association. The SRAD Avionics team needs to be able to pivot and iterate rapidly. Modules on 2.54mm stilts facilitates this.
+* Avionics work was divided into strata managed by appointed Responsible Engineers. This created a team where the Responsible Engineer had ultimate responsibility for their layer (flight software, electronics, airbrakes, etc.) but **nobody**, except for the PM-appointed Avionics Lead, actually felt responsibility for the final outcome (i.e. the actual goddamn rocket launch and recovery.) This bottleneck meant the entire team's output depended on the capabilties of a single person. Sometimes, that single person can lock in and make it work. Most of the time, they can't.
+* This stratification also created a team that is not able to reason about the entire avionics stack as a single unit, which is very bad when the team's main purpose is to create a robotic apogee control system (the airbrakes).
 
-We currently have stack-level modularity, but in name only. We have a separate radio board, power board, and flight computer, but replacing any of those boards is unacceptably expensive. We need component-level modularity - the ability to design and test things like new pyro circuits, or another GPS chip, any time of year, without significant time or monetary investment.
+## Avionics 2026 - The Plan
 
-Also, the ESP32 is simply of the most well-documented embedded platforms to ever exist. Even better than Arduino. And the only thing better than writing documentation is NOT NEEDING to write documentation in the first place. By switching to ESP32, we get to offload documentation about how our microcontroller works to the excellent existing Espressif wiki.
+* Reading the above, you're probably thinking to yourself, "Just make them talk more." But what if the team was structured so they just naturally communicate? With the guiding principle that the team's structure should naturally facilitate communication:
+* Strata will be deleted. Project management will be done in a "figure it out amongst ourselves" manner, where individuals voluntarily pick up work that there is to do, which is perfectly appropriate or even ideal for an R&D team of this size (6-10 people).
+* "Figure it out amongst ourselves" is LITERALLY communication.
 
-### Parts
-* Brain: ESP32+LoRa+GPS+WiFi+Bluetooth module (https://heltec.org/project/wireless-tracker/)
-* Everything is mounted as a module using SOLDERED 2.54mm pins on a 4-layer motherboard with no active components
-* 2.54mm headers for ultimate breadboardability.
-* Avionics stack split up into three boards:
-  * Interface board: Contains pyro circuit, stepper interface, and remove-before-flight tags,
-  * Upper board: Contains secondary modules and will contain empty module spaces for unforeseen needs. A large module space will be reserved for the radio capstone group.
-  * Lower board: Contains the brain and modules for power, sensors, and flash memory (most likely will be eMMC).
-* Each board will be connected to the next using 2.54mm pins, and only one row of pins so it can be breadboarded.
-* With the current avionics bay size, each board can only have 28 pins of 2.54mm to the next. If we use them wisely, that should be enough.
+### SRAD
 
-# AVIONICS NO BUY LIST
+* The SRAD R&D effort in 2025 and 2026 was directed at creating an avionics stack with as few COTS PCBs as much as possible. These efforts never produced a working stack that is able to deploy parachutes or control airbrakes.
+* While you can argue that using all SRAD PCBs has a certain cool factor to it, you know what's cooler? Launching the rocket and deploying parachutes yourself. And deploying airbrakes. And winning the IREC. When you spend all your resources on making your systems "look professional" (e.g. by using only custom PCBs), you have no time or money to do the REAL cool things with your stack. 
+* So, if we want to win the 2026 IREC, we must redirect our efforts toward the well-executed integration of COTS parts, creating SRAD PCBs when only necessary. Even when trying to maximize the use of COTS parts, there will be a lot of SRAD PCBs that have to be made (pyro PCB, flight computer mount, etc.). So there will be plenty of chances for us to spin our own boards, still.
+* Nintendo created the Switch, the 3rd best-selling console of all time, by performing an extremely well-executed integration of mostly boring COTS parts.
+* The Falcon 9 is the well-executed integration of ancient rocket engine technology (gas-generator cycle lol), COMBINED with the ability to perform retropropulsive landings.
+* A good question: "How do I write an SPI/I2C sensor driver for the MS5607 barometer? What should our naming conventions be?"  
+* A **$#%@ing amazing great question**: "Do we even need to write this MS5607 barometer driver? Should we copy paste it from Altus Metrum, so that if our rocket lawn darts, we know it's not that piece of code that did it?"
+
+### An example of an SRAD stack that adheres to this philosophy
+
+This is not a declaration of what we will use this year. This is just an ***example*** of ***a*** possible SRAD stack. There's also a pretty good chance this is just a bad idea. Idk, it really depends on if the Pi Zero 2 W is able to remount its SD card if vibration temporarily disconnects it.
+
+* Raspberry Pi Zero 2 W. It's $15, 4c4t, 512 MB of RAM, WiFi, as much storage as you want on the SD card. And you get Linux, the world's most well-documented HAL. No more banging your head against STM32 documentation. It's also 5x more powerful than the most powerful STM32 MCU you can get. That'll be great for the airbrakes algorithm. By the way, SpaceX runs all their GNC algorithms on x86 Linux computers.
+* Raspberry Pi Pico (1 or 2). This can be a companion to the Pi Zero 2 W that handles absolute hard-real-time tasks. 
+* The dual MPU-MCU setup frees us from the PITA of running business logic on a frigging microcontroller.
+* Custom radio PCB module. Radio Capstone will be working with us to develop it.
+* Custom pyro PCB module
+* Custom sensors PCB module
+* Everything soldered into a custom PCB backplane.
+* We can use 2.54mm headers to stack a 2nd backplane on top of the 1st if one isn't enough. 
+
+
+## AVIONICS NO BUY LIST
 
 Here is a list of parts that should not be used.
 
+### STMicroelectronics S2-LP
 
-## STMicroelectronics S2-LP
+Radio transceiver that requires a custom RF frontend. 
 
-### Description
-Radio transceiver that requires a custom RF frontend.
+It is an ST part, so it must be easy to use with our STM32 microcontroller, right?
 
-### Victims
+#### Victims
 * Reliable Radio Regiment (2023-2024 Radio Capstone Group)
 * Responsive Reliable Radio Regiment (2024-2025 Radio Capstone Group)
 
 Both groups ended the year with non-functioning radio boards.
 
-### Why it seems like a good idea
-* It is an ST part, so it must be easy to use with our STM32 microcontroller, right?
-
-### Why it should be avoided
+#### Why it should be avoided
 * You have to design and build your own RF frontend.
 * Crystal oscillator is tough to get working.
 * Poor community support.
 * Extremely poor documentation.
   
-### Alternatives
+#### Alternatives
 * LoRA radio module (proven long-range communications with great community support)
 
-## STMicroelectronics TESEO-LIV3S GNSS Module
+### STMicroelectronics TESEO-LIV3S GNSS Module
 
-### Description
+#### Description
 
 GPS receiver from STMicro.
 
-### Victims
+It is an ST part, so it must be easy to use with our STM32 microcontroller, right? (again)
+
+#### Victims
 * Avionics 2024
 * Avionics 2025
 
-### Why it seems like a good idea
-* It is an ST part, so it must be easy to use with our STM32 microcontroller, right? (again)
-
-### Why it should be avoided
+#### Why it should be avoided
 * It is NOT EASY TO USE AND NOT WELL DOCUMENTED.
 
-### Alternatives
+#### Alternatives
 * Any GPS chip that you can find a driver for in 30 minutes, that tells you exactly how to hook it into a system.
 * Even if an alternative is moderately more expensive, if that cost pays for good documentation and customer support, THAT COST IS WORTH IT.
 
-## SPI Flash Chips
+### SPI Flash Chips
 
-### Description
+#### Description
 Any flash chip that uses SPI as its main form of communication.
 
-### Victims
+SPI flash comes in non-BGA packages, so it's easy to lay out, right?
+
+#### Victims
 * Responsive Reliable Radio Regiment (2024-2025 Radio Capstone Group)
 
-### Why it seems like a good idea
-* SPI flash comes in non-BGA packages, so it's easy to lay out, right?
-  
-### Why it should be avoided
+#### Why it should be avoided
 * SPI flash is expensive.
 * Manufacturer driver support is poor (especially for Winbond SPI flash).
 * SPI flash is relatively small, so multiple chips are needed to achieve a reasonable storage capacity. That also means multiple CS lines, and even a mux if you don't have enough MCU pins.
 * I sat in on the 2025 radio board capstone presentation and the ECE Capstone advisor told us that she would be up in the flash manufacturer's DMs giving them hell if they didn't supply a driver.
 
-### Alternatives
-* eMMC. Should not be too hard to lay out since most of the BGA pins are N/C. This also means all storage comms can be handled by the STM32 SDIO/SDMMC peripheral.
+#### Alternatives
+* eMMC. Should not be too hard to lay out since most of the BGA pins are N/C. 
