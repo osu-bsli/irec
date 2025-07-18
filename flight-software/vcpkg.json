@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+    {
+      "name": "libgpiod",
+      "features": [
+        "cxx-bindings"
+      ]
+    }
+  ]
+}
