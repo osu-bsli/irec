@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <gpiod.hpp>
 #include <iostream>
+#include <unistd.h>
 
 namespace
 {
@@ -21,6 +22,7 @@ using namespace gpiod::line;
 
 int main()
 {
+	printf("BSLI IREC Flight Software coming right up!\n");
 	auto request = ::gpiod::chip(chip_path)
 					   .prepare_request()
 					   .set_consumer("set-line-value")
@@ -33,9 +35,9 @@ int main()
 	while (1)
 	{
 		request.set_value(line_offset, value::ACTIVE);
-		
+		usleep(1000*500);
 		request.set_value(line_offset, value::INACTIVE);
-		
+		usleep(1000*500);
 	}
 
 	return EXIT_SUCCESS;

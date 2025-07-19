@@ -1,0 +1,19 @@
+[Unit]
+Description=BSLI IREC Flight Software
+
+# Disable default dependencies for as early of start as possible
+DefaultDependencies=no
+
+# Wait for SPI and I2C to come online
+# These systemd device units are created because of /etc/udev/rules.d/999-flight-software.rules
+Requires=dev-spidev0.0.device
+Requires=dev-spidev0.1.device
+Requires=dev-i2c\x2d1.device
+Requires=dev-i2c\x2d2.device
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/flight-software
+
+[Install]
+WantedBy=default.target

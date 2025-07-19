@@ -7,7 +7,7 @@
       "binaryDir": "build",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "arm64-linux-dynamic"
+        "VCPKG_TARGET_TRIPLET": "arm64-linux"
       }
     }
   ]
