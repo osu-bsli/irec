@@ -27,7 +27,6 @@ set(CPACK_PACKAGE_CONTACT "Brian Jia <jia.659@buckeyemail.osu.edu>")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 set(CPACK_DEBIAN_FILE_NAME "flight-software.deb")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "gpiod")
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
     "${CMAKE_CURRENT_SOURCE_DIR}/dpkg_scripts/postinst;${CMAKE_CURRENT_SOURCE_DIR}/dpkg_scripts/prerm")
 include(CPack)

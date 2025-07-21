@@ -1,2 +1,7 @@
 #!/bin/sh
+
+echo Disabling swap...
+swapoff -a
+
+echo Enabling and starting flight software...
 systemctl enable --now flight-software

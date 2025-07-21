@@ -1,0 +1,26 @@
+Module                  Size  Used by
+bnep                   24576  2
+spidev                 24576  0
+brcmfmac_wcc           12288  0
+binfmt_misc            16384  1
+brcmfmac              376832  1 brcmfmac_wcc
+hci_uart               53248  0
+btbcm                  24576  1 hci_uart
+brcmutil               24576  1 brcmfmac
+bcm2835_mmal_vchiq     40960  3 bcm2835_codec,bcm2835_v4l2,bcm2835_isp
+cfg80211             1036288  1 brcmfmac
+ecdh_generic           16384  1 bluetooth
+ecc                    40960  1 ecdh_generic
+rfkill                 32768  6 bluetooth,cfg80211
+libaes                 16384  1 bluetooth
+raspberrypi_hwmon      12288  0
+mc                     69632  6 videodev,bcm2835_codec,videobuf2_v4l2,videobuf2_common,v4l2_mem2mem,bcm2835_isp
+i2c_bcm2835            16384  0
+spi_bcm2835            20480  0
+raspberrypi_gpiomem    12288  0
+uio_pdrv_genirq        12288  0
+uio                    20480  1 uio_pdrv_genirq
+backlight              24576  1 drm
+ip_tables              32768  0
+x_tables               53248  1 ip_tables
+ipv6                  602112  32
