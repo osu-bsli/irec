@@ -1,17 +1,26 @@
-# 🚀 IREC Monorepo 🚀
-- [🚀 IREC Monorepo 🚀](#-irec-monorepo-)
+# 🚀 IREC Avionics Monorepo 🚀
+
+Welcome! This is the Monorepo for the Avionics Division of the Buckeye Space Launch Initiative's International Rocket Engineering Competition (IREC) team.
+
+This IREC team participates in the 30,000 ft, student-researched-and-developed (30K SRAD) category. For the exact definition of what it means to be a "30K SRAD" team, please consult Section 2.0 in the [IREC Rules & Requirements Document](https://www.soundingrocket.org/irec-documents--forms.html).
+
+- [🚀 IREC Avionics Monorepo 🚀](#-irec-avionics-monorepo-)
 - [Awesome Resources](#awesome-resources)
   - [Everyone Should Read! ☺️](#everyone-should-read-️)
   - [Electricals](#electricals)
-  - [GNC / State Estimation / Control Theory](#gnc--state-estimation--control-theory)
+  - [Guidance, Navigation and Control (GNC) / State Estimation / Control Theory](#guidance-navigation-and-control-gnc--state-estimation--control-theory)
+  - [Embedded Systems](#embedded-systems)
   - [Software](#software)
+  - [Amateur Radio](#amateur-radio)
+- [Internal Resources](#internal-resources)
 - [Avionics Systems Overview](#avionics-systems-overview)
   - [2026 Planned Stackup](#2026-planned-stackup)
   - [2025 Stackup](#2025-stackup)
-- [Leadership Manual](#leadership-manual)
+- [Notes](#notes)
   - [Case Study: Avionics 2024 and 2025](#case-study-avionics-2024-and-2025)
   - [Avionics 2026 - The Plan](#avionics-2026---the-plan)
   - [AVIONICS NO BUY LIST](#avionics-no-buy-list)
+  - [Rebuttals to quotes that indicate severe cultural rot](#rebuttals-to-quotes-that-indicate-severe-cultural-rot)
 
 This monorepo contains:
 * `flight-software` - Flight Software for the SRAD Flight Computer
@@ -20,6 +29,20 @@ This monorepo contains:
 * `radio-board-software` - Code for the ground-side and rocket-side SRAD radio boards
 * Documentation for the avionics system
 
+> [!NOTE]
+> This README.md was written with *documentation locality of reference* in mind, which is the idea that documentation about something should be placed as close as possible to where the work is being done. A lot of the work that Avionics does will be done on GitHub, so I will be documenting all technical details, resources, and philosophy here in this README. 
+
+
+> [!WARNING]
+> **A note on safety. It's not always obvious when safety is important.**  
+> 
+> It’s not obvious why safety is important when you’re working with low-voltage electronics like you would do in Avionics. I want to show everyone that safety also means the safety of your personal property.
+> 
+> In avionics here, we will be primarily working with low voltage, but many “low voltages” are still high enough to destroy your personal electronics. Last year, while working on airbrakes, a series of wiring errors led to 12V finding its way onto the 5V rail of my gaming laptop, instantly damaging it beyond all repair. 
+> 
+> This would not have happened in a strong safety culture.
+>
+> -Brian
 
 # Awesome Resources
 
@@ -28,15 +51,17 @@ This monorepo contains:
 * [IREC Design, Test, & Evaluation Guide](https://www.soundingrocket.org/irec-documents--forms.html)
 
 > [!NOTE]
-> These documents set the *basic rules* for the *competition we participate in*, so we should all read them.
+> These documents set the *basic rules* for the *competition we participate in*, as well as lay out what the competition actually *is*, so we should all read them.
+
+* [EasyMini - Altus Metrum](https://altusmetrum.org/EasyMini/) - The EasyMini is the dual-deployment altimeter that we use for deploying parachutes. There are two of them in the avionics bay. 
 
 ## Electricals
 * [Starter Guide to BJT Transistors - ElectroBOOM](https://www.youtube.com/watch?v=2uowMENwiHQ) - ElectroBOOM video on BJT transistors, useful for amplifiers and switching circuits (like for parachute deployment!)
 * [This CHIP Changed the WORLD! - ElectroBOOM](https://www.youtube.com/watch?v=lyfx8CL7AkI) -  ElectroBOOM video on MOSFET transistors, also useful for high-power switching circuits.
 * [Altium Education](https://education.altium.com/) - PCB Design Courses by Altium
 
-## GNC / State Estimation / Control Theory
-* [Aftershock II Apogee Analysis](https://static1.squarespace.com/static/549ce89be4b0cddb26c4894b/t/67391d08fd8679272697d0e6/1731796246789/Aftershock_II_Apogee_Whitepaper) - USC Rocket Propulsion Laboratory's uses advanced modeling to estimate an apogee of 470,400 ft ± 27,300 ft (3σ) for their record-breaking spaceshot. Apogees of this altitude are necessarily estimated as the air is too thin in the thermosphere for pressure altimeters to function. In addition, GPS receivers available to students typically disable themselves at high altitudes/speeds, so that bad actors cannot produce guided missiles that use them.
+## Guidance, Navigation and Control (GNC) / State Estimation / Control Theory
+* [Aftershock II Apogee Analysis](https://static1.squarespace.com/static/549ce89be4b0cddb26c4894b/t/67391d08fd8679272697d0e6/1731796246789/Aftershock_II_Apogee_Whitepaper) - USC Rocket Propulsion Laboratory estimates an apogee of 470,400 ft ± 27,300 ft (3σ) for their record-breaking spaceshot. Apogees of this altitude are necessarily estimated as the air is too thin in the thermosphere for pressure altimeters to function. In addition, GPS receivers available to students typically disable themselves at high altitudes/speeds, so that bad actors cannot produce guided missiles that use them.
 * [Kalman Filter for Beginners, Part 1 - Recursive Filters & MATLAB Examples](https://www.youtube.com/watch?v=HCd-leV8OkU) - Lesson on the *Kalman Filter*, a technique for estimating the state of a dynamical system (i.e. a rocket), using noisy and incomplete information (all real-world sensors return noisy and incomplete information!!). 
   
   A Kalman Filter is the analytically proven optimal solution to the state estimation problem ***WHEN ALL OF THESE ARE TRUE***: 
@@ -46,12 +71,28 @@ This monorepo contains:
     * ***AND*** the probability distribution of the system's state can be perfectly represented with a Gaussian distribution
    
   The regular Kalman Filter *may* function, although with degraded performance, for systems that do not fit these criteria.
-  However, variants of the Kalman Filter, namely the Extended Kalman Filter or the Unscented Kalman Filter, have been designed 
-  to perform well when these ideal constraints do not exist.
+  However, variants of the Kalman Filter, namely the Extended Kalman Filter and the Unscented Kalman Filter, have been designed 
+  to perform well when these ideal constraints do not apply.
 
 * [The Unscented Kalman Filter for Nonlinear Estimation](https://groups.seas.harvard.edu/courses/cs281/papers/unscented.pdf) - Paper on the *Unscented Kalman Filter*, an extension to the *Kalman Filter* that is able to handle non-Gaussian, unimodal probability distributions that evolve according to nonlinear dynamics.
-* [The Fall of Minecraft's 2b2t](https://www.youtube.com/watch?v=elqAh3GWRpA) - Vide o on the use of a *Particle Filter* to estimate the position of players in a Minecraft server. A particle filter was used because the probability distribution of a player's state is multi-modal, and any form of Kalman Filter is unsuitable for multi-modal distributions.  
+* [The Fall of Minecraft's 2b2t](https://www.youtube.com/watch?v=elqAh3GWRpA) - Video on the use of a *Particle Filter* to estimate the position of players in a Minecraft server. A particle filter was used because the probability distribution of a player's state is multi-modal, and any form of Kalman Filter is unsuitable for multi-modal distributions.  
 * [Controls Engineering in the FIRST Robotics Competition](https://file.tavsys.net/control/controls-engineering-in-frc.pdf) - Free textbook on Controls Engineering, intended as a resource for high schoolers to learn graduate-level control theory for use in the FIRST Robotics Competition.
+
+## Embedded Systems
+* [Embedded Engineering Roadmap](https://github.com/m3y54m/Embedded-Engineering-Roadmap) - Comprehensive roadmap for aspiring Embedded Systems Engineers, featuring a curated list of learning resources
+* [Raspberry Pi 5](https://www.raspberrypi.com/products/raspberry-pi-5/) - Premiere Single-Board Computer
+* [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) - Microcontroller Development Boards from Raspberry Pi
+* [RP2040](https://www.raspberrypi.com/products/rp2040/) and [RP2350](https://www.raspberrypi.com/products/rp2350/) - Microcontrollers by Raspberry Pi
+* [STM32 Microcontrollers](https://www.st.com/en/microcontrollers-microprocessors/stm32-32-bit-arm-cortex-mcus.html) - Microcontrollers by STMicroelectronics 
+* [Arduino](https://www.arduino.cc/) - Classic Microcontroller Development Boards
+* [ESP32](https://www.espressif.com/en/products/socs/esp32) - Modern WiFi/IoT Microcontrollers
+
+> [!NOTE]
+> RP2040, RP2350, and Arduino boards are intended to be educational and user-friendly, while STM32 is targeted towards professional engineers who demand total control over the device.
+> Because of this, the STM32 requires a deep understanding of modern microcontroller architecture to properly use.
+>
+> The Raspberry Pi microcontrollers sacrifice a *very slight* amount of flexibility (so small that it is insignificant in the context of this club), to provide a more user-friendly experience and to empower developers to focus on application logic rather than microcontroller configuration. As such, it is recommended that an RP2040 or an RP2350 is considered first when choosing a microcontroller for a project in this club.
+
 
 ## Software
 * [LWN - ELC: SpaceX Lessons Learned](https://lwn.net/Articles/540368/) - On SpaceX's use of Embedded Linux
@@ -61,7 +102,7 @@ This monorepo contains:
     * Linus is working on a codebase of millions of lines that has to be maintained for decades. A college flight software codebase is a few thousand lines, max.
     * The kernel does not need to use numerical methods and linear algebra to perform its regular functions. Because Flight Software and GNC code ***does***, using C would lock the code out of excellent C++ scientific libraries like *boost::numeric::odeint* and *Eigen*.
      
-  HOWEVER, Linus's criticism that it is easy to generate "total and utter crap" with C++ still applies. When he says this, he is aiming at programmers that use C++ features like classes, STL containers, and references *just because they have them*, and not because there is a well-reasoned justification to use them. This means that to create a maintainble C++ codebase, this club must be very disciplined in choosing the C++ features that we *do* use. 
+  HOWEVER, Linus's criticism that it is easy to generate "total and utter crap" with C++ still applies. When he says this, he is aiming at programmers that use C++ features like classes, Standard Template Library containers, and references *just because they have them*, and not because there is a well-reasoned justification to use them. This means that to create a maintainable C++ codebase, this club must be very disciplined in choosing the C++ features that we *do* use. 
   
   We've justified the use of *the C++ language itself* by showing that C++ gives us access to excellent, type-safe scientific libraries. However, each C++ feature to be used still requires its own justification, independent of the one that allows us to use the language itself. 
   
@@ -74,6 +115,29 @@ This monorepo contains:
 > The videos about Rust are firmly in the territory of *advanced programming language theory* and are intended for programmers already familiar with Rust.
 > Even if Rust is not used in this club, it is very valuable to learn as the language forces you to program in a way that makes you a better software engineer
 > in any context.
+
+## Amateur Radio
+
+> [!NOTE]
+> An Amateur Radio Club exists at OSU, with almost a century of built up expertise. Please consider reaching out to them for a formal partnership!  
+>
+> https://u.osu.edu/w8lt/ 
+
+Telemetry at IREC, for many reasons, is primarily done through the amateur radio bands and under FCC Part 97. This means that the Avionics Lead must hold an Technician amateur radio operator license at minimum, and preferably someone else on the team should be licensed as well, in case the Lead is not available to operate a radio. To that end, here are some resources:
+
+* [HamExam.org: Technician Practice Exam](https://hamexam.org/exam/18-Technician)
+* [ARRL: Exam Practice](https://www.arrl.org/exam-practice)
+* [ARRL: Getting Your Technician License](https://www.arrl.org/getting-your-technician-license)
+
+# Internal Resources
+
+> [!NOTE]
+> No links can be found here, this section is just to make sure you know they exist.
+> Please reach out to someone on the team if you are looking to access these!
+
+* Avionics Bay CAD
+* BSLI Altium Workspace
+* BSLI SharePoint
 
 # Avionics Systems Overview
 
@@ -106,19 +170,19 @@ All 3 flight computers (2x EasyMini, 1x SRAD) have their own battery
 * No laptop ground control on the ground side, instead a yagi with mounted ESP32+LoRa, display (maybe e-ink?) and battery.
 
 
-
-# Leadership Manual
+# Notes
 
 Written by Brian Jia, 2025.
 
 ## Case Study: Avionics 2024 and 2025
 
-* Avionics work was divided into strata managed by appointed Responsible Engineers. This created a team where the Responsible Engineer had ultimate responsibility for their layer (flight software, electronics, airbrakes, etc.) but **nobody**, except for the PM-appointed Avionics Lead, actually felt responsibility for the final outcome (i.e. the actual goddamn rocket launch and recovery.) This bottleneck meant the entire team's output depended on the capabilties of a single person. Sometimes, that single person can lock in and make it work. Most of the time, they can't.
+* Avionics work was divided into strata managed by appointed Responsible Engineers. This created a team where the Responsible Engineer had ultimate responsibility for their layer (flight software, electronics, airbrakes, etc.) but almost **nobody**, except for the PM-appointed Avionics Lead, actually felt responsibility for the final outcome (i.e. the actual goddamn rocket launch and recovery.) This bottleneck meant the entire team's output depended on the capabilties of a single person. Sometimes, that single person can lock in and make it work. Most of the time, they can't, at no fault whatsoever of their own.
 * This stratification also created a team that is not able to reason about the entire avionics stack as a single unit, which is not ideal when the team's main purpose is to create a robotic apogee control system (the airbrakes).
 
 ## Avionics 2026 - The Plan
 
-* Reading the above, you're probably thinking to yourself, "Just make them talk more." But what if the team was structured so they just naturally communicate? **With the guiding principle that the team's structure should naturally facilitate communication:**
+Reading the above, you're probably thinking to yourself, "Just make them talk more." But what if the team was structured so they just naturally communicate? **With the guiding principle that the team's structure should naturally facilitate communication:**
+
 * Strata will be deleted. Project management will be done in a "figure it out amongst ourselves" manner, where individuals voluntarily pick up work that there is to do, which is perfectly appropriate or even ideal for an R&D team of this size (6-10 people).
 * "Figure it out amongst ourselves" is a form of communication, in my opinion.
 * At my internship at Vertiv, where I work on software and dev tooling for a ridiculously tightly coupled embedded Linux system, we do not have static assignments of responsibility for each part of the system. You just do whatever you need to do, PR any repository you need to PR to move things along.
@@ -126,7 +190,7 @@ Written by Brian Jia, 2025.
 ### SRAD
 
 * The SRAD R&D effort for 2024 and 2025 was directed at creating an avionics stack with as few COTS PCBs as much as possible. These efforts never produced a working stack that is able to deploy parachutes or control airbrakes.
-* While you can argue that using all SRAD PCBs has a certain cool factor to it, you know what's cooler? Launching the rocket and deploying parachutes yourself. And deploying airbrakes. And winning the IREC. When you spend all your resources on making your systems "look professional" (e.g. by using only custom PCBs), there is no time or money to do the REAL cool things with your stack. 
+* While you can argue that using all SRAD PCBs has a certain cool factor to it, you know what's cooler? Launching the rocket and deploying parachutes yourself. And deploying airbrakes. And winning the IREC. When you spend all your resources on making your systems "look professional" (e.g. by using only custom PCBs), there is no time or money to do "actual" cool things with your stack. 
 * So, if we want to win the 2026 IREC, we must redirect our efforts toward the well-executed integration of COTS parts, creating SRAD PCBs when only necessary. Even when trying to maximize the use of COTS parts, there will be a lot of SRAD PCBs that have to be made (pyro PCB, flight computer mount, etc.). So there will be plenty of chances for us to spin our own boards, still.
 * Nintendo created the Switch, the 3rd best-selling console of all time, by performing an extremely well-executed integration of mostly boring COTS parts.
 * The Falcon 9 is the well-executed integration of ancient rocket engine technology (gas-generator cycle lol), COMBINED with the ability to perform retropropulsive landings.
@@ -210,3 +274,27 @@ SPI flash comes in non-BGA packages, so it's easy to lay out, right?
 
 #### Alternatives
 * eMMC. Should not be too hard to lay out since most of the BGA pins are N/C. 
+
+## Rebuttals to quotes that indicate severe cultural rot
+
+Please read this section while keeping in mind that this team competes in an elite category (30K SRAD, only attempted by ~8 universities yearly), in an already difficult competition (the IREC).
+
+> We need a training curriculum to teach all these new freshmen how to use the STM32, because it's such a difficult chip to use!
+
+* A training curriculum robs freshmen of the chance to learn how to teach themselves difficult things.
+* This kind of training program plants in the club's mind that STM32 is the only legitimate solution to an avionics problem. This is a disaster in situations where the project's success depends on the team's ability to rapidly identify and pivot to other solutions.
+
+> We can't expect people to know both hardware and software.
+
+* The value in an **avionics** team is the intersection of hardware and software.
+* There already exist Software Engineering and Electronics clubs on this campus. The niche in the student activity market for pure software engineers and pure electronics engineers is already served, and served well. The unique value proposition of an Avionics team is that it provides the **opportunity** to learn hardware, software, aerospace engineering, mechanical engineering, materials science, and radio frequency, all at once in an integrated environment.
+
+> I'll just need to know what boards we need to build, if you could let me know.
+
+* The danger is this in the passivity. In a team that competes in an elite category, every member must contribute ideas and plans, while also executing plans from themselves and others.
+* Ideally, every member on this team is able to independently architect a complete avionics stack. If everyone can come up with their own design, the best parts of each person's design can be integrated into the final product, creating a design that would not be possible if only one person designed the entire system. 
+
+> It is too much to ask for 10 hours a week from each member.
+
+* This is a team participating in an elite category at the IREC. 
+* Many college students, especially the nerdier types, did not have the opportunity to participate in a demanding, structured activity in high school. Maybe they were too anxious to do choir or theatre, had a physical disability so they couldn't play sports, or their school wasn't privileged enough to have a demanding competitive engineering club like a robotics club. **That means this student has never had the chance to be in a demanding extracurricular that allows them to go all-out in a field of their interest. They have not had the chance to build discipline in an environment where a small slip up leads to catastrophic failure (like in sports, theatre, or marching band). For this type of student, who has had a lifelong passion for aerospace, electronics, and software, we need to be the club that provides this opportunity to them, where they can come to have their limits tested. And the only way we can do that is by showing everyone what it takes, and then asking everyone for a significant commitment, so this person finally gets what they have deserved their entire life.**
