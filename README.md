@@ -5,15 +5,8 @@ Welcome! This is the Monorepo for the Avionics Division of the Buckeye Space Lau
 This IREC team competes in the 30,000 ft, student-researched-and-developed (30K SRAD) category. For the exact definition of what it means to be a "30K SRAD" team, please consult Section 2.0 in the [IREC Rules & Requirements Document](https://www.soundingrocket.org/irec-documents--forms.html).
 
 > [!NOTE]
-> **What it's like to be on this team**  
 > 
-> For those who played a sport, did theatre, marching band, mock trial, or any other demanding activity, you know what it’s like to structure your entire life around a single objective.
-> 
-> It’s some of the most fun you can have.
->
-> If you want that very same experience, but as a competitor in an elite category of the world’s largest rocketry competition, you’ve come to the right place. 
-> 
-> For those of you who didn't have the opportunity to have that experience back in high school, this is your chance.
+> In this team, the mission demands you to read thick technical documents, including rules and regulations manuals, datasheets, research papers, and textbooks. This README is long, but I hope it can be a warmup to prepare you for later, lengthier readings, and I hope it can also help you discover the joy of acquiring deep, practical knowledge!
 
 - [🚀 IREC Avionics Monorepo 🚀](#-irec-avionics-monorepo-)
 - [Awesome Resources](#awesome-resources)
