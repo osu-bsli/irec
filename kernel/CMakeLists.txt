@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.28)
+
 project(linux-bsli)
 
 set(KERNEL_OUTDIR ${CMAKE_CURRENT_BINARY_DIR}/kernel_outdir)
@@ -22,8 +24,9 @@ add_custom_target(
     USES_TERMINAL
 )
 
-install(DIRECTORY ${KERNEL_OUTDIR}/boot/ DESTINATION usr/share/raspberrypi-linux-bsli/boot)
-install(DIRECTORY ${KERNEL_OUTDIR}/lib/  DESTINATION usr/share/raspberrypi-linux-bsli/lib)
+install(DIRECTORY ${KERNEL_OUTDIR}/boot/ DESTINATION usr/share/raspberrypi-linux-bsli/boot/)
+install(DIRECTORY ${KERNEL_OUTDIR}/lib/  DESTINATION usr/share/raspberrypi-linux-bsli/lib/)
+install(FILES config.txt                 DESTINATION usr/share/raspberrypi-linux-bsli/boot/firmware/)
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_CONTACT "Brian Jia <jia.659@buckeyemail.osu.edu>")
