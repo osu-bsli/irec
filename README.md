@@ -16,6 +16,7 @@ This IREC team competes in the 30,000 ft, student-researched-and-developed (30K 
   - [Embedded Systems](#embedded-systems)
   - [Software](#software)
   - [Amateur Radio](#amateur-radio)
+  - [Radio Frequency (RF) Engineering](#radio-frequency-rf-engineering)
 - [Internal Resources](#internal-resources)
 - [Avionics Systems Overview](#avionics-systems-overview)
   - [2026 Planned Stackup](#2026-planned-stackup)
@@ -24,7 +25,7 @@ This IREC team competes in the 30,000 ft, student-researched-and-developed (30K 
   - [Case Study: Avionics 2024 and 2025](#case-study-avionics-2024-and-2025)
   - [Avionics 2026 - The Plan](#avionics-2026---the-plan)
   - [AVIONICS NO BUY LIST](#avionics-no-buy-list)
-  - [Rebuttals to quotes that indicate severe cultural rot](#rebuttals-to-quotes-that-indicate-severe-cultural-rot)
+  - [Interesting quotes](#interesting-quotes)
 
 This monorepo contains:
 * `flight-software` - Flight Software for the SRAD Flight Computer
@@ -132,6 +133,10 @@ Telemetry at IREC, for many reasons, is primarily done through the amateur radio
 * [HamExam.org: Technician Practice Exam](https://hamexam.org/exam/18-Technician)
 * [ARRL: Exam Practice](https://www.arrl.org/exam-practice)
 * [ARRL: Getting Your Technician License](https://www.arrl.org/getting-your-technician-license)
+
+## Radio Frequency (RF) Engineering
+
+* [TutorialsPoint: Antenna Theory](https://www.tutorialspoint.com/antenna_theory/index.htm)
 
 # Internal Resources
 
@@ -279,7 +284,7 @@ SPI flash comes in non-BGA packages, so it's easy to lay out, right?
 #### Alternatives
 * eMMC. Should not be too hard to lay out since most of the BGA pins are N/C. 
 
-## Rebuttals to quotes that indicate severe cultural rot
+## Interesting quotes
 
 Please read this section while keeping in mind that this team competes in an elite category (30K SRAD, only attempted by ~8 universities yearly), in an already difficult competition (the IREC).
 
