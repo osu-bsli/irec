@@ -145,7 +145,7 @@ Notes about routine operations in IREC Avionics.
 * Buy PCBs with personal credit card and ask for reimbursement - this is far easier than coordinating with MAE.
 * Reimbursement and ordering is the same amount of work for Finance Director (Liav, Finance Director, Aug. 2025).
 * Aluminum bar stock is very cheap on eBay.
-  ![](docs/images/aluminum bar stock ebay.png)
+  ![Aluminum Bar Stock Ebay](docs/images/aluminum bar stock ebay.png)
 
 # Internal Resources
 
