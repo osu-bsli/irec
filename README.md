@@ -146,6 +146,8 @@ Notes about routine operations in IREC Avionics.
 * Reimbursement and ordering is the same amount of work for Finance Director (Liav, Finance Director, Aug. 2025).
 * Aluminum bar stock is very cheap on eBay.
   ![Aluminum Bar Stock](docs/images/aluminum_bar_stock_ebay.png)
+* **USE PROPER STRAIN RELIEF.**
+  ![Strain Relief](docs/images/strain_relief.png)
 
 # Internal Resources
 
