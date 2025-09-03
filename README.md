@@ -146,19 +146,23 @@ Notes about routine operations in IREC Avionics.
 * Reimbursement and ordering is the same amount of work for Finance Director (Liav, Finance Director, Aug. 2025).
 * Aluminum bar stock is very cheap on eBay.
   ![Aluminum Bar Stock](docs/images/aluminum_bar_stock_ebay.png)
-* **USE PROPER STRAIN RELIEF.**
-  > Brian Jia, Slack:
-  >
-  > PSA - electrical tape is not a substitute for proper strain relief.
-  >
-  > This is the battery cable that powers one of the redundant parachute deployment systems on Brute. It broke when I gave it a light tug, because a lack of strain relief had caused it to fray to a few remaining strands.
-  >
-  > Why was there a lack of strain relief? Because electrical tape was used to insulate the joint instead of heat shrink.
-  >
-  > If this broke at 7,000 ft instead of in the lab, we could’ve had another lawn dart, for the 2nd year in a row.
-  >
-  > This level of corner-cutting is negligent and beyond dangerous. This year, I ask everyone in the team to hold each other accountable for safety. That includes demanding to see and check my wiring if I forget to ask a teammate to do so.
-  > ![Strain Relief](image.png)
+
+> [!WARNING]
+> **USE PROPER STRAIN RELIEF!**  
+> 
+> Brian Jia, Slack:
+>
+> PSA - electrical tape is not a substitute for proper strain relief.
+>
+> This is the battery cable that powers one of the redundant parachute deployment systems on Brute. It broke when I gave it a light tug, because a lack of strain relief had caused it to fray to a few remaining strands.
+>
+> Why was there a lack of strain relief? Because electrical tape was used to insulate the joint instead of heat shrink.
+>
+> If this broke at 7,000 ft instead of in the lab, we could’ve had another lawn dart, for the 2nd year in a row.
+>
+> This level of corner-cutting is negligent and beyond dangerous. This year, I ask everyone in the team to hold each other accountable for safety. That includes demanding to see and check my wiring if I forget to ask a teammate to do so.
+>
+> ![Strain Relief](docs/images/strain_relief.png)
 
 # Internal Resources
 
