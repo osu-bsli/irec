@@ -25,7 +25,6 @@ This IREC team competes in the 30,000 ft, student-researched-and-developed (30K 
   - [Case Study: Avionics 2024 and 2025](#case-study-avionics-2024-and-2025)
   - [Avionics 2026 - The Plan](#avionics-2026---the-plan)
   - [AVIONICS NO BUY LIST](#avionics-no-buy-list)
-  - [Interesting quotes](#interesting-quotes)
 
 This monorepo contains:
 * `flight-software` - Flight Software for the SRAD Flight Computer
@@ -309,27 +308,3 @@ SPI flash comes in non-BGA packages, so it's easy to lay out, right?
 
 #### Alternatives
 * eMMC. Should not be too hard to lay out since most of the BGA pins are N/C. 
-
-## Interesting quotes
-
-Please read this section while keeping in mind that this team competes in an elite category (30K SRAD, only attempted by ~8 universities yearly), in an already difficult competition (the IREC).
-
-> We need a training curriculum to teach all these new freshmen how to use the STM32, because it's such a difficult chip to use!
-
-* A training curriculum robs freshmen of the chance to learn how to teach themselves difficult things.
-* This kind of training program plants in the club's mind that STM32 is the only legitimate solution to an avionics problem. This is a disaster in situations where the project's success depends on the team's ability to rapidly identify and pivot to other solutions.
-
-> We can't expect people to know both hardware and software.
-
-* The value in an **avionics** team is the intersection of hardware and software.
-* There already exist Software Engineering and Electronics clubs on this campus. The niche in the student activity market for pure software engineers and pure electronics engineers is already served, and served well. The unique value proposition of an Avionics team is that it provides the **opportunity** to learn hardware, software, aerospace engineering, mechanical engineering, materials science, and radio frequency, all at once in an integrated environment.
-
-> I'll just need to know what boards we need to build, if you could let me know.
-
-* The danger is this in the passivity. In a team that competes in an elite category, every member must contribute ideas and plans, while also executing plans from themselves and others.
-* Ideally, every member on this team is able to independently architect a complete avionics stack. If everyone can come up with their own design, the best parts of each person's design can be integrated into the final product, creating a design that would not be possible if only one person designed the entire system. 
-
-> It is too much to ask for 10 hours a week from each member.
-
-* This is a team participating in an elite category at the IREC. 
-* Many college students, especially the nerdier types, did not have the opportunity to participate in a demanding, structured activity in high school. Maybe they were too anxious to do choir or theatre, had a physical disability so they couldn't play sports, or their school wasn't privileged enough to have a demanding competitive engineering club like a robotics club. **That means this student has never had the chance to be in a demanding extracurricular that allows them to go all-out in a field of their interest. They have not had the chance to build discipline in an environment where a small slip up leads to catastrophic failure (like in sports, theatre, or marching band). For this type of student, who has had a lifelong passion for aerospace, electronics, and software, we need to be the club that provides this opportunity to them, where they can come to have their limits tested. And the only way we can do that is by showing everyone what it takes, and then asking everyone for a significant commitment, so this person finally gets what they have deserved their entire life.**
