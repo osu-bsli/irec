@@ -441,5 +441,5 @@ direct_dependencies:
 - espressif/arduino-esp32
 - idf
 manifest_hash: 5b3f0e848b4a71f185d0c53345b516de348b43c9eb2f1e26d2f0a46942fb3ee8
-target: esp32
+target: esp32s3
 version: 2.0.0

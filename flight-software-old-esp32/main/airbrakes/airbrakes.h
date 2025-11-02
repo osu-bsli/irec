@@ -12,3 +12,6 @@ AltimeterFilterOutput airbrakes_process(float pressure_mbar, float accel_z_mps2)
 void airbrakes_check_for_retraction(AltimeterFilterOutput filter_out);
 float apogee_ft_if_stowed(float altitude_m, float velocity_mps);
 float apogee_ft_if_deployed_now(float altitude_m, float velocity_mps);
+void fully_retract_airbrakes();
+void fully_deploy_airbrakes();
+void airbrakes_burn_in_test_loop();

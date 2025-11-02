@@ -16,6 +16,9 @@ SRCS
     SCServo/SCSCL.cpp
     SCServo/SCSerial.cpp
     SCServo/SMS_STS.cpp
+
+    telemetry.c
+    crc16.c
     
 INCLUDE_DIRS
     .

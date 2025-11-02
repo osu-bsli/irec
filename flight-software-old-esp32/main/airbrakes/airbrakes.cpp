@@ -4,6 +4,20 @@
 #include <array>
 #include <boost/numeric/odeint.hpp>
 #include <Arduino.h>
+#include <SMS_STS.h>
+
+#define PIN_ENABLE_AIRBRAKES 46
+
+SMS_STS sms_sts;
+// the uart used to control servos.
+// GPIO 18 - S_RXD, GPIO 19 - S_TXD, as default.
+#define S_RXD 2
+#define S_TXD 2
+
+#define AIRBRAKES_MOTOR_ACCEL 1000
+#define AIRBRAKES_MOTOR_SPEED 4000
+#define AIRBRAKES_FULLY_RETRACTED_POS 2850 
+#define AIRBRAKES_FULLY_DEPLOYED_POS 0
 
 /* ALL OF THIS IS HARDCODED TO ASSUME A DATA RATE OF 100 HZ */
 
@@ -115,6 +129,17 @@ void airbrakes_init()
     {
         AltimeterFilterSetObservationVariance(i, observation_variance[i]);
     }
+
+    pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
+    digitalWrite(PIN_ENABLE_AIRBRAKES, 1);
+
+    delay(100);
+
+    Serial1.begin(1000000, SERIAL_8N1, S_RXD, S_TXD);
+    sms_sts.pSerial = &Serial1;
+    delay(1000);
+
+    fully_retract_airbrakes();
 }
 
 AltimeterFilterOutput airbrakes_process(float pressure_mbar, float accel_z_mps2)
@@ -135,6 +160,7 @@ AltimeterFilterOutput airbrakes_process(float pressure_mbar, float accel_z_mps2)
             deploy_altitude_m = filter_out.altitude_m;
 
             Serial.println("BURN COMPLETE, DEPLOYING AIRBRAKES!");
+            fully_deploy_airbrakes();
         }
 
         if (airbrakes_stage == AIRBRAKES_STAGE_DEPLOYED)
@@ -162,6 +188,7 @@ void airbrakes_check_for_retraction(AltimeterFilterOutput filter_out)
             {
                 airbrakes_stage = AIRBRAKES_STAGE_RETRACTED;
                 Serial.printf("RETRACTED AT %d ft TO HIT TARGET APOGEE of %d ft!\n", (int)(filter_out.altitude_m / 0.3048), (int)target_apogee_ft);
+                fully_retract_airbrakes();
             }
         }
         else
@@ -174,5 +201,28 @@ void airbrakes_check_for_retraction(AltimeterFilterOutput filter_out)
     {
         airbrakes_stage = AIRBRAKES_STAGE_RETRACTED;
         Serial.println("RETRACTED AT APOGEE!");
+        fully_retract_airbrakes();
+    }
+}
+
+void fully_retract_airbrakes()
+{
+    sms_sts.WritePosEx(1, AIRBRAKES_FULLY_RETRACTED_POS, AIRBRAKES_MOTOR_SPEED, AIRBRAKES_MOTOR_ACCEL);
+}
+
+void fully_deploy_airbrakes()
+{
+    sms_sts.WritePosEx(1, AIRBRAKES_FULLY_DEPLOYED_POS, AIRBRAKES_MOTOR_SPEED, AIRBRAKES_MOTOR_ACCEL);
+}
+
+void airbrakes_burn_in_test_loop()
+{
+    Serial.println("Starting airbrake burn-in");
+    while (true)
+    {
+        fully_retract_airbrakes();
+        delay(1000);
+        fully_deploy_airbrakes();
+        delay(1000);
     }
 }

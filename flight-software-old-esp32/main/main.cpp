@@ -10,9 +10,22 @@
 #include "sensors/ms5607.h"
 
 #include "test_data.h"
+#include "telemetry.h"
 
 const char *text_err_lora = "ERR LORA";
 const char *text_err_sd = "ERR SD";
+
+#define LOG_INTERVAL_MS 10
+
+const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
+
+#define PIN_SD_CS 26
+#define PIN_SPI_MISO 7
+#define PIN_SPI_CLK 6
+#define PIN_SPI_MOSI 5
+#define PIN_AIRBRAKES_TX 2
+#define PIN_I2C_SCL 4
+#define PIN_I2C_SDA 3
 
 #define PIN_LED 3
 
@@ -23,7 +36,7 @@ static fs::File sdcard_and_logging_init()
 
   // TODO: Maybe try re-opening the SD card if it disconnects mid-flight
 
-  if (SD.begin(19))
+  if (SD.begin(PIN_SD_CS))
   {
     Serial.println("SD card initialized!");
   }
@@ -74,9 +87,9 @@ static struct fc_bmi323 bmi323;
 static struct fc_ms5607 ms5607;
 static struct fc_bm1422 bm1422;
 
-static void sensors_init()
+static void sensors_setup()
 {
-  Wire.begin(13, 12, 200000);
+  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 200000);
 
   /* Initialize sensor drivers */
   esp_err_t status;
@@ -123,35 +136,10 @@ Ping the servo to check if it is ready.
 #include <SCServo.h>
 #include "airbrakes.h"
 
-SMS_STS sms_sts;
-// the uart used to control servos.
-// GPIO 18 - S_RXD, GPIO 19 - S_TXD, as default.
-#define S_RXD 12
-#define S_TXD 12
-
-int TEST_ID = 3;
-
-void setup_servo()
+void sd_setup()
 {
-  Serial1.begin(1000000, SERIAL_8N1, S_RXD, S_TXD);
-  sms_sts.pSerial = &Serial1;
-  delay(1000);
-}
-
-void ping_servo()
-{
-  int ID = sms_sts.Ping(TEST_ID);
-  if (ID != -1)
-  {
-    Serial.print("Servo ID:");
-    Serial.println(ID, DEC);
-    delay(100);
-  }
-  else
-  {
-    Serial.println("Ping servo ID error!");
-    delay(2000);
-  }
+  SPI.begin(PIN_SPI_CLK, PIN_SPI_MISO, PIN_SPI_MOSI);
+  log_file = sdcard_and_logging_init();
 }
 
 void lora_and_sd_setup()
@@ -182,33 +170,103 @@ void lora_and_sd_setup()
   log_file = sdcard_and_logging_init();
 }
 
-void setup()
+void data_log_loop()
 {
-  Serial.begin(115200);
+  TickType_t time = 0;
+  Serial.println("Beginning data logging...");
 
-  // lora_and_sd_setup();
-  // sensors_init();
-  // setup_servo();
+  while (true)
+  {
+    // SEGGER_RTT_printf(0, "Sensor time (ms): %d\n", time);
 
-  TickType_t t = 0;
+    int start_ms = xTaskGetTickCount();
+    struct fc_adxl375_data adxl375_data;
+    fc_adxl375_process(&adxl375, &adxl375_data);
 
-  airbrakes_init();
+    struct fc_bm1422_data bm1422_data;
+    fc_bm1422_process(&bm1422, &bm1422_data);
+
+    struct fc_bmi323_data bmi323_data;
+    fc_bmi323_process(&bmi323, &bmi323_data);
+
+    struct fc_ms5607_data ms5607_data;
+    fc_ms5607_process(&ms5607, &ms5607_data);
+    int elapsed_ms = xTaskGetTickCount() - start_ms;
+
+    // SEGGER_RTT_printf(0, "sensor process time: %d ms\n", elapsed_ms);
+
+    uint8_t status_flags = 0;
+    if (adxl375.is_in_degraded_state)
+      status_flags |= STATUS_FLAGS_ADXL375_DEGRADED;
+    if (bm1422.is_in_degraded_state)
+      status_flags |= STATUS_FLAGS_BM1422_DEGRADED;
+    if (bmi323.is_in_degraded_state)
+      status_flags |= STATUS_FLAGS_BMI323_DEGRADED;
+    if (ms5607.is_in_degraded_state)
+      status_flags |= STATUS_FLAGS_MS5607_DEGRADED;
+
+    struct log_packet log_p = {
+        .status_flags = status_flags,
+        .time_boot_ms = xTaskGetTickCount(),
+        .ms5607_pressure_mbar = ms5607_data.pressure_mbar,
+        .ms5607_temperature_c = ms5607_data.temperature_c,
+        .bmi323_accel_x = bmi323_data.accel_x,
+        .bmi323_accel_y = bmi323_data.accel_y,
+        .bmi323_accel_z = bmi323_data.accel_z,
+        .bmi323_gyro_x = bmi323_data.gyro_x,
+        .bmi323_gyro_y = bmi323_data.gyro_y,
+        .bmi323_gyro_z = bmi323_data.gyro_z,
+        .adxl375_accel_x = adxl375_data.accel_x,
+        .adxl375_accel_y = adxl375_data.accel_y,
+        .adxl375_accel_z = adxl375_data.accel_z,
+    };
+    logging_packet_make_header(&log_p);
+    log_file.write((uint8_t *)&log_p, sizeof(log_p));
+    log_file.flush();
+
+    if (time % 1000 == 0)
+      Serial.println(time);
+
+    vTaskDelayUntil(&time, interval_ms);
+  }
+}
+
+void airbrake_fake_data_test()
+{
+  int start_ms = xTaskGetTickCount();
+  TickType_t t;
 
   int i = 0;
-  while (i < DATA_LEN)
+  while (i < DATA_LEN && i < 2000)
   {
     auto pressure_mbar = ms5607_pressure_mbar[i];
     auto accel_z_mps2 = adxl375_accel_z_mps2_fc_frame[i];
     auto filter_out = airbrakes_process(pressure_mbar, accel_z_mps2);
-    if (i % 10 == 0) {
-      airbrakes_check_for_retraction(filter_out);
-    }
+    airbrakes_check_for_retraction(filter_out);
     xTaskDelayUntil(&t, 10);
-    if (i % 100 == 0) {
+    if (i % 100 == 0)
+    {
       Serial.println(i);
     }
     i++;
   }
+
+  int end_ms = xTaskGetTickCount();
+
+  Serial.print("Completed 2000 iterations in ");
+  Serial.print(end_ms - start_ms);
+  Serial.println(" ms");
+}
+
+void setup()
+{
+  Serial.begin(115200);
+
+  // sd_setup();
+  // sensors_setup();
+  airbrakes_init();
+  airbrakes_burn_in_test_loop();
+  // data_log_loop();
 }
 
 void loop()
