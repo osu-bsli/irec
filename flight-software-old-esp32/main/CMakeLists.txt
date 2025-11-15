@@ -17,6 +17,9 @@ SRCS
     SCServo/SCSerial.cpp
     SCServo/SMS_STS.cpp
 
+    TinyGPSPlus/TinyGPS++.cpp
+    TinyGPSPlus/TinyGPS++.h
+
     telemetry.c
     crc16.c
     
@@ -25,4 +28,5 @@ INCLUDE_DIRS
     SCServo
     arduino-LoRa
     airbrakes
+    TinyGPSPlus
 )

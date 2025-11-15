@@ -5,7 +5,8 @@
     "string": "cpp",
     "vector": "cpp",
     "rope": "cpp",
-    "ostream": "cpp"
+    "ostream": "cpp",
+    "regex": "cpp"
   },
   "idf.openOcdConfigs": [
     "board/esp32s3-bridge.cfg"

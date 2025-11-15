@@ -8,7 +8,7 @@ extern "C" {
 
 #define TELEMETRY_PACKET_MAX_LEN 255
 #define TELEMETRY_PACKET_MAGIC "FUCKPETER"
-#define LOGGING_PACKET_MAGIC "COREYMAYS"
+#define LOG_PACKET_MAGIC "COREYMAY3"
 
 enum StatusFlags {
     STATUS_FLAGS_RECOVERY_ARMED = 1 << 0,
@@ -35,7 +35,7 @@ struct __attribute__((packed)) telemetry_packet {
     float ms5607_pressure_mbar; // Pressure (unit: mbar)
 };
 
-struct __attribute__((packed)) log_packet {
+struct __attribute__((packed)) log_packet_v3 {
     char magic[9]; // 'COREYMAYS' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
@@ -53,10 +53,16 @@ struct __attribute__((packed)) log_packet {
     float adxl375_accel_x; // ADXL375 Acceleration X (unit: G)
     float adxl375_accel_y; // ADXL375 Acceleration Y (unit: G)
     float adxl375_accel_z; // ADXL375 Acceleration Z (unit: G)
+    float gps_lat; // Latitude  (unit: degres)
+    float gps_lng; // Longitude (unit: degrees)
+    float gps_alt; // Altitude  (unit: meters)
+    float gps_speed;
+    int32_t gps_course;
+    uint8_t gps_num_sats;
 };
 
 void telemetry_packet_make_header(struct telemetry_packet *p);
-void logging_packet_make_header(struct log_packet *p);
+void log_packet_make_header(struct log_packet_v3 *p);
 
 #ifdef __cplusplus
 }

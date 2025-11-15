@@ -205,6 +205,11 @@ void airbrakes_check_for_retraction(AltimeterFilterOutput filter_out)
     }
 }
 
+void move_airbrakes_to(int pos)
+{
+    sms_sts.WritePosEx(1, pos, AIRBRAKES_MOTOR_SPEED, AIRBRAKES_MOTOR_ACCEL);
+}
+
 void fully_retract_airbrakes()
 {
     sms_sts.WritePosEx(1, AIRBRAKES_FULLY_RETRACTED_POS, AIRBRAKES_MOTOR_SPEED, AIRBRAKES_MOTOR_ACCEL);
@@ -218,7 +223,7 @@ void fully_deploy_airbrakes()
 void airbrakes_burn_in_test_loop()
 {
     Serial.println("Starting airbrake burn-in");
-    while (true)
+    while (1)
     {
         fully_retract_airbrakes();
         delay(1000);

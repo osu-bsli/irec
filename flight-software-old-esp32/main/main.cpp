@@ -2,6 +2,7 @@
 #include <LoRa.h>
 #include <SD.h>
 #include <Wire.h>
+#include <TinyGPS++.h>
 
 #include "AltimeterFilter.h"
 #include "sensors/adxl375.h"
@@ -18,6 +19,19 @@ const char *text_err_sd = "ERR SD";
 #define LOG_INTERVAL_MS 10
 
 const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
+
+static fs::File log_file;
+
+static struct fc_adxl375 adxl375;
+static struct fc_bmi323 bmi323;
+static struct fc_ms5607 ms5607;
+static struct fc_bm1422 bm1422;
+
+#define GPSSerial Serial2
+static TinyGPSPlus gps;
+
+#define PIN_GPS_RX 10
+#define PIN_GPS_TX 9
 
 #define PIN_SD_CS 26
 #define PIN_SPI_MISO 7
@@ -68,8 +82,6 @@ static fs::File sdcard_and_logging_init()
   return file;
 }
 
-static fs::File log_file;
-
 static void sensor_print_init_success_state(const char *name, bool was_successful)
 {
   if (was_successful)
@@ -81,11 +93,6 @@ static void sensor_print_init_success_state(const char *name, bool was_successfu
     Serial.printf("%s initialization failed\n", name);
   }
 }
-
-static struct fc_adxl375 adxl375;
-static struct fc_bmi323 bmi323;
-static struct fc_ms5607 ms5607;
-static struct fc_bm1422 bm1422;
 
 static void sensors_setup()
 {
@@ -205,7 +212,7 @@ void data_log_loop()
     if (ms5607.is_in_degraded_state)
       status_flags |= STATUS_FLAGS_MS5607_DEGRADED;
 
-    struct log_packet log_p = {
+    struct log_packet_v3 log_p = {
         .status_flags = status_flags,
         .time_boot_ms = xTaskGetTickCount(),
         .ms5607_pressure_mbar = ms5607_data.pressure_mbar,
@@ -219,13 +226,61 @@ void data_log_loop()
         .adxl375_accel_x = adxl375_data.accel_x,
         .adxl375_accel_y = adxl375_data.accel_y,
         .adxl375_accel_z = adxl375_data.accel_z,
+        .gps_lat = NAN,
+        .gps_lng = NAN,
+        .gps_alt = NAN,
+        .gps_speed = NAN,
+        .gps_course = -0x7FFFFFFF,
+        .gps_num_sats = 0xFF
     };
-    logging_packet_make_header(&log_p);
+
+    while (GPSSerial.available())
+    {
+      gps.encode(GPSSerial.read());
+    }
+
+    if (gps.location.isValid())
+    {
+      log_p.gps_lat = gps.location.lat();
+      log_p.gps_lng = gps.location.lng();
+    }
+    
+    if (gps.altitude.isValid())
+    {
+      log_p.gps_alt = gps.altitude.meters();
+    }
+    
+    if (gps.speed.isValid())
+    {
+      log_p.gps_speed = gps.speed.value();
+    }
+    
+    if (gps.course.isValid())
+    {
+      log_p.gps_course = gps.course.value();
+    }
+
+    if (gps.satellites.isValid())
+    {
+      log_p.gps_num_sats = gps.satellites.value();
+    }
+
+    log_packet_make_header(&log_p);
     log_file.write((uint8_t *)&log_p, sizeof(log_p));
     log_file.flush();
 
     if (time % 1000 == 0)
-      Serial.println(time);
+    {
+      Serial.print("Lat: ");
+      Serial.print(gps.location.lat(), 6);
+      Serial.print(" | Lon: ");
+      Serial.print(gps.location.lng(), 6);
+      Serial.print(" | Sats: ");
+      Serial.print(gps.satellites.value());
+      Serial.print(" | Alt: ");
+      Serial.print(gps.altitude.meters());
+      Serial.println(" m");
+    }
 
     vTaskDelayUntil(&time, interval_ms);
   }
