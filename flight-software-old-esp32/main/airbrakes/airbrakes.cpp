@@ -6,16 +6,12 @@
 #include <Arduino.h>
 #include <SMS_STS.h>
 
-#define PIN_ENABLE_AIRBRAKES 46
+#include "pins.h"
 
 SMS_STS sms_sts;
-// the uart used to control servos.
-// GPIO 18 - S_RXD, GPIO 19 - S_TXD, as default.
-#define S_RXD 2
-#define S_TXD 2
 
 #define AIRBRAKES_MOTOR_ACCEL 1000
-#define AIRBRAKES_MOTOR_SPEED 4000
+#define AIRBRAKES_MOTOR_SPEED 1000
 #define AIRBRAKES_FULLY_RETRACTED_POS 2850 
 #define AIRBRAKES_FULLY_DEPLOYED_POS 0
 
@@ -112,7 +108,7 @@ float apogee_ft_if_deployed_now(float altitude_m, float velocity_mps)
     return x[1] / 0.3048;
 }
 
-void airbrakes_init()
+void airbrakes_setup()
 {
     airbrakes_stage = AIRBRAKES_STAGE_STOWED;
     deploy_altitude_m = 0;
@@ -135,7 +131,7 @@ void airbrakes_init()
 
     delay(100);
 
-    Serial1.begin(1000000, SERIAL_8N1, S_RXD, S_TXD);
+    Serial1.begin(1000000, SERIAL_8N1, PIN_AIRBRAKES_TX, PIN_AIRBRAKES_TX);
     sms_sts.pSerial = &Serial1;
     delay(1000);
 
@@ -212,11 +208,13 @@ void move_airbrakes_to(int pos)
 
 void fully_retract_airbrakes()
 {
+    
     sms_sts.WritePosEx(1, AIRBRAKES_FULLY_RETRACTED_POS, AIRBRAKES_MOTOR_SPEED, AIRBRAKES_MOTOR_ACCEL);
 }
 
 void fully_deploy_airbrakes()
 {
+    
     sms_sts.WritePosEx(1, AIRBRAKES_FULLY_DEPLOYED_POS, AIRBRAKES_MOTOR_SPEED, AIRBRAKES_MOTOR_ACCEL);
 }
 
@@ -230,4 +228,38 @@ void airbrakes_burn_in_test_loop()
         fully_deploy_airbrakes();
         delay(1000);
     }
+}
+
+void airbrakes_test_interface_serial_loop()
+{
+    Serial.println("Starting airbrakes test interface. Use 'retract' to retract and 'deploy' to deploy.");
+    while (1) {
+        if (Serial.available() > 0) { // Check if data is available in the serial buffer
+            String command = Serial.readStringUntil('\n'); // Read until newline character
+            command.trim(); // Remove leading/trailing whitespace
+            
+            if (command == "retract") 
+            {
+                Serial.println("Retracting airbrakes");
+                fully_retract_airbrakes();
+            } 
+            else if (command == "deploy")
+            {
+                Serial.println("Deploying airbrakes");
+                fully_deploy_airbrakes();
+            }
+            else
+            {
+                Serial.println("Unknown command");
+            }
+            
+        }
+
+        delay(100);
+    }
+}
+    
+void airbrakes_zeroing()
+{
+    fully_deploy_airbrakes();
 }

@@ -22,6 +22,8 @@ SRCS
 
     telemetry.c
     crc16.c
+
+    web_panel.cpp
     
 INCLUDE_DIRS
     .

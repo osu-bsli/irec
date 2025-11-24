@@ -255,16 +255,16 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     /* GYR_CONF.gyr_mode =    0b111  for normal power mode (datasheet pg. 22)
      * GYR_CONF.gyr_avg_num = 0b000  for no averaging
      * GYR_CONF.gyr_bw =      0b1    for most accurate filtering (?)
-     * GYR_CONF.gyr_range =   0b001  for +/- 250 deg/s range (datasheet pg. 94)
+     * GYR_CONF.gyr_range =   0b100  for +/- 2000 deg/s range (datasheet pg. 94)
      * GYR_CONF.gyr_odr =     0b1000 for 100 Hz sample rate
      * format: [x:1][gyr_mode:3][x:1][gyr_avg_num:3]_[gyr_bw:1][gyr_range:3][gyr_odr:4]
-     * binary: [x]  [111]       [x]  [000]           [1]       [001]        [1000]
-     * hex:    0x70                                  0x98
+     * binary: [x]  [111]       [x]  [000]           [1]       [100]        [1000]
+     * hex:    0x70                                  0xC8
      */
     gyr_conf_bytes[3] &= 0x88u; /* TODO: finish this shit */
     gyr_conf_bytes[2] &= 0x00u;
     gyr_conf_bytes[3] |= 0x70u;
-    gyr_conf_bytes[2] |= 0x98u;
+    gyr_conf_bytes[2] |= 0xC8u;
     status = write_registers(bmi323, REGISTER_GYR_CONF, &gyr_conf_bytes[2],
                              sizeof(gyr_conf_bytes) - 2); /* no dummy bytes when writing */
     if (status != ESP_OK)
@@ -313,9 +313,9 @@ esp_err_t fc_bmi323_process(struct fc_bmi323 *bmi323, struct fc_bmi323_data *dat
     data->accel_y = (float)sensor_data[2] / 8.19 / 1000.0;
     data->accel_z = (float)sensor_data[3] / 8.19 / 1000.0;
 
-    data->gyro_x = (float)sensor_data[4] / 131.072; // +/-250deg, 131.072 LSB/deg/s
-    data->gyro_y = (float)sensor_data[5] / 131.072;
-    data->gyro_z = (float)sensor_data[6] / 131.072;
+    data->gyro_x = (float)sensor_data[4] / 16.4; // +/-2000deg, 16.4 LSB/deg/s
+    data->gyro_y = (float)sensor_data[5] / 16.4;
+    data->gyro_z = (float)sensor_data[6] / 16.4;
 
     data->temp = (float)sensor_data[7] / 512.0f + 23.0f;
 

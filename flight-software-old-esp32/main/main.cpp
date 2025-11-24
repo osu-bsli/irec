@@ -10,8 +10,11 @@
 #include "sensors/bmi323.h"
 #include "sensors/ms5607.h"
 
+#include "pins.h"
+
 #include "test_data.h"
 #include "telemetry.h"
+#include "web_panel.h"
 
 const char *text_err_lora = "ERR LORA";
 const char *text_err_sd = "ERR SD";
@@ -30,18 +33,7 @@ static struct fc_bm1422 bm1422;
 #define GPSSerial Serial2
 static TinyGPSPlus gps;
 
-#define PIN_GPS_RX 10
-#define PIN_GPS_TX 9
-
-#define PIN_SD_CS 26
-#define PIN_SPI_MISO 7
-#define PIN_SPI_CLK 6
-#define PIN_SPI_MOSI 5
-#define PIN_AIRBRAKES_TX 2
-#define PIN_I2C_SCL 4
-#define PIN_I2C_SDA 3
-
-#define PIN_LED 3
+static bool sd_card_initialized_success = false;
 
 static fs::File sdcard_and_logging_init()
 {
@@ -50,9 +42,16 @@ static fs::File sdcard_and_logging_init()
 
   // TODO: Maybe try re-opening the SD card if it disconnects mid-flight
 
-  if (SD.begin(PIN_SD_CS))
+  pinMode(PIN_LED, OUTPUT);
+  if (SD.begin(PIN_SD_CS, SPI, 8000000))
   {
     Serial.println("SD card initialized!");
+    sd_card_initialized_success = true;
+    digitalWrite(PIN_LED, 1);
+  }
+  else
+  {
+    digitalWrite(PIN_LED, 0);
   }
 
   /* Find a %d filename that is free to use */
@@ -226,6 +225,9 @@ void data_log_loop()
         .adxl375_accel_x = adxl375_data.accel_x,
         .adxl375_accel_y = adxl375_data.accel_y,
         .adxl375_accel_z = adxl375_data.accel_z,
+        .bm1422_magn_x = bm1422_data.magn_x,
+        .bm1422_magn_y = bm1422_data.magn_y,
+        .bm1422_magn_z = bm1422_data.magn_z,
         .gps_lat = NAN,
         .gps_lng = NAN,
         .gps_alt = NAN,
@@ -271,6 +273,41 @@ void data_log_loop()
 
     if (time % 1000 == 0)
     {
+      if (sd_card_initialized_success)
+      {
+        digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+      }
+      /*
+      Serial.print("Lat: ");
+      Serial.print(gps.location.lat(), 6);
+      Serial.print(" | Lon: ");
+      Serial.print(gps.location.lng(), 6);
+      Serial.print(" | Sats: ");
+      Serial.print(gps.satellites.value());
+      Serial.print(" | Alt: ");
+      Serial.print(gps.altitude.meters());
+      Serial.println(" m");
+      */
+    }
+
+    vTaskDelayUntil(&time, interval_ms);
+  }
+}
+
+void gps_test_loop()
+{
+  TickType_t time = 0;
+  Serial.println("Beginning GPS test and data logging...");
+
+  while (1)
+  {
+    while (GPSSerial.available())
+    {
+      gps.encode(GPSSerial.read());
+    }
+
+    if (time % 1000 == 0)
+    {
       Serial.print("Lat: ");
       Serial.print(gps.location.lat(), 6);
       Serial.print(" | Lon: ");
@@ -281,7 +318,7 @@ void data_log_loop()
       Serial.print(gps.altitude.meters());
       Serial.println(" m");
     }
-
+    
     vTaskDelayUntil(&time, interval_ms);
   }
 }
@@ -317,11 +354,12 @@ void setup()
 {
   Serial.begin(115200);
 
-  // sd_setup();
-  // sensors_setup();
-  airbrakes_init();
-  airbrakes_burn_in_test_loop();
-  // data_log_loop();
+  GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+
+  sd_setup();
+  sensors_setup();
+
+  data_log_loop(); 
 }
 
 void loop()
