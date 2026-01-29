@@ -62,7 +62,13 @@ static fs::File sdcard_and_logging_init()
   } while (SD.exists(file_name));
 
   /* Open the file */
-  auto file = SD.open(file_name, FILE_WRITE, true);
+  // old esp32 code
+  //auto file = SD.open(file_name, FILE_WRITE, true);
+
+  // new pico code
+  auto file = SD.open(file_name, FILE_WRITE);
+
+
   if (file)
   {
     Serial.print("Opened file \"");
@@ -93,10 +99,19 @@ static void sensor_print_init_success_state(const char *name, bool was_successfu
 
 static void sensors_setup()
 {
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 200000);
+  //old esp32 syntax
+  //Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 200000);
+
+  //switch to pico syntax
+  Wire.begin();
+  Wire.setClock(200000);
 
   /* Initialize sensor drivers */
-  esp_err_t status;
+  //old esp32 code
+  //esp_err_t status;
+
+  //new pico code
+  bool status;
 
   bool retry = false;
   int num_retries = 0;
@@ -109,26 +124,26 @@ static void sensors_setup()
       num_retries += 1;
       Serial.printf("Retrying to initialize sensors...\n");
     }
-
+ 
     status = fc_bm1422_initialize(&bm1422);
-    if (status != ESP_OK)
+    if (status != true)
       retry = true;
-    sensor_print_init_success_state("bm1422", status == ESP_OK);
+    sensor_print_init_success_state("bm1422", status);
 
     status = fc_adxl375_initialize(&adxl375);
-    if (status != ESP_OK)
+    if (status != true)
       retry = true;
-    sensor_print_init_success_state("adxl375", status == ESP_OK);
+    sensor_print_init_success_state("adxl375", status);
 
     status = fc_bmi323_initialize(&bmi323);
-    if (status != ESP_OK)
+    if (status != true)
       retry = true;
-    sensor_print_init_success_state("bmi323", status == ESP_OK);
+    sensor_print_init_success_state("bmi323", status);
 
     status = fc_ms5607_initialize(&ms5607);
-    if (status != ESP_OK)
+    if (status != true)
       retry = true;
-    sensor_print_init_success_state("ms5607", status == ESP_OK);
+    sensor_print_init_success_state("ms5607", status);
 
   } while (retry && num_retries < 50);
 }
