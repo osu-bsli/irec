@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include <pico/stdlib.h>
+#include <pico/binary_info.h>
+#include <hardware/i2c.h>
+
 #include <SPI.h>
 #include <LoRa.h>
 #include <SD.h>
@@ -14,9 +19,9 @@
 
 #include "test_data.h"
 #include "telemetry.h"
-#include "web_panel.h"
 
 
+#define I2C_SENSOR_FREQUENCY 200000
 #define LOG_INTERVAL_MS 10
 
 const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
@@ -31,28 +36,29 @@ static struct fc_bm1422 bm1422;
 #define GPSSerial Serial2
 static TinyGPSPlus gps;
 
+/*
 static bool sd_card_initialized_success = false;
 
 static fs::File sdcard_and_logging_init()
 {
 
-  /* Set up SD card */
+  // Set up SD card
 
   // TODO: Maybe try re-opening the SD card if it disconnects mid-flight
 
-  pinMode(PIN_LED, OUTPUT);
+  pinMode(ACTIVITY_PIN_LED, OUTPUT);
   if (SD.begin(PIN_SD_CS, SPI, 8000000))
   {
     Serial.println("SD card initialized!");
     sd_card_initialized_success = true;
-    digitalWrite(PIN_LED, 1);
+    digitalWrite(ACTIVITY_PIN_LED, 1);
   }
   else
   {
-    digitalWrite(PIN_LED, 0);
+    digitalWrite(ACTIVITY_PIN_LED, 0);
   }
 
-  /* Find a %d filename that is free to use */
+  // Find a %d filename that is free to use
   char file_name[16];
   int file_num = 0;
   do
@@ -61,7 +67,7 @@ static fs::File sdcard_and_logging_init()
     file_num++;
   } while (SD.exists(file_name));
 
-  /* Open the file */
+  // Open the file
   auto file = SD.open(file_name, FILE_WRITE, true);
   if (file)
   {
@@ -78,88 +84,120 @@ static fs::File sdcard_and_logging_init()
 
   return file;
 }
+*/
 
-static void sensor_print_init_success_state(const char *name, bool was_successful)
-{
-  if (was_successful)
-  {
-    Serial.printf("%s initialization succeeded\n", name);
-  }
-  else
-  {
-    Serial.printf("%s initialization failed\n", name);
-  }
+
+/// Due to the nature of the PICO we can configure
+/// nearly every pin to do multiple functions.
+/// As such all the pin configuration should
+/// logically all be in one function.
+static void gpio_config() {
+
+  // sensor i2c configuration
+
+  // The fact referring to the i2c busses is "Wire" and then "Wire1" is
+  // objectively terrible design...
+  // Unfortunately all the sensor drivers have already been written
+  // so for now I won't be messing with this. - Diego
+
+  setSDA(PIN_I2C0_SDA); // rppico specific
+  setSCL(PIN_I2C0_SCL); // rppico specific
+  Wire.begin();
+  Wire.setClock(I2C_SENSOR_FREQUENCY);
+
+  setSDA(PIN_I2C1_SDA); // rppico specific
+  setSCL(PIN_I2C1_SCL); // rppico specific
+  Wire1.begin();
+  Wire1.setClock(I2C_SENSOR_FREQUENCY);
 }
 
-static void sensors_setup()
-{
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 200000);
+/// Maybe unnecessary, but gives peace of mind
+static void gpio_deinit() {
+  i2c_deinit(i2c0);
+  i2c_deinit(i2c1);
+}
 
-  /* Initialize sensor drivers */
-  esp_err_t status;
+static FSError sensors_setup()
+{
+  // Initialize sensor drivers
+  FSError result = SUCCESS;
 
   bool retry = false;
   int num_retries = 0;
 
   do
   {
-    if (retry)
-    {
-      retry = false;
-      num_retries += 1;
-      Serial.printf("Retrying to initialize sensors...\n");
+    if (result != SUCCESS) {
+      Serial.printf("[Error] %i Retrying to initialize sensors...\n", num_retries);
     }
 
-    status = fc_bm1422_initialize(&bm1422);
-    if (status != ESP_OK)
-      retry = true;
-    sensor_print_init_success_state("bm1422", status == ESP_OK);
+    result = SUCCESS;
 
-    status = fc_adxl375_initialize(&adxl375);
-    if (status != ESP_OK)
-      retry = true;
-    sensor_print_init_success_state("adxl375", status == ESP_OK);
+    const FSError bm1422_status = fc_bm1422_initialize(&bm1422);
+    const FSError adxl375_status = fc_adxl375_initialize(&adxl375);
+    const FSError bmi323_status = fc_bmi323_initialize(&bmi323);
+    const FSError ms5607_status = fc_ms5607_initialize(&ms5607);
 
-    status = fc_bmi323_initialize(&bmi323);
-    if (status != ESP_OK)
-      retry = true;
-    sensor_print_init_success_state("bmi323", status == ESP_OK);
+    Serial.printf("bm1422 status: %s\n", bm1422_status);
+    Serial.printf("adxl375 status: %s\n", adxl375_status);
+    Serial.printf("bmi323 status: %s\n", bmi323_status);
+    Serial.printf("ms5607 status: %s\n", ms5607_status);
 
-    status = fc_ms5607_initialize(&ms5607);
-    if (status != ESP_OK)
-      retry = true;
-    sensor_print_init_success_state("ms5607", status == ESP_OK);
+    if (bm1422_status != SUCCESS) {
+      result = bm1422_status;
+    }
 
-  } while (retry && num_retries < 50);
+    if (adxl375_status != SUCCESS) {
+      result = adxl375_status;
+    }
+
+    if (bmi323_status != SUCCESS) {
+      result = bmi323_status;
+    }
+
+    if (ms5607_status != SUCCESS) {
+      result = ms5607_status;
+    }
+
+  } while (result != SUCCESS && num_retries < 50);
+
+  if (result != SUCCESS) {
+    // TODO use an explicit output location instead of "Serial"
+    Serial.printf("[Error] %s\n", FCErrors__strings[result]);
+    result = SENSOR_INITIALIZATION_FAILURE;
+  }
+
+  return result;
 }
 
 
-void sd_setup()
+/*void sd_setup()
 {
   SPI.begin(PIN_SPI_CLK, PIN_SPI_MISO, PIN_SPI_MOSI);
   log_file = sdcard_and_logging_init();
-}
+}*/
 
+/*
 void lora_and_sd_setup()
 {
   SPI.begin(7, 6, 5);
   LoRa.setSPI(SPI);
   LoRa.setPins(4, 18);
   LoRa.setTxPower(20);
-  pinMode(PIN_LED, OUTPUT);
+  pinMode(ACTIVITY_PIN_LED, OUTPUT);
   while (!LoRa.begin(433E6))
   {
     delay(500);
-    digitalWrite(PIN_LED, 1);
+    digitalWrite(ACTIVITY_PIN_LED, 1);
     delay(500);
-    digitalWrite(PIN_LED, 0);
+    digitalWrite(ACTIVITY_PIN_LED, 0);
   }
 
-  digitalWrite(PIN_LED, 1);
+  digitalWrite(ACTIVITY_PIN_LED, 1);
   delay(250);
-  digitalWrite(PIN_LED, 0);
+  digitalWrite(ACTIVITY_PIN_LED, 0);
   delay(250);
-  digitalWrite(PIN_LED, 1);
+  digitalWrite(ACTIVITY_PIN_LED, 1);
 
   LoRa.setSignalBandwidth(125E3);
   LoRa.setSpreadingFactor(12);
@@ -167,7 +205,9 @@ void lora_and_sd_setup()
 
   log_file = sdcard_and_logging_init();
 }
+*/
 
+/*
 void data_log_loop()
 {
   TickType_t time = 0;
@@ -267,25 +307,28 @@ void data_log_loop()
     {
       if (sd_card_initialized_success)
       {
-        digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+        digitalWrite(ACTIVITY_PIN_LED, !digitalRead(ACTIVITY_PIN_LED));
       }
-      /*
-      Serial.print("Lat: ");
-      Serial.print(gps.location.lat(), 6);
-      Serial.print(" | Lon: ");
-      Serial.print(gps.location.lng(), 6);
-      Serial.print(" | Sats: ");
-      Serial.print(gps.satellites.value());
-      Serial.print(" | Alt: ");
-      Serial.print(gps.altitude.meters());
-      Serial.println(" m");
-      */
+      
+      //Serial.print("Lat: ");
+      //Serial.print(gps.location.lat(), 6);
+      //Serial.print(" | Lon: ");
+      //Serial.print(gps.location.lng(), 6);
+      //Serial.print(" | Sats: ");
+      //Serial.print(gps.satellites.value());
+      //Serial.print(" | Alt: ");
+      //Serial.print(gps.altitude.meters());
+      //Serial.println(" m");
+      
     }
 
     vTaskDelayUntil(&time, interval_ms);
   }
 }
+*/
 
+
+/*
 void gps_test_loop()
 {
   TickType_t time = 0;
@@ -314,6 +357,7 @@ void gps_test_loop()
     vTaskDelayUntil(&time, interval_ms);
   }
 }
+*/
 
 // void airbrake_fake_data_test()
 // {
@@ -344,14 +388,17 @@ void gps_test_loop()
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.printf("Hello world\n");
 
-  GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+  gpio_config();
 
-  sd_setup();
+  //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+
+  //sd_setup();
   sensors_setup();
 
-  data_log_loop(); 
+  //data_log_loop(); 
+  gpio_deinit();
 }
 
 void loop()

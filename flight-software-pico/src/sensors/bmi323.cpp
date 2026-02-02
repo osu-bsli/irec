@@ -112,36 +112,53 @@
  * than the total amount of data expected and the first 2 bytes written to the buffer should be
  * ignored (datasheet pg. 218).
  * This function will block the current FreeRTOS task until the read finishes. */
-static esp_err_t read_registers(struct fc_bmi323 *device, uint8_t reg, uint8_t *data, uint8_t length)
-{
+static FSError read_registers(
+    struct fc_bmi323 *device,
+    uint8_t reg,
+    uint8_t *data,
+    uint8_t length
+){
+    FSError result = SUCCESS;
+
     Wire.beginTransmission((uint8_t)I2C_ADDRESS);
     Wire.write(reg);
     if (Wire.endTransmission() != 0)
     {
-        return ESP_FAIL;
+        result = FAILURE;
     }
 
     if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
     {
-        return ESP_FAIL;
+        result = FAILURE;
     }
     Wire.readBytes(data, length);
 
-    return ESP_OK;
+    return result;
 }
 
 /* Starts writing multiple bytes starting from a register (useful for batch writing to multiple
  * contiguous registers at once).
  * This function will block the current FreeRTOS task until the write finishes. */
-static esp_err_t write_registers(struct fc_bmi323 *device, uint8_t reg, uint8_t *data, uint8_t length)
-{
+static FSError write_registers(
+    struct fc_bmi323 *device,
+    uint8_t reg,
+    uint8_t *data,
+    uint8_t length
+){
+    FSError result = SUCCESS;
+
     Wire.beginTransmission((uint8_t)I2C_ADDRESS);
     Wire.write(reg);
     Wire.write(data, length);
-    return Wire.endTransmission() ? ESP_FAIL : ESP_OK;
+
+    if (Wire.endTransmission()) {
+        result = FAILURE;
+    }
+
+    return result;
 }
 
-esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
+FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 {
     bmi323->is_in_degraded_state = false;
 
@@ -152,48 +169,46 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
      * THE FIRST 2 BYTES OF ANY I2C REGISTER READ FROM THE BMI323 ARE 0 DUMMY BYTES.
      */
 
-    esp_err_t status;
+    FSError result;
 
     /* check chip id (datasheet pg. 66) */
     uint16_t chip_id_value[2] = {0x1234, 0x5678};
-    status = read_registers(bmi323, REGISTER_CHIP_ID, (uint8_t *)chip_id_value, sizeof(chip_id_value));
-    if (status != ESP_OK)
+    FSError chip_id_status = read_registers(bmi323, REGISTER_CHIP_ID, (uint8_t *)chip_id_value, sizeof(chip_id_value));
+    if (chip_id_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = chip_id_status;
     }
 
     if ((chip_id_value[1] & 0xFF) != 0x43u)
     {
         Serial.printf("bmi323: device ID does not match expected\n");
-        status = ESP_FAIL;
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = FAILURE;
     }
 
     /* check ERR_REG before enabling sensors (datasheet pg. 67) */
     uint16_t err_value[2] = {0x1234, 0x5678};
-    status = read_registers(bmi323, REGISTER_ERR_REG, (uint8_t *)err_value, sizeof(err_value));
-    if (status != ESP_OK)
+    FSError err_reg_status = read_registers(bmi323, REGISTER_ERR_REG, (uint8_t *)err_value, sizeof(err_value));
+    if (err_reg_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = err_reg_status;
     }
 
     if (err_value[1])
     {
-        status = ESP_FAIL;
+        result = FAILURE;
         bmi323->is_in_degraded_state = true;
-        return status;
     }
 
     /* check STATUS */
     uint16_t status_value[2] = {0x1234, 0x5678};
-    status = read_registers(bmi323, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
-    if (status != ESP_OK)
+    FSError status = read_registers(bmi323, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
+    if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = status;
     }
 
     // The BMI323 doesn't reset when the STM32 does, so the powerup flag may not always be set
@@ -201,11 +216,11 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     uint8_t int_conf_data[] = {1, 0};
 
-    status = write_registers(bmi323, REGISTER_INT_CONF, &int_conf_data[2], 2);
-    if (status != ESP_OK)
+    FSError conf_status = write_registers(bmi323, REGISTER_INT_CONF, &int_conf_data[2], 2);
+    if (conf_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = conf_status;
     }
 
     /* =================================================================================== */
@@ -213,11 +228,16 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     /* =================================================================================== */
 
     uint8_t acc_conf_bytes[4]; /* 2 dummy bytes required by read_registers() */
-    status = read_registers(bmi323, REGISTER_ACC_CONF, acc_conf_bytes, sizeof(acc_conf_bytes));
-    if (status != ESP_OK)
+    FSError acc_conf_status = read_registers(
+        bmi323,
+        REGISTER_ACC_CONF,
+        acc_conf_bytes,
+        sizeof(acc_conf_bytes)
+        );
+    if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = acc_conf_status;
     }
 
     /* ACC_CONF.acc_mode =    0b111  for normal power mode (datasheet pg. 22)
@@ -233,23 +253,33 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     acc_conf_bytes[2] &= 0x00u;
     acc_conf_bytes[3] |= 0x70u; /* write to non-reserved bits */
     acc_conf_bytes[2] |= 0x98u;
-    status = write_registers(bmi323, REGISTER_ACC_CONF, &acc_conf_bytes[2], 2); /* no dummy bytes when writing */
-    if (status != ESP_OK)
+    acc_conf_status = write_registers(
+        bmi323,
+        REGISTER_ACC_CONF,
+        &acc_conf_bytes[2],
+        2
+        ); /* no dummy bytes when writing */
+    if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = acc_conf_status;
     }
 
     /* =================================================================================== */
     /* configure GYR_CONF register (gyr_mode, gyr_range, gyr_bw, gyr_avg_num, and gyr_odr) */
     /* =================================================================================== */
 
-    uint8_t gyr_conf_bytes[4]; /* 2 dummy bytes required by read_registers() */
-    status = read_registers(bmi323, REGISTER_GYR_CONF, gyr_conf_bytes, sizeof(acc_conf_bytes));
-    if (status != ESP_OK)
+    uint8_t gyro_conf_bytes[4]; /* 2 dummy bytes required by read_registers() */
+    FSError gyro_conf_read_status = read_registers(
+        bmi323,
+        REGISTER_GYR_CONF,
+        gyro_conf_bytes,
+        sizeof(acc_conf_bytes)
+        );
+    if (gyro_conf_read_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = gyro_conf_read_status;
     }
 
     /* GYR_CONF.gyr_mode =    0b111  for normal power mode (datasheet pg. 22)
@@ -261,32 +291,45 @@ esp_err_t fc_bmi323_initialize(struct fc_bmi323 *bmi323)
      * binary: [x]  [111]       [x]  [000]           [1]       [100]        [1000]
      * hex:    0x70                                  0xC8
      */
-    gyr_conf_bytes[3] &= 0x88u; /* TODO: finish this shit */
-    gyr_conf_bytes[2] &= 0x00u;
-    gyr_conf_bytes[3] |= 0x70u;
-    gyr_conf_bytes[2] |= 0xC8u;
-    status = write_registers(bmi323, REGISTER_GYR_CONF, &gyr_conf_bytes[2],
-                             sizeof(gyr_conf_bytes) - 2); /* no dummy bytes when writing */
-    if (status != ESP_OK)
+    gyro_conf_bytes[3] &= 0x88u; /* TODO: finish this shit */
+    gyro_conf_bytes[2] &= 0x00u;
+    gyro_conf_bytes[3] |= 0x70u;
+    gyro_conf_bytes[2] |= 0xC8u;
+
+    FSError gyro_conf_write_status = write_registers(
+        bmi323,
+        REGISTER_GYR_CONF,
+        &gyro_conf_bytes[2],
+        sizeof(gyro_conf_bytes) - 2
+        ); /* no dummy bytes when writing */
+
+    if (gyro_conf_write_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = GYRO_CONF_WRITE_FAILURE;
     }
 
     // TODO: Double check these
     uint8_t int_map2_bytes[2] = {40u, 05u};
-    status = write_registers(bmi323, REGISTER_INT_MAP2, int_map2_bytes, sizeof(int_map2_bytes));
-    if (status != ESP_OK)
+    FSError int_map2_status = write_registers(
+        bmi323,
+        REGISTER_INT_MAP2,
+        int_map2_bytes,
+        sizeof(int_map2_bytes)
+        );
+    if (int_map2_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = int_map2_status;
     }
 
-    return ESP_OK;
+    return result;
 }
 
-esp_err_t fc_bmi323_process(struct fc_bmi323 *bmi323, struct fc_bmi323_data *data)
-{
+FSError fc_bmi323_process(
+    struct fc_bmi323 *bmi323,
+    struct fc_bmi323_data *data
+){
 
     // TODO: Check if we even need to bother waiting for the data ready flag.
     //       The sensor might be ready before we read it for the first time.
@@ -296,14 +339,19 @@ esp_err_t fc_bmi323_process(struct fc_bmi323 *bmi323, struct fc_bmi323_data *dat
     //
     // TODO: Also think about using actual GPIO interrupts to handle data ready.
 
-    esp_err_t status;
+    FSError result;
 
     int16_t sensor_data[8]; // dummy, 3-axis accel, 3-axis gyro, temp
-    status = read_registers(bmi323, REGISTER_ACC_DATA_X, (uint8_t *)sensor_data, sizeof(sensor_data));
-    if (status != ESP_OK)
+    FSError acc_datax_status = read_registers(
+        bmi323,
+        REGISTER_ACC_DATA_X,
+        (uint8_t *)sensor_data,
+        sizeof(sensor_data)
+        );
+    if (acc_datax_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return status;
+        result = acc_datax_status;
     }
 
     // multiplier to convert an int16_t to the sensor range
@@ -321,5 +369,5 @@ esp_err_t fc_bmi323_process(struct fc_bmi323 *bmi323, struct fc_bmi323_data *dat
 
     data->kernel_timestamp = xTaskGetTickCount();
 
-    return ESP_OK;
+    return result;
 }

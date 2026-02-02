@@ -9,7 +9,7 @@
 #define INC_FC_BM1422_H_
 
 #include <stdbool.h>
-#include <error.hpp>
+#include <error.h>
 
 struct fc_bm1422 {
 	bool is_in_degraded_state;

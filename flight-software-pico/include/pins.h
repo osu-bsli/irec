@@ -8,8 +8,14 @@
 #define PIN_SPI_CLK 6
 #define PIN_SPI_MOSI 5
 #define PIN_AIRBRAKES_TX 2
-#define PIN_I2C_SCL 4
-#define PIN_I2C_SDA 3
 
-#define PIN_LED 35
+//Sensor board
+#define PIN_I2C0_SCL 27
+#define PIN_I2C0_SDA 26
+//Pressure Transducer
+#define PIN_I2C1_SCL 20
+#define PIN_I2C1_SDA 19
+
+#define PIN_ACTIVITY_LED 35
+//#define PIN_LED 35
     

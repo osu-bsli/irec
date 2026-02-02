@@ -10,20 +10,18 @@
  */
 
 #include "sensors/adxl375.h"
-#include <stdio.h>
 #include <HardwareSerial.h>
 #include <Wire.h>
-
-#include "common.h"
+#include <sensors/sensor_registers.h>
 
 /*
  * Header files are for sharing things that other C files need.
  * Register addresses should go HERE and not adxl375.h because other C files do not need to see them.
  */
-
-/* I2C constants */
-#define DEVICE_ID 0xE5u   /* fixed value (datasheet pg. 21) */
-#define I2C_ADDRESS 0x53u /* (pg. 18) ALT_ADDRESS pin is low */
+ 
+/* I2C constants */                                                                   
+#define DEVICE_ID 0xE5u                                                               
+#define I2C_ADDRESS 0x53u 
 
 /* Register constants (pg. 20) */
 #define REGISTER_DEVID 0x00u
@@ -69,16 +67,21 @@
  * and it is obvious what they do.
  */
 
-static FSError read_registers(struct fc_adxl375 *device, uint8_t reg,
-                                uint8_t *data, uint8_t length)
-{
-  FSError result = SUCCESS;
+static FSError read_registers(
+  uint8_t reg,
+  uint8_t *data,
+  uint8_t length
+){
+FSError result = SUCCESS;
+
   Wire.beginTransmission((uint8_t)I2C_ADDRESS);
   Wire.write(reg);
   if (Wire.endTransmission() != 0)
   {
     result = FAILURE;
-  } else if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+  }
+
+  if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
   {
     result = FAILURE;
   }
@@ -87,24 +90,38 @@ static FSError read_registers(struct fc_adxl375 *device, uint8_t reg,
   return result;
 }
 
-static FSError write_registers(struct fc_adxl375 *device, uint8_t reg, uint8_t *data, uint8_t length)
-{
+static FSError write_registers(
+  uint8_t reg,
+  uint8_t *data,
+  uint8_t length
+){
   FSError result = SUCCESS;
   Wire.beginTransmission((uint8_t)I2C_ADDRESS);
   Wire.write(reg);
   Wire.write(data, length);
-  if (Wire.endTransmission()) { result = FAILURE; }
+
+  if (Wire.endTransmission()) {
+    result = FAILURE;
+  }
+
   return result;
 }
 
-static FSError is_data_ready(struct fc_adxl375 *device, int *isready)
-{
+static FSError is_data_ready(
+  struct fc_adxl375 *device,
+  int *isready
+){
   FSError result = SUCCESS;
   uint8_t interrupt_data;
 
   /* read INT_SOURCE bits (pg. 23) */
-  FSError status = read_registers(
-      device, REGISTER_INT_SOURCE, &interrupt_data, sizeof(interrupt_data));
+  FSError status = read_register(
+      I2C_ADDRESS,
+      REGISTER_INT_SOURCE,
+      &interrupt_data,
+      sizeof(interrupt_data)
+    );
+
   if (status != SUCCESS)
   {
     result = FAILURE;
@@ -140,50 +157,48 @@ FSError fc_adxl375_initialize(struct fc_adxl375 *device)
   /* reset struct */
   device->is_in_degraded_state = false;
 
-  FSError status;
+  FSError result;
   uint8_t data;
 
   /* Check that device ID is correct */
-  status = read_registers(device, REGISTER_DEVID, &data, sizeof(data));
-  if (status != SUCCESS)
-  {
+  FSError device_id_check_status = read_registers(REGISTER_DEVID, &data, sizeof(data));
+  if (device_id_check_status != SUCCESS) {
     device->is_in_degraded_state = true;
-    return status;
+    result = device_id_check_status;
   }
-  if (data != DEVICE_ID)
-  {
+  if (data != DEVICE_ID) {
     Serial.printf("adxl375: device ID does not match (expected: %d, got: %d)\n", DEVICE_ID, data);
-    status = FAILURE;
+    result = FAILURE;
     device->is_in_degraded_state = true;
-    return status;
   }
 
   /* Set measure bit in POWER_CTL register (pg. 22) */
   data = 0b00001000;
-  status = write_registers(device, REGISTER_POWER_CTL, &data, sizeof(data));
-  if (status != ESP_OK)
+  FSError power_control_status = write_registers(REGISTER_POWER_CTL, &data, sizeof(data));
+  if (power_control_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    return status;
+    result = power_control_status;
   }
 
   data = 0b00001011;
-  status = write_registers(device, REGISTER_DATA_FORMAT, &data, sizeof(data));
-  if (status != ESP_OK)
+  FSError data_format_status = write_registers(REGISTER_DATA_FORMAT, &data, sizeof(data));
+  if (data_format_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    return status;
+    result = data_format_status;
   }
 
   data = REGISTER_BW_RATE_100HZ; // disable low power, 100 Hz
-  status = write_registers(device, REGISTER_BW_RATE, &data, sizeof(data));
-  if (status != ESP_OK)
+  FSError bw_rate_status = write_registers(REGISTER_BW_RATE, &data, sizeof(data));
+  if (bw_rate_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    return status;
+    result = bw_rate_status;
   }
 
-  return ESP_OK;
+
+  return result;
 }
 
 FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *data)
@@ -198,24 +213,23 @@ FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *da
 
   /* start i2c read */
   FSError register_read_status = read_registers(
-                                                device,
-                                                REGISTER_DATAX0,
-                                                raw_accel_data,
-                                                sizeof(raw_accel_data)
-                                              );
+      REGISTER_DATAX0,
+      raw_accel_data,
+      sizeof(raw_accel_data)
+    );
   if (register_read_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    return status;
+    result = register_read_status;
   } else {
     /* ===================================== */
     /* convert bytes to signed 16-bit values */
     /* ===================================== */
 
     /* Little endian (pg. 24) */
-    int16_t raw_acceleration_x = u8_to_i16(raw_accel_data[0], raw_accel_data[1]);
-    int16_t raw_acceleration_y = u8_to_i16(raw_accel_data[2], raw_accel_data[3]);
-    int16_t raw_acceleration_z = u8_to_i16(raw_accel_data[4], raw_accel_data[5]);
+    int16_t raw_acceleration_x = (raw_accel_data[1] << 8) | raw_accel_data[0];
+    int16_t raw_acceleration_y = (raw_accel_data[3] << 8) | raw_accel_data[2];
+    int16_t raw_acceleration_z = (raw_accel_data[5] << 8) | raw_accel_data[4];
 
     /* ============================================ */
     /* convert raw data to actual acceleration data */

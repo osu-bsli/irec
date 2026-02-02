@@ -44,8 +44,11 @@
 
 #define SENSOR_NAME "bm1422"
 
-static FSError read_registers(struct fc_bm1422 *device, uint8_t reg, uint8_t *data, uint8_t length)
-{
+static FSError read_registers(
+	uint8_t reg,
+	uint8_t *data,
+	uint8_t length
+){
 	FSError result = SUCCESS;
 	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
 	Wire.write(reg);
@@ -61,19 +64,29 @@ static FSError read_registers(struct fc_bm1422 *device, uint8_t reg, uint8_t *da
 	return result;
 }
 
-static esp_err_t write_registers(struct fc_bm1422 *device, uint8_t reg, uint8_t *data, uint8_t length)
-{
+static FSError write_registers(
+	uint8_t reg,
+	uint8_t *data,
+	uint8_t length
+){
+	FSError result = SUCCESS;
+
 	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
 	Wire.write(reg);
 	Wire.write(data, length);
-	return Wire.endTransmission() ? ESP_FAIL : ESP_OK;
+
+	if (Wire.endTransmission()) {
+		result = FAILURE;
+	}
+
+	return result;
 }
 
 /*
  * Public functions.
  */
 
-esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
+FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 {
 	device->is_in_degraded_state = false;
 
@@ -81,21 +94,20 @@ esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
 	/* check that the device id is correct */
 	/* =================================== */
 
-	esp_err_t status;
+	FSError result = SUCCESS;
 	uint8_t data;
 
-	status = read_registers(device, REGISTER_WIA, &data, 1);
-	if (status != ESP_OK)
+	const FSError wia_status = read_registers(REGISTER_WIA, &data, 1);
+	if (wia_status != SUCCESS)
 	{
 		device->is_in_degraded_state = true;
-		return status;
+		result = wia_status;
 	}
 	if (data != WHO_AM_I)
 	{
 		Serial.printf(SENSOR_NAME ": WHO_AM_I mismatch: %d\n", data);
-		status = ESP_FAIL;
+		result = FAILURE;
 		device->is_in_degraded_state = true;
-		return status;
 	}
 
 	// power on
@@ -103,49 +115,54 @@ esp_err_t fc_bm1422_initialize(struct fc_bm1422 *device)
 	// ODR = 100 Hz
 	// continuous sampling mode
 	data = 0b11001000;
-	status = write_registers(device, REGISTER_CNTL1, &data, 1);
-	if (status != ESP_OK)
+	const FSError cntl1_status = write_registers(REGISTER_CNTL1, &data, 1);
+	if (cntl1_status != SUCCESS)
 	{
 		Serial.printf(SENSOR_NAME ": CNTL1 write failed\n");
 		device->is_in_degraded_state = true;
-		return status;
+		result = cntl1_status;
 	}
 
 	// write anything to CNTL4 high byte (0x5D) to set RSTB_LV=1
 	data = 0x00;
-	status = write_registers(device, REGISTER_CNTL4_H, &data, 1);
-	if (status != ESP_OK)
+	const FSError cntl4_status = write_registers(REGISTER_CNTL4_H, &data, 1);
+	if (cntl4_status != SUCCESS)
 	{
 		Serial.printf(SENSOR_NAME ": CNTL4 write failed\n");
 		device->is_in_degraded_state = true;
-		return status;
+		result = cntl4_status;
 	}
 
 	// FORCE (bit 6) = 1 in CNTL3 to start measurements
 	data = 0b01000000;
-	status = write_registers(device, REGISTER_CNTL3, &data, 1);
-	if (status != ESP_OK)
+	const FSError cntl3_status = write_registers(REGISTER_CNTL3, &data, 1);
+	if (cntl3_status != SUCCESS)
 	{
 		Serial.printf(SENSOR_NAME ": CNTL3 write failed\n");
 		device->is_in_degraded_state = true;
-		return status;
+		result = cntl3_status;
 	}
 
-	return ESP_OK;
+	return result;
 }
 
-esp_err_t fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
+FSError fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
 {
+	FSError result = SUCCESS;
 	/* Array for six output data registers (Pg. 12) */
 	uint8_t raw_data[6];
 
 	/* Begin i2c read */
-	esp_err_t status = read_registers(device, REGISTER_DATAX, raw_data, sizeof(raw_data));
-	if (status != ESP_OK)
+	FSError datax_status = read_registers(
+		REGISTER_DATAX,
+		raw_data,
+		sizeof(raw_data)
+		);
+	if (datax_status != SUCCESS)
 	{
 		Serial.printf(SENSOR_NAME ": read failure\n");
 		device->is_in_degraded_state = true;
-		return status;
+		result = datax_status;
 	}
 
 	int16_t raw_magnetic_strength_x = (int16_t)((raw_data[1] << 8) | raw_data[0]);
@@ -167,5 +184,5 @@ esp_err_t fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *dat
 	// snprintf(buf, 64, SENSOR_NAME ": mag z: %f\n", data->magnetic_strength_z);
 	// SEGGER_RTT_WriteString(0, buf);
 
-	return ESP_OK;
+	return result;
 }

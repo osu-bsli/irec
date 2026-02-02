@@ -8,7 +8,7 @@
 #pragma once
 
 #include <stdbool.h>
-#include <error.hpp>
+#include <error.h>
 
 /*
  * Header files are for sharing things that other C files need.

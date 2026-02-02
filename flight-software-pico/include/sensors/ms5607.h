@@ -6,7 +6,7 @@
 #define INC_FC_MS5607_H_
 
 #include <stdbool.h>
-#include <error.hpp>
+#include <error.h>
 
 struct fc_ms5607
 {

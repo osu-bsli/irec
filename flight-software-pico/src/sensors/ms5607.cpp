@@ -7,14 +7,15 @@
  * - Dawn Goorskey
  * - Brian Jia
  * - Amber Phillips
+ * - Diego Noria
  */
 
+#include <error.h>
 #include <stdio.h>
 #include <HardwareSerial.h>
 #include <Wire.h>
 
 #include "sensors/ms5607.h"
-#include "common.h"
 
 /* i2c constants */
 /* THE COMPLEMENT OF THE CSB PIN IS THE LSB OF THE I2C ADDRESS */
@@ -57,81 +58,91 @@
 #define STATE_CONVERTING_TEMPERATURE 2
 
 /* Double check all data + data lengths */
-static esp_err_t write_registers(struct fc_ms5607 *device, uint8_t *data, uint16_t size)
-{
+static FSError write_registers(
+    uint8_t *data,
+    uint16_t size
+){
+    FSError result = SUCCESS;
     Wire.beginTransmission((uint8_t)I2C_ADDRESS);
     Wire.write(data, size);
     if (Wire.endTransmission() != 0)
     {
-        return ESP_FAIL;
+        result = FAILURE;
     }
 
-    return ESP_OK;
+    return result;
 }
 
-static esp_err_t read_registers(struct fc_ms5607 *device, uint8_t *data, uint16_t size)
-{
+static FSError read_registers(
+    uint8_t *data,
+    uint16_t size
+){
+    FSError result = SUCCESS;
     if (Wire.requestFrom((uint8_t)I2C_ADDRESS, size) != size)
     {
-        return ESP_FAIL;
+        result = FAILURE;
     }
     Wire.readBytes(data, size);
 
-    return ESP_OK;
+    return result;
 }
 
-esp_err_t start_temperature_conversion(struct fc_ms5607 *device)
+FSError start_temperature_conversion()
 {
     uint8_t command = COMMAND_CONVERTD2_OSR4096; // use highest OSR for now
-    return write_registers(device, &command, 1);
+    return write_registers(&command, 1);
 }
 
-esp_err_t start_pressure_conversion(struct fc_ms5607 *device)
+FSError start_pressure_conversion()
 {
     uint8_t command = COMMAND_CONVERTD1_OSR4096; // use highest OSR for now
-    return write_registers(device, &command, 1);
+    return write_registers(&command, 1);
 }
 
-esp_err_t read_temperature_data(struct fc_ms5607 *device)
+FSError read_temperature_data(struct fc_ms5607 *device)
 {
+    FSError result = SUCCESS;
+
     uint8_t command = COMMAND_ADC_READ;
-    esp_err_t status = write_registers(device, &command, 1);
-    if (status != ESP_OK)
+    FSError adc_read_status = write_registers(&command, 1);
+    if (adc_read_status != SUCCESS)
     {
-        return status;
+        result = adc_read_status;
     }
 
     uint8_t temp_bytes[3]; // Big-endian byte 0 = 23-16 byte 1 = 8-15 byte 2 = 7-0
-    status = read_registers(device, temp_bytes, 3);
-    if (status != ESP_OK)
+    FSError temp_status = read_registers(temp_bytes, 3);
+    if (temp_status != SUCCESS)
     {
-        return status;
+        result = temp_status;
     }
 
     device->D2 = (temp_bytes[0] << 16) | (temp_bytes[1] << 8) | (temp_bytes[2]);
 
-    return status;
+    return result;
 }
 
-esp_err_t read_pressure_data(struct fc_ms5607 *device)
+FSError read_pressure_data(struct fc_ms5607 *device)
 {
+    FSError result = SUCCESS;
+
     uint8_t command = COMMAND_ADC_READ;
-    esp_err_t status = write_registers(device, &command, 1);
-    if (status != ESP_OK)
+    FSError adc_read_status = write_registers(&command, 1);
+    if (adc_read_status != SUCCESS)
     {
-        return status;
+        result = adc_read_status;
     }
 
     uint8_t pressure_bytes[3]; // Big-endian byte 0 = 23-16 byte 1 = 8-15 byte 2 = 7-0
-    status = read_registers(device, pressure_bytes, 3);
-    if (status != ESP_OK)
+    FSError pressure_read_status = read_registers(pressure_bytes, 3);
+    if (pressure_read_status != SUCCESS)
     {
-        return status;
+        result = pressure_read_status;
     }
 
     device->D1 = (pressure_bytes[0] << 16) | (pressure_bytes[1] << 8) | (pressure_bytes[2]);
 
-    return status;
+    return result;
 }
 
 void calculate_pressure_and_temperature_from_data(struct fc_ms5607 *device)
@@ -179,7 +190,8 @@ void calculate_pressure_and_temperature_from_data(struct fc_ms5607 *device)
     device->last_temperature_c = TEMP / 100.0f; // Convert from centiCelcius to Celsius
 
     char buf[64];
-    // Check validity of conversions - values must be between min and max values on data sheet
+    // Check validity of conversions - values must be between
+    // min and max values on data sheet
     if (device->last_pressure_mbar < 10.0f || device->last_pressure_mbar > 1200.0f)
     {
         sprintf(buf, "%f", device->last_pressure_mbar);
@@ -193,13 +205,15 @@ void calculate_pressure_and_temperature_from_data(struct fc_ms5607 *device)
     }
 }
 
+// TODO redo this function to remove goto
+
 /* Initialize MS5607 barometer I2C device */
-esp_err_t fc_ms5607_initialize(struct fc_ms5607 *device)
+FSError fc_ms5607_initialize(struct fc_ms5607 *device)
 {
     /* reset struct */
     device->is_in_degraded_state = false;
 
-    esp_err_t status;
+    FSError result = SUCCESS;
 
     /*
      * PROM read sequence. Reads in C1-C6.
@@ -207,20 +221,22 @@ esp_err_t fc_ms5607_initialize(struct fc_ms5607 *device)
     for (int i = 0; i <= 6; i++)
     {
         uint8_t command = COMMAND_PROM_READ | (i << 1);
-        status = write_registers(device, &command, 1);
-        if (status != ESP_OK)
+        const FSError prom_read_status = write_registers(&command, 1);
+        if (prom_read_status != SUCCESS)
         {
-            goto error;
+            device->is_in_degraded_state;
+            return MS5607_PROM_READ_COMMAND_FAILURE;
         }
 
         uint8_t data[2];
-        status = read_registers(device, data, 2);
-        if (status != ESP_OK)
+        const FSError data_read_status = read_registers(data, 2);
+        if (data_read_status != SUCCESS)
         {
-            goto error;
+            device->is_in_degraded_state;
+            return MS5607_PROM_READ_DATA_FAILURE;
         }
 
-        device->C[i] = u8_to_u16(data[1], data[0]);
+        device->C[i] = (data[0] << 8) | data[1];
     }
 
     // Serial.printf("ms5607: PROM C1: %d\n", device->C[1]);
@@ -230,59 +246,62 @@ esp_err_t fc_ms5607_initialize(struct fc_ms5607 *device)
     // Serial.printf("ms5607: PROM C5: %d\n", device->C[5]);
     // Serial.printf("ms5607: PROM C6: %d\n", device->C[6]);
 
-    /* Do a full data read and conversion now so there's data ready immediately after initialization */
-    status = start_temperature_conversion(device);
-    if (status != ESP_OK)
+    /* Do a full data read and conversion now so
+       there's data ready immediately after initialization */
+    const FSError start_temp_status = start_temperature_conversion();
+    if (start_temp_status != SUCCESS)
     {
-        goto error;
+        device->is_in_degraded_state;
+        return START_TEMPERATURE_CONVERSION_FAILURE;
     }
 
     vTaskDelay(CONVERSION_TIME_MS);
 
-    status = read_temperature_data(device);
-    if (status != ESP_OK)
+    const FSError read_temp_status = read_temperature_data(device);
+    if (read_temp_status != SUCCESS)
     {
-        goto error;
+        device->is_in_degraded_state;
+        return READ_TEMPERATURE_DATA_FAILURE;
     }
 
-    status = start_pressure_conversion(device);
-    if (status != ESP_OK)
+    const FSError start_press_status = start_pressure_conversion();
+    if (start_press_status != SUCCESS)
     {
-        goto error;
+        device->is_in_degraded_state;
+        return START_PRESSURE_CONVERSION_FAILURE;
     }
 
     vTaskDelay(CONVERSION_TIME_MS);
 
-    status = read_pressure_data(device);
-    if (status != ESP_OK)
+    const FSError read_press_status = read_pressure_data(device);
+    if (read_press_status != SUCCESS)
     {
-        goto error;
+        device->is_in_degraded_state;
+        return READ_PRESSURE_DATA_FAILURE;
     }
 
     calculate_pressure_and_temperature_from_data(device);
 
     /* Initialize the state machine */
-    status = start_temperature_conversion(device);
-    if (status != ESP_OK)
+    const FSError start_temp_status2 = start_temperature_conversion();
+    if (start_temp_status2 != SUCCESS)
     {
-        goto error;
+        device->is_in_degraded_state;
+        return START_TEMPERATURE_CONVERSION_FAILURE;
     }
     device->conversion_started_ms = xTaskGetTickCount();
     device->state = STATE_CONVERTING_TEMPERATURE;
 
     // Initialization succeeded
-    return ESP_OK;
-
-error:
-    Serial.printf("ms5607: init failure\n");
-    device->is_in_degraded_state = true;
-    return status;
+    return result;
 }
 
 /* Process to read and convert pressure and temperature */
-esp_err_t fc_ms5607_process(struct fc_ms5607 *device, struct fc_ms5607_data *data)
-{
-    esp_err_t status;
+FSError fc_ms5607_process(
+    struct fc_ms5607 *device,
+    struct fc_ms5607_data *data
+){
+    FSError result = SUCCESS;
 
     /* Yes I know we have an RTOS but I don't wanna make things too complex rn */
     switch (device->state)
@@ -290,15 +309,17 @@ esp_err_t fc_ms5607_process(struct fc_ms5607 *device, struct fc_ms5607_data *dat
     case STATE_CONVERTING_TEMPERATURE:
         if (xTaskGetTickCount() - device->conversion_started_ms > CONVERSION_TIME_MS)
         {
-            status = read_temperature_data(device);
-            if (status != ESP_OK)
+            const FSError read_temp_status = read_temperature_data(device);
+            if (read_temp_status != SUCCESS)
             {
+                result = read_temp_status;
                 goto error;
             }
 
-            status = start_pressure_conversion(device);
-            if (status != ESP_OK)
+            const FSError start_press_status = start_pressure_conversion();
+            if (start_press_status != SUCCESS)
             {
+                result = start_press_status;
                 goto error;
             }
             device->conversion_started_ms = xTaskGetTickCount();
@@ -308,15 +329,17 @@ esp_err_t fc_ms5607_process(struct fc_ms5607 *device, struct fc_ms5607_data *dat
     case STATE_CONVERTING_PRESSURE:
         if (xTaskGetTickCount() - device->conversion_started_ms > CONVERSION_TIME_MS)
         {
-            status = read_pressure_data(device);
-            if (status != ESP_OK)
+            const FSError read_press_status = read_pressure_data(device);
+            if (read_press_status != SUCCESS)
             {
+                result = read_press_status;
                 goto error;
             }
 
-            status = start_temperature_conversion(device);
-            if (status != ESP_OK)
+            const FSError start_temp_status = start_temperature_conversion();
+            if (start_temp_status != SUCCESS)
             {
+                result = start_temp_status;
                 goto error;
             }
             device->conversion_started_ms = xTaskGetTickCount();
@@ -336,9 +359,9 @@ esp_err_t fc_ms5607_process(struct fc_ms5607 *device, struct fc_ms5607_data *dat
     // sprintf(buf, "%f", data->temperature_c);
     // Serial.printf("ms5607: temperature_c: %s\n", buf);
 
-    return ESP_OK;
+    return result;
 
 error:
     device->is_in_degraded_state = true;
-    return status;
+    return result;
 }
