@@ -65,7 +65,7 @@ static fs::File sdcard_and_logging_init()
   // old esp32 code
   //auto file = SD.open(file_name, FILE_WRITE, true);
 
-  // new pico code
+  // new arduino code
   auto file = SD.open(file_name, FILE_WRITE);
 
 
@@ -102,7 +102,7 @@ static void sensors_setup()
   //old esp32 syntax
   //Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 200000);
 
-  //switch to pico syntax
+  //switch to arduino syntax
   Wire.begin();
   Wire.setClock(200000);
 
@@ -110,7 +110,7 @@ static void sensors_setup()
   //old esp32 code
   //esp_err_t status;
 
-  //new pico code
+  //new arduino code
   bool status;
 
   bool retry = false;
