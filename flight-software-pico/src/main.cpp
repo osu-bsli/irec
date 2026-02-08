@@ -1,3 +1,15 @@
+/**
+ * main.cpp
+ *
+ * Main
+ *
+ * @authors
+ * - BSLI
+ * - Brian Jia
+ * - Diego Noria
+ */
+
+#include <error.h>
 #include <stdio.h>
 #include <pico/stdlib.h>
 #include <pico/binary_info.h>
@@ -20,8 +32,8 @@
 #include "test_data.h"
 #include "telemetry.h"
 
-
 #define I2C_SENSOR_FREQUENCY 200000
+#define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
 #define LOG_INTERVAL_MS 10
 
 const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
@@ -95,26 +107,21 @@ static void gpio_config() {
 
   // sensor i2c configuration
 
-  // The fact referring to the i2c busses is "Wire" and then "Wire1" is
-  // objectively terrible design...
-  // Unfortunately all the sensor drivers have already been written
-  // so for now I won't be messing with this. - Diego
+  i2c_init(i2c0, I2C_SENSOR_FREQUENCY);
+  gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
+  gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
+  gpio_pull_up(PIN_I2C0_SDA);
+  gpio_pull_up(PIN_I2C0_SCL);
 
-  setSDA(PIN_I2C0_SDA); // rppico specific
-  setSCL(PIN_I2C0_SCL); // rppico specific
-  Wire.begin();
-  Wire.setClock(I2C_SENSOR_FREQUENCY);
+  bi_decl(bi_2pins_with_func(PIN_I2C0_SDA, PIN_I2C0_SCL, GPIO_FUNC_I2C));
 
-  setSDA(PIN_I2C1_SDA); // rppico specific
-  setSCL(PIN_I2C1_SCL); // rppico specific
-  Wire1.begin();
-  Wire1.setClock(I2C_SENSOR_FREQUENCY);
-}
+  i2c_init(i2c1, I2C_PRESSURE_TRANSDUCER_FREQUENCY);
+  gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
+  gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
+  gpio_pull_up(PIN_I2C1_SDA);
+  gpio_pull_up(PIN_I2C1_SCL);
 
-/// Maybe unnecessary, but gives peace of mind
-static void gpio_deinit() {
-  i2c_deinit(i2c0);
-  i2c_deinit(i2c1);
+  bi_decl(bi_2pins_with_func(PIN_I2C1_SDA, PIN_I2C1_SCL, GPIO_FUNC_I2C));
 }
 
 static FSError sensors_setup()
@@ -124,48 +131,44 @@ static FSError sensors_setup()
 
   bool retry = false;
   int num_retries = 0;
+  const int MAX_RETRIES = 50;
 
   do
   {
     if (result != SUCCESS) {
-      Serial.printf("[Error] %i Retrying to initialize sensors...\n", num_retries);
+      Serial.printf("[Error] %i/50 Retrying to initialize sensors...\n\r", num_retries + 1);
+      num_retries += 1;
     }
 
     result = SUCCESS;
 
-    const FSError bm1422_status = fc_bm1422_initialize(&bm1422);
+    //const FSError bm1422_status = fc_bm1422_initialize(&bm1422);
     const FSError adxl375_status = fc_adxl375_initialize(&adxl375);
-    const FSError bmi323_status = fc_bmi323_initialize(&bmi323);
+    //const FSError bmi323_status = fc_bmi323_initialize(&bmi323);
     const FSError ms5607_status = fc_ms5607_initialize(&ms5607);
 
-    Serial.printf("bm1422 status: %s\n", bm1422_status);
-    Serial.printf("adxl375 status: %s\n", adxl375_status);
-    Serial.printf("bmi323 status: %s\n", bmi323_status);
-    Serial.printf("ms5607 status: %s\n", ms5607_status);
+    //Serial.printf("[Info] bm1422 status: %s\n\r", FCError__strings[bm1422_status]);
+    Serial.printf("[Info] adxl375 status: %s\n\r", FCError__strings[adxl375_status]);
+    //Serial.printf("[Info] bmi323 status: %s\n\r", FCError__strings[bmi323_status]);
+    Serial.printf("[Info] ms5607 status: %s\n\r", FCError__strings[ms5607_status]);
 
-    if (bm1422_status != SUCCESS) {
-      result = bm1422_status;
-    }
+    //if (bm1422_status != SUCCESS) {
+    //  result = bm1422_status;
+    //}
 
     if (adxl375_status != SUCCESS) {
       result = adxl375_status;
     }
 
-    if (bmi323_status != SUCCESS) {
-      result = bmi323_status;
-    }
+    //if (bmi323_status != SUCCESS) {
+    //  result = bmi323_status;
+    //}
 
     if (ms5607_status != SUCCESS) {
       result = ms5607_status;
     }
 
-  } while (result != SUCCESS && num_retries < 50);
-
-  if (result != SUCCESS) {
-    // TODO use an explicit output location instead of "Serial"
-    Serial.printf("[Error] %s\n", FCErrors__strings[result]);
-    result = SENSOR_INITIALIZATION_FAILURE;
-  }
+  } while (result != SUCCESS && num_retries < MAX_RETRIES);
 
   return result;
 }
@@ -388,17 +391,22 @@ void gps_test_loop()
 
 void setup()
 {
-  Serial.printf("Hello world\n");
-
   gpio_config();
+
+  Serial.begin(115200);
+  Serial.printf("Hello world\n\r");
+
 
   //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
   //sd_setup();
-  sensors_setup();
+  FSError sensor_status = sensors_setup();
+
+  while (true) {
+    Serial.printf("sensor initialization status: %s\n\r", FCError__strings[sensor_status]);
+  }
 
   //data_log_loop(); 
-  gpio_deinit();
 }
 
 void loop()

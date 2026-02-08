@@ -14,12 +14,13 @@
 #include <stdio.h>
 #include <HardwareSerial.h>
 #include <Wire.h>
+#include <i2c.h>
 
 #include "sensors/ms5607.h"
 
 /* i2c constants */
 /* THE COMPLEMENT OF THE CSB PIN IS THE LSB OF THE I2C ADDRESS */
-#define I2C_ADDRESS 0x76 /* 7 bits, CSB pulled low */
+#define I2C_ADDRESS 0x77 /* 7 bits, CSB pulled low */
 
 /* TEMPORARY Timeout */
 #define I2C_TIMEOUT 100
@@ -57,46 +58,51 @@
 #define STATE_CONVERTING_PRESSURE 1
 #define STATE_CONVERTING_TEMPERATURE 2
 
-/* Double check all data + data lengths */
-static FSError write_registers(
-    uint8_t *data,
-    uint16_t size
-){
-    FSError result = SUCCESS;
-    Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-    Wire.write(data, size);
-    if (Wire.endTransmission() != 0)
-    {
-        result = FAILURE;
-    }
-
-    return result;
-}
-
-static FSError read_registers(
-    uint8_t *data,
-    uint16_t size
-){
-    FSError result = SUCCESS;
-    if (Wire.requestFrom((uint8_t)I2C_ADDRESS, size) != size)
-    {
-        result = FAILURE;
-    }
-    Wire.readBytes(data, size);
-
-    return result;
-}
+// TODO find out why this function is different than other read register functions
+// in other driver files
+//static FSError read_registers(
+//    uint8_t *data,
+//    uint16_t size
+//){
+//    if (Wire.requestFrom((uint8_t)I2C_ADDRESS, size) != size)
+//    {
+//        return I2C_REGISTER_READ_FAILURE;
+//    }
+//
+//    //if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+//    //{
+//    //  return I2C_REGISTER_READ_FAILURE;
+//    //}
+//
+//    Wire.readBytes(data, size);
+//
+//    return SUCCESS;
+//}
+//
+//static FSError write_registers(
+//    uint8_t *data,
+//    uint16_t size
+//){
+//    Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+//    Wire.write(data, size);
+//    if (Wire.endTransmission() != 0)
+//    {
+//        return I2C_REGISTER_WRITE_FAILURE;
+//    }
+//
+//    return SUCCESS;
+//}
 
 FSError start_temperature_conversion()
 {
     uint8_t command = COMMAND_CONVERTD2_OSR4096; // use highest OSR for now
-    return write_registers(&command, 1);
+    return i2c_write_no_reg(I2C_ADDRESS, &command, 1);
 }
 
 FSError start_pressure_conversion()
 {
     uint8_t command = COMMAND_CONVERTD1_OSR4096; // use highest OSR for now
-    return write_registers(&command, 1);
+    return i2c_write_no_reg(I2C_ADDRESS, &command, 1);
 }
 
 FSError read_temperature_data(struct fc_ms5607 *device)
@@ -104,14 +110,14 @@ FSError read_temperature_data(struct fc_ms5607 *device)
     FSError result = SUCCESS;
 
     uint8_t command = COMMAND_ADC_READ;
-    FSError adc_read_status = write_registers(&command, 1);
+    FSError adc_read_status = i2c_write_no_reg(I2C_ADDRESS, &command, 1);
     if (adc_read_status != SUCCESS)
     {
         result = adc_read_status;
     }
 
     uint8_t temp_bytes[3]; // Big-endian byte 0 = 23-16 byte 1 = 8-15 byte 2 = 7-0
-    FSError temp_status = read_registers(temp_bytes, 3);
+    FSError temp_status = i2c_read_no_reg(I2C_ADDRESS, temp_bytes, 3);
     if (temp_status != SUCCESS)
     {
         result = temp_status;
@@ -127,14 +133,14 @@ FSError read_pressure_data(struct fc_ms5607 *device)
     FSError result = SUCCESS;
 
     uint8_t command = COMMAND_ADC_READ;
-    FSError adc_read_status = write_registers(&command, 1);
+    FSError adc_read_status = i2c_write_no_reg(I2C_ADDRESS, &command, 1);
     if (adc_read_status != SUCCESS)
     {
         result = adc_read_status;
     }
 
     uint8_t pressure_bytes[3]; // Big-endian byte 0 = 23-16 byte 1 = 8-15 byte 2 = 7-0
-    FSError pressure_read_status = read_registers(pressure_bytes, 3);
+    FSError pressure_read_status = i2c_read_no_reg(I2C_ADDRESS, pressure_bytes, 3);
     if (pressure_read_status != SUCCESS)
     {
         result = pressure_read_status;
@@ -195,13 +201,13 @@ void calculate_pressure_and_temperature_from_data(struct fc_ms5607 *device)
     if (device->last_pressure_mbar < 10.0f || device->last_pressure_mbar > 1200.0f)
     {
         sprintf(buf, "%f", device->last_pressure_mbar);
-        Serial.printf("ms5607: pressure_mbar out of range: %s\n", buf);
+        Serial.printf("ms5607: pressure_mbar out of range: %s\n\r", buf);
     }
 
     if (device->last_temperature_c < -40.0f || device->last_temperature_c > 85.0f)
     {
         sprintf(buf, "%f", device->last_temperature_c);
-        Serial.printf("ms5607: temperature_c out of range: %s\n", buf);
+        Serial.printf("ms5607: temperature_c out of range: %s\n\r", buf);
     }
 }
 
@@ -213,15 +219,14 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
     /* reset struct */
     device->is_in_degraded_state = false;
 
-    FSError result = SUCCESS;
-
     /*
      * PROM read sequence. Reads in C1-C6.
      */
+
     for (int i = 0; i <= 6; i++)
     {
         uint8_t command = COMMAND_PROM_READ | (i << 1);
-        const FSError prom_read_status = write_registers(&command, 1);
+        const FSError prom_read_status = i2c_write_no_reg(I2C_ADDRESS, &command, 1);
         if (prom_read_status != SUCCESS)
         {
             device->is_in_degraded_state;
@@ -229,7 +234,7 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
         }
 
         uint8_t data[2];
-        const FSError data_read_status = read_registers(data, 2);
+        const FSError data_read_status = i2c_read_no_reg(I2C_ADDRESS, data, 2);
         if (data_read_status != SUCCESS)
         {
             device->is_in_degraded_state;
@@ -293,9 +298,10 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
     device->state = STATE_CONVERTING_TEMPERATURE;
 
     // Initialization succeeded
-    return result;
+    return SUCCESS;
 }
 
+// TODO remove goto
 /* Process to read and convert pressure and temperature */
 FSError fc_ms5607_process(
     struct fc_ms5607 *device,

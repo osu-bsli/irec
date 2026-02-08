@@ -21,12 +21,24 @@ enum StatusFlags {
     STATUS_FLAGS_MS5607_DEGRADED = 1 << 7,
 };
 
+enum RocketState {
+    ROCKET_PREFLIGHT,
+    ROCKET_TAKEOFF,
+    ROCKET_CRUISE,
+    ROCKET_APOGEE,
+    ROCKET_FREEFALL,
+    ROCKET_DROGUE,
+    ROCKET_LAND,
+    ROCKET_ERROR,
+}
+
 struct __attribute__((packed)) telemetry_packet {
     char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
 
     uint8_t status_flags; // StatusFlags bitfield
+    uint8_t rocket_flags;
     uint32_t time_boot_ms; // Timestamp (ms since system boot)
     float pitch; // Fused sensor data (unit: Euler angle deg)
     float yaw;   // Fused sensor data (unit: Euler angle deg)

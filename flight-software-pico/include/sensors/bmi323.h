@@ -2,7 +2,8 @@
  * bmi323.h
  *
  *  Created on: Nov 12, 2023
- *      Author: user
+ * @authors
+ * - BSLI
  */
 
 #pragma once

@@ -7,11 +7,13 @@
  * - Dawn Goorskey
  * - Hana Winchester
  * - Brian Jia
+ * - Diego Noria
  */
 #include "sensors/bmi323.h"
 #include <assert.h>
 #include <Wire.h>
 #include <HardwareSerial.h>
+#include <error.h>
 
 /* sensor configuration
  * - Accelerometer range: +/- 4 g       (max).
@@ -124,12 +126,12 @@ static FSError read_registers(
     Wire.write(reg);
     if (Wire.endTransmission() != 0)
     {
-        result = FAILURE;
+        result = I2C_REGISTER_READ_FAILURE;
     }
 
     if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
     {
-        result = FAILURE;
+        result = I2C_REGISTER_READ_FAILURE;
     }
     Wire.readBytes(data, length);
 
@@ -152,7 +154,7 @@ static FSError write_registers(
     Wire.write(data, length);
 
     if (Wire.endTransmission()) {
-        result = FAILURE;
+        result = I2C_REGISTER_WRITE_FAILURE;
     }
 
     return result;
@@ -177,14 +179,13 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (chip_id_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = chip_id_status;
+        return BMI323_CHIP_ID_READ_FAILURE;
     }
 
     if ((chip_id_value[1] & 0xFF) != 0x43u)
     {
-        Serial.printf("bmi323: device ID does not match expected\n");
         bmi323->is_in_degraded_state = true;
-        result = FAILURE;
+        return BMI323_CHIP_ID_MISMATCH;
     }
 
     /* check ERR_REG before enabling sensors (datasheet pg. 67) */
@@ -193,13 +194,13 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (err_reg_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = err_reg_status;
+        return BMI323_ERROR_REGISTER_READ_FAILURE;
     }
 
     if (err_value[1])
     {
-        result = FAILURE;
         bmi323->is_in_degraded_state = true;
+        return BMI323_STATUS_FAILURE;
     }
 
     /* check STATUS */
@@ -208,7 +209,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = status;
+        return BMI323_STATUS_FAILURE;
     }
 
     // The BMI323 doesn't reset when the STM32 does, so the powerup flag may not always be set
@@ -220,7 +221,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (conf_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = conf_status;
+        return BMI323_CONFIGURATION_FAILURE;
     }
 
     /* =================================================================================== */
@@ -237,7 +238,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = acc_conf_status;
+        return BMI323_ACC_CONF_READ_FAILURE;
     }
 
     /* ACC_CONF.acc_mode =    0b111  for normal power mode (datasheet pg. 22)
@@ -262,7 +263,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = acc_conf_status;
+        return BMI323_ACC_CONF_WRITE_FAILURE;
     }
 
     /* =================================================================================== */
@@ -279,7 +280,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (gyro_conf_read_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = gyro_conf_read_status;
+        return BMI323_GYRO_CONF_READ_FAILURE;
     }
 
     /* GYR_CONF.gyr_mode =    0b111  for normal power mode (datasheet pg. 22)
@@ -306,7 +307,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (gyro_conf_write_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = GYRO_CONF_WRITE_FAILURE;
+        return BMI323_GYRO_CONF_WRITE_FAILURE;
     }
 
     // TODO: Double check these
@@ -320,10 +321,10 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     if (int_map2_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = int_map2_status;
+        return BMI323_INT_MAP_WRITE_FAILURE;
     }
 
-    return result;
+    return SUCCESS;
 }
 
 FSError fc_bmi323_process(
@@ -339,19 +340,17 @@ FSError fc_bmi323_process(
     //
     // TODO: Also think about using actual GPIO interrupts to handle data ready.
 
-    FSError result;
-
     int16_t sensor_data[8]; // dummy, 3-axis accel, 3-axis gyro, temp
-    FSError acc_datax_status = read_registers(
+    FSError datax_status = read_registers(
         bmi323,
         REGISTER_ACC_DATA_X,
         (uint8_t *)sensor_data,
         sizeof(sensor_data)
         );
-    if (acc_datax_status != SUCCESS)
+    if (datax_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        result = acc_datax_status;
+        return BMI323_DATAX_READ_FAILURE;
     }
 
     // multiplier to convert an int16_t to the sensor range
@@ -369,5 +368,5 @@ FSError fc_bmi323_process(
 
     data->kernel_timestamp = xTaskGetTickCount();
 
-    return result;
+    return SUCCESS;
 }

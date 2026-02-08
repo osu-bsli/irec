@@ -7,11 +7,13 @@
  * - Dawn Goorskey
  * - Hana Winchester
  * - Brian Jia
+ * - Diego Noria
  */
 
 #include "sensors/adxl375.h"
 #include <HardwareSerial.h>
-#include <Wire.h>
+#include <i2c.h>
+#include <error.h>
 #include <sensors/sensor_registers.h>
 
 /*
@@ -67,45 +69,42 @@
  * and it is obvious what they do.
  */
 
-static FSError read_registers(
-  uint8_t reg,
-  uint8_t *data,
-  uint8_t length
-){
-FSError result = SUCCESS;
-
-  Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-  Wire.write(reg);
-  if (Wire.endTransmission() != 0)
-  {
-    result = FAILURE;
-  }
-
-  if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
-  {
-    result = FAILURE;
-  }
-  Wire.readBytes(data, length);
-
-  return result;
-}
-
-static FSError write_registers(
-  uint8_t reg,
-  uint8_t *data,
-  uint8_t length
-){
-  FSError result = SUCCESS;
-  Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-  Wire.write(reg);
-  Wire.write(data, length);
-
-  if (Wire.endTransmission()) {
-    result = FAILURE;
-  }
-
-  return result;
-}
+//static FSError read_registers(
+//  uint8_t reg,
+//  uint8_t *data,
+//  uint8_t length
+//){
+//  Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+//  Wire.write(reg);
+//  if (Wire.endTransmission() != 0)
+//  {
+//    return I2C_REGISTER_READ_FAILURE;
+//  }
+//
+//  if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+//  {
+//    return I2C_REGISTER_READ_FAILURE;
+//  }
+//  Wire.readBytes(data, length);
+//
+//  return SUCCESS;
+//}
+//
+//static FSError write_registers(
+//  uint8_t reg,
+//  uint8_t *data,
+//  uint8_t length
+//){
+//  Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+//  Wire.write(reg);
+//  Wire.write(data, length);
+//
+//  if (Wire.endTransmission()) {
+//    return I2C_REGISTER_WRITE_FAILURE;
+//  }
+//
+//  return SUCCESS;
+//}
 
 static FSError is_data_ready(
   struct fc_adxl375 *device,
@@ -115,7 +114,7 @@ static FSError is_data_ready(
   uint8_t interrupt_data;
 
   /* read INT_SOURCE bits (pg. 23) */
-  FSError status = read_register(
+  FSError status = i2c_read(
       I2C_ADDRESS,
       REGISTER_INT_SOURCE,
       &interrupt_data,
@@ -124,7 +123,7 @@ static FSError is_data_ready(
 
   if (status != SUCCESS)
   {
-    result = FAILURE;
+    result = ADXL375_DATA_READY_READ_FAILURE;
   } else {
     /* ============================= */
     /* DATA_READY is bit D7 (pg. 23) */
@@ -145,7 +144,7 @@ static FSError is_data_ready(
     }
   }
 
-  return result;
+  return SUCCESS;
 }
 
 /*
@@ -157,48 +156,66 @@ FSError fc_adxl375_initialize(struct fc_adxl375 *device)
   /* reset struct */
   device->is_in_degraded_state = false;
 
-  FSError result;
   uint8_t data;
 
   /* Check that device ID is correct */
-  FSError device_id_check_status = read_registers(REGISTER_DEVID, &data, sizeof(data));
+  FSError device_id_check_status = i2c_read(
+    I2C_ADDRESS,
+    REGISTER_DEVID,
+    &data,
+    sizeof(data)
+    );
   if (device_id_check_status != SUCCESS) {
     device->is_in_degraded_state = true;
-    result = device_id_check_status;
+    return ADXL375_DEVICE_ID_READ_FAILURE;
   }
   if (data != DEVICE_ID) {
-    Serial.printf("adxl375: device ID does not match (expected: %d, got: %d)\n", DEVICE_ID, data);
-    result = FAILURE;
+    //Serial.printf("adxl375: device ID does not match (expected: %d, got: %d)\n\r", DEVICE_ID, data);
     device->is_in_degraded_state = true;
+    return ADXL375_DEVICE_ID_MISMATCH;
   }
 
   /* Set measure bit in POWER_CTL register (pg. 22) */
   data = 0b00001000;
-  FSError power_control_status = write_registers(REGISTER_POWER_CTL, &data, sizeof(data));
+  FSError power_control_status = i2c_write(
+    I2C_ADDRESS,
+    REGISTER_POWER_CTL,
+    &data,
+    sizeof(data)
+    );
   if (power_control_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    result = power_control_status;
+    return ADXL375_POWER_CONTROL_WRITE_FAILURE;
   }
 
   data = 0b00001011;
-  FSError data_format_status = write_registers(REGISTER_DATA_FORMAT, &data, sizeof(data));
+  FSError data_format_status = i2c_write(
+    I2C_ADDRESS,
+    REGISTER_DATA_FORMAT,
+    &data,
+    sizeof(data)
+    );
   if (data_format_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    result = data_format_status;
+    return ADXL375_REQUEST_DATA_FORMAT_FAILURE;
   }
 
   data = REGISTER_BW_RATE_100HZ; // disable low power, 100 Hz
-  FSError bw_rate_status = write_registers(REGISTER_BW_RATE, &data, sizeof(data));
+  FSError bw_rate_status = i2c_write(
+    I2C_ADDRESS,
+    REGISTER_BW_RATE,
+    &data,
+    sizeof(data)
+    );
   if (bw_rate_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    result = bw_rate_status;
+    return ADXL375_WRITE_BW_RATE_FAILURE;
   }
 
-
-  return result;
+  return SUCCESS;
 }
 
 FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *data)
@@ -212,7 +229,8 @@ FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *da
   uint8_t raw_accel_data[6]; /* DATAX0, X1, Y0, Y1, Z0, and Z1 registers (pg. 24) */
 
   /* start i2c read */
-  FSError register_read_status = read_registers(
+  FSError register_read_status = i2c_read(
+      I2C_ADDRESS,
       REGISTER_DATAX0,
       raw_accel_data,
       sizeof(raw_accel_data)
@@ -220,39 +238,39 @@ FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *da
   if (register_read_status != SUCCESS)
   {
     device->is_in_degraded_state = true;
-    result = register_read_status;
-  } else {
-    /* ===================================== */
-    /* convert bytes to signed 16-bit values */
-    /* ===================================== */
-
-    /* Little endian (pg. 24) */
-    int16_t raw_acceleration_x = (raw_accel_data[1] << 8) | raw_accel_data[0];
-    int16_t raw_acceleration_y = (raw_accel_data[3] << 8) | raw_accel_data[2];
-    int16_t raw_acceleration_z = (raw_accel_data[5] << 8) | raw_accel_data[4];
-
-    /* ============================================ */
-    /* convert raw data to actual acceleration data */
-    /* ============================================ */
-
-    float scale = 0.049; // (pg. 3) 49 mg/LSB
-    data->accel_x = scale * (float)raw_acceleration_x;
-    data->accel_y = scale * (float)raw_acceleration_y;
-    data->accel_z = scale * (float)raw_acceleration_z;
-
-    /* TODO: Is the ADXL375 on the 24-F01-001 FC damaged????? Readings seem VERY off */
-    /* TODO: Maybe I just need to calibrate the accel lmao */
-    /* TODO: Yeah it's a high-G accel it needs careful calibration */
-    /* TODO: Calibrate the ADXL375 and add code to write the calibration values to the sensor on startup */
-    char buf[64];
-    // Serial.printf("adxl375: process\n");
-    // sprintf(buf, "%f", device->acceleration_x);
-    // Serial.printf("adxl375: accel x: %s\n", buf);
-    // sprintf(buf, "%f", device->acceleration_y);
-    // Serial.printf("adxl375: accel y: %s\n", buf);
-    // sprintf(buf, "%f", device->acceleration_z);
-    // Serial.printf("adxl375: accel z: %s\n", buf);
+    return ADXL375_READ_ACCELERATION_FAILURE;
   }
 
-  return result;
+  /* ===================================== */
+  /* convert bytes to signed 16-bit values */
+  /* ===================================== */
+
+  /* Little endian (pg. 24) */
+  int16_t raw_acceleration_x = (raw_accel_data[1] << 8) | raw_accel_data[0];
+  int16_t raw_acceleration_y = (raw_accel_data[3] << 8) | raw_accel_data[2];
+  int16_t raw_acceleration_z = (raw_accel_data[5] << 8) | raw_accel_data[4];
+
+  /* ============================================ */
+  /* convert raw data to actual acceleration data */
+  /* ============================================ */
+
+  float scale = 0.049; // (pg. 3) 49 mg/LSB
+  data->accel_x = scale * (float)raw_acceleration_x;
+  data->accel_y = scale * (float)raw_acceleration_y;
+  data->accel_z = scale * (float)raw_acceleration_z;
+
+  /* TODO: Is the ADXL375 on the 24-F01-001 FC damaged????? Readings seem VERY off */
+  /* TODO: Maybe I just need to calibrate the accel lmao */
+  /* TODO: Yeah it's a high-G accel it needs careful calibration */
+  /* TODO: Calibrate the ADXL375 and add code to write the calibration values to the sensor on startup */
+  char buf[64];
+  // Serial.printf("adxl375: process\n");
+  // sprintf(buf, "%f", device->acceleration_x);
+  // Serial.printf("adxl375: accel x: %s\n", buf);
+  // sprintf(buf, "%f", device->acceleration_y);
+  // Serial.printf("adxl375: accel y: %s\n", buf);
+  // sprintf(buf, "%f", device->acceleration_z);
+  // Serial.printf("adxl375: accel z: %s\n", buf);
+  
+  return SUCCESS;
 }

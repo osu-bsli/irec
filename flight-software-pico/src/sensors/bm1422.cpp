@@ -1,11 +1,17 @@
-/*
- * fc_bm1422.c
+/**
+ * bm1422.c
  *
- *  Created on: Jan 22, 2025
- *      Author: bsli
+ * BM1422AGMV 3-Axis Digital Magnetometer IC Driver
+ * 
+ * Created on: Jan 22, 2025
+ *
+ * @author:
+ * - BSLI
+ * - Diego Noria
  */
 
 #include "sensors/bm1422.h"
+#include <error.h>
 #include <stdio.h>
 #include <HardwareSerial.h>
 #include <Wire.h>
@@ -42,8 +48,6 @@
 #define REGISTER_GAIN_PARA_X 0x9C // LSB
 #define REGISTER_GAIN_PARA_Y 0x9E // LSB
 
-#define SENSOR_NAME "bm1422"
-
 static FSError read_registers(
 	uint8_t reg,
 	uint8_t *data,
@@ -54,10 +58,10 @@ static FSError read_registers(
 	Wire.write(reg);
 	if (Wire.endTransmission() != 0)
 	{
-		result = FAILURE;
+		result = I2C_REGISTER_READ_FAILURE;
 	} else if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
 	{
-		result = FAILURE;
+		result = I2C_REGISTER_READ_FAILURE;
 	}
 	Wire.readBytes(data, length);
 
@@ -76,7 +80,7 @@ static FSError write_registers(
 	Wire.write(data, length);
 
 	if (Wire.endTransmission()) {
-		result = FAILURE;
+		result = I2C_REGISTER_WRITE_FAILURE;
 	}
 
 	return result;
@@ -94,20 +98,21 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 	/* check that the device id is correct */
 	/* =================================== */
 
-	FSError result = SUCCESS;
 	uint8_t data;
 
+	// WHO AM I
 	const FSError wia_status = read_registers(REGISTER_WIA, &data, 1);
 	if (wia_status != SUCCESS)
 	{
 		device->is_in_degraded_state = true;
-		result = wia_status;
+		return BM1422_WHO_AM_I_READ_FAILURE;
 	}
 	if (data != WHO_AM_I)
 	{
-		Serial.printf(SENSOR_NAME ": WHO_AM_I mismatch: %d\n", data);
-		result = FAILURE;
+		// TODO should incorrect data be outputted??? idk
+		//Serial.printf(SENSOR_NAME ": WHO_AM_I mismatch: %d\n\r", data);
 		device->is_in_degraded_state = true;
+		return BM1422_WHO_AM_I_MISMATCH;
 	}
 
 	// power on
@@ -118,9 +123,8 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 	const FSError cntl1_status = write_registers(REGISTER_CNTL1, &data, 1);
 	if (cntl1_status != SUCCESS)
 	{
-		Serial.printf(SENSOR_NAME ": CNTL1 write failed\n");
 		device->is_in_degraded_state = true;
-		result = cntl1_status;
+		return BM1422_CNTL1_WRITE_FAILURE;
 	}
 
 	// write anything to CNTL4 high byte (0x5D) to set RSTB_LV=1
@@ -128,9 +132,8 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 	const FSError cntl4_status = write_registers(REGISTER_CNTL4_H, &data, 1);
 	if (cntl4_status != SUCCESS)
 	{
-		Serial.printf(SENSOR_NAME ": CNTL4 write failed\n");
 		device->is_in_degraded_state = true;
-		result = cntl4_status;
+		return BM1422_CNTL4_WRITE_FAILURE;
 	}
 
 	// FORCE (bit 6) = 1 in CNTL3 to start measurements
@@ -138,17 +141,15 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 	const FSError cntl3_status = write_registers(REGISTER_CNTL3, &data, 1);
 	if (cntl3_status != SUCCESS)
 	{
-		Serial.printf(SENSOR_NAME ": CNTL3 write failed\n");
 		device->is_in_degraded_state = true;
-		result = cntl3_status;
+		return BM1422_CNTL3_WRITE_FAILURE;
 	}
 
-	return result;
+	return SUCCESS;
 }
 
 FSError fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
 {
-	FSError result = SUCCESS;
 	/* Array for six output data registers (Pg. 12) */
 	uint8_t raw_data[6];
 
@@ -158,11 +159,11 @@ FSError fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
 		raw_data,
 		sizeof(raw_data)
 		);
+
 	if (datax_status != SUCCESS)
 	{
-		Serial.printf(SENSOR_NAME ": read failure\n");
 		device->is_in_degraded_state = true;
-		result = datax_status;
+		return BM1422_DATAX_READ_FAILURE;
 	}
 
 	int16_t raw_magnetic_strength_x = (int16_t)((raw_data[1] << 8) | raw_data[0]);
@@ -184,5 +185,5 @@ FSError fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
 	// snprintf(buf, 64, SENSOR_NAME ": mag z: %f\n", data->magnetic_strength_z);
 	// SEGGER_RTT_WriteString(0, buf);
 
-	return result;
+	return SUCCESS;
 }

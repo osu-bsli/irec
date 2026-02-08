@@ -1,6 +1,8 @@
 /*
  * bm1422.h
  *
+ * Driver for 3-Axis Digital Magnetometer IC
+ * 
  *  Created on: Jan 29, 2025
  *      Author: bsli
  */
