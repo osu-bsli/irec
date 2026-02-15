@@ -69,43 +69,6 @@
  * and it is obvious what they do.
  */
 
-//static FSError read_registers(
-//  uint8_t reg,
-//  uint8_t *data,
-//  uint8_t length
-//){
-//  Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-//  Wire.write(reg);
-//  if (Wire.endTransmission() != 0)
-//  {
-//    return I2C_REGISTER_READ_FAILURE;
-//  }
-//
-//  if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
-//  {
-//    return I2C_REGISTER_READ_FAILURE;
-//  }
-//  Wire.readBytes(data, length);
-//
-//  return SUCCESS;
-//}
-//
-//static FSError write_registers(
-//  uint8_t reg,
-//  uint8_t *data,
-//  uint8_t length
-//){
-//  Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-//  Wire.write(reg);
-//  Wire.write(data, length);
-//
-//  if (Wire.endTransmission()) {
-//    return I2C_REGISTER_WRITE_FAILURE;
-//  }
-//
-//  return SUCCESS;
-//}
-
 static FSError is_data_ready(
   struct fc_adxl375 *device,
   int *isready

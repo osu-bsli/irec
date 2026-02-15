@@ -30,7 +30,7 @@ enum RocketState {
     ROCKET_DROGUE,
     ROCKET_LAND,
     ROCKET_ERROR,
-}
+};
 
 struct __attribute__((packed)) telemetry_packet {
     char magic[9]; // 'FUCKPETER' in ASCII with no null terminator

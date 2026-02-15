@@ -9,28 +9,32 @@
  * - Diego Noria
  */
 
-#include <error.h>
+// C
 #include <stdio.h>
-#include <pico/stdlib.h>
-#include <pico/binary_info.h>
-#include <hardware/i2c.h>
+#include <string>
 
-#include <SPI.h>
-#include <LoRa.h>
-#include <SD.h>
-#include <Wire.h>
-#include <TinyGPS++.h>
-
+// Flight Computer
+#include <error.h>
 #include "AltimeterFilter.h"
 #include "sensors/adxl375.h"
 #include "sensors/bm1422.h"
 #include "sensors/bmi323.h"
 #include "sensors/ms5607.h"
-
 #include "pins.h"
-
 #include "test_data.h"
 #include "telemetry.h"
+
+// Pico
+#include <pico/stdlib.h>
+#include <pico/binary_info.h>
+#include <hardware/i2c.h>
+
+// Arduino
+#include <Servo.h>
+#include <SPI.h>
+#include <LoRa.h>
+#include <SD.h>
+#include <TinyGPS++.h>
 
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
@@ -48,26 +52,33 @@ static struct fc_bm1422 bm1422;
 #define GPSSerial Serial2
 static TinyGPSPlus gps;
 
-/*
+
 static bool sd_card_initialized_success = false;
 
-static fs::File sdcard_and_logging_init()
+static FSError sdcard_and_logging_init(fs::File *fileOut)
 {
 
   // Set up SD card
 
   // TODO: Maybe try re-opening the SD card if it disconnects mid-flight
 
-  pinMode(ACTIVITY_PIN_LED, OUTPUT);
-  if (SD.begin(PIN_SD_CS, SPI, 8000000))
+  //SPI.setMISO(PIN_FS_SPI_MISO);
+  //SPI.setCS(PIN_SD_CS);
+  //SPI.setSCK(PIN_FS_SPI_SCK);
+  //SPI.setMOSI(PIN_FS_SPI_MOSI);
+
+  SPI.begin();
+  pinMode(PIN_ACTIVITY_LED, OUTPUT);
+  if (SD.begin(PIN_SD_CS))//, SPI, 8000000))
   {
     Serial.println("SD card initialized!");
     sd_card_initialized_success = true;
-    digitalWrite(ACTIVITY_PIN_LED, 1);
+    digitalWrite(PIN_ACTIVITY_LED, 1);
   }
   else
   {
-    digitalWrite(ACTIVITY_PIN_LED, 0);
+    digitalWrite(PIN_ACTIVITY_LED, 0);
+    return SD_CARD_INIT_FAILURE;
   }
 
   // Find a %d filename that is free to use
@@ -80,7 +91,7 @@ static fs::File sdcard_and_logging_init()
   } while (SD.exists(file_name));
 
   // Open the file
-  auto file = SD.open(file_name, FILE_WRITE, true);
+  auto file = SD.open(file_name, FILE_WRITE);
   if (file)
   {
     Serial.print("Opened file \"");
@@ -92,11 +103,13 @@ static fs::File sdcard_and_logging_init()
     Serial.print("Failed to open file \"");
     Serial.print(file_name);
     Serial.println("\" for telemetry logging\n");
+    return SD_CARD_FILE_OPEN_FAILURE;
   }
 
-  return file;
+  *fileOut = file;
+  return SUCCESS;
 }
-*/
+
 
 
 /// Due to the nature of the PICO we can configure
@@ -174,11 +187,12 @@ static FSError sensors_setup()
 }
 
 
-/*void sd_setup()
+void sd_setup()
 {
-  SPI.begin(PIN_SPI_CLK, PIN_SPI_MISO, PIN_SPI_MOSI);
-  log_file = sdcard_and_logging_init();
-}*/
+  // PIN_SPI_CLK, PIN_SPI_MISO, PIN_SPI_MOSI
+  //SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
+  //log_file = sdcard_and_logging_init();
+}
 
 /*
 void lora_and_sd_setup()
@@ -393,18 +407,77 @@ void setup()
 {
   gpio_config();
 
+  fs::File file;
+  FSError sd_card_status = sdcard_and_logging_init(&file);
+  FSError sensor_status = sensors_setup();
+
   Serial.begin(115200);
   Serial.printf("Hello world\n\r");
 
 
   //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
-  //sd_setup();
-  FSError sensor_status = sensors_setup();
-
+ int i = 0;
   while (true) {
-    Serial.printf("sensor initialization status: %s\n\r", FCError__strings[sensor_status]);
+    Serial.printf("%d %s\n\r", i, FCError__strings[sd_card_status]);
+    i += 1;
   }
+
+  // 12 is the minimum tooth
+  const int MAX_AIRBRAKE_ANGLE = 0;
+  // 20 tooth
+  const int MIN_AIRBRAKE_ANGLE = 60;
+
+  // pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
+  // digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
+
+  // Servo servo;
+  // servo.attach(PIN_AIRBRAKES_TX, 900, 2100);
+  // servo.write(0);
+
+  // vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+  // // The main gear of the Rahul airbrakes have 81 or 82 teeth
+  // The black rails have 30 teeth each, but for safety we can
+  // limit our track to 20 teeth of travel
+  //
+  // Our gear ratio with these constraints is ~0.25
+  // 180 / 0.25 = 45
+
+
+  // const int ADC_RESOLUTION_BITS = 12;
+  // const int ADC_STEPS = (1 << int(ADC_RESOLUTION_BITS)) - 1;
+  // const float MAX_EXPECTED_VOLTAGE = 3.3;
+  // const int GAIN = 50;
+  // const float CSENSE_RESISTANCE = 0.01;
+  // analogReadResolution(ADC_RESOLUTION_BITS);
+  //  const int MAX_CYCLE = 155;
+  //  const int MIN_CYCLE = 155;
+  //  int i = MAX_CYCLE;
+  //  while (true) {
+  //    servo.write(i);
+  //    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+
+  //   const int csense_raw = analogRead(A1);//PIN_CSENSE_TO_ADC);
+  //   const float csense_voltage = ((float) csense_raw) / ADC_STEPS * MAX_EXPECTED_VOLTAGE;
+  //   const float servo_current = csense_voltage / CSENSE_RESISTANCE / GAIN;
+  //   //Serial.printf("%d %fV %fA\n\r", csense_raw, csense_voltage, servo_current);
+  //   if (servo_current > 1.8) {
+  //     digitalWrite(PIN_ENABLE_AIRBRAKES, LOW);
+  //   }
+
+  //    i -= 5;
+  //    if (i == MIN_CYCLE) {
+  //      i = MAX_CYCLE;
+  //      digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
+  //    }
+  //    Serial.printf("%d\r\n", i);
+  //  }
+
+  // //while (true) {
+  //   Serial.printf("sensor initialization status: %s\n\r", FCError__strings[sensor_status]);
+  // }
 
   //data_log_loop(); 
 }
