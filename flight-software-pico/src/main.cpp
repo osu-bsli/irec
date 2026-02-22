@@ -35,6 +35,10 @@
 #include <LoRa.h>
 #include <SD.h>
 #include <TinyGPS++.h>
+#include <Wire.h>
+
+// Adafruit
+#include <Adafruit_ADS1X15.h>
 
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
@@ -407,26 +411,37 @@ void setup()
 {
   gpio_config();
 
-  fs::File file;
-  FSError sd_card_status = sdcard_and_logging_init(&file);
-  FSError sensor_status = sensors_setup();
+  //fs::File file;
+  //FSError sd_card_status = sdcard_and_logging_init(&file);
+  //FSError sensor_status = sensors_setup();
 
   Serial.begin(115200);
   Serial.printf("Hello world\n\r");
 
+  // Pressure Transducer read code
+  Adafruit_ADS1115 pt_ads;
+  pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
+
+
+  //while (true) {
+  //  uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
+  //  float pt_volts = pt_ads.computeVolts(adc0);
+  //  Serial.printf("AIN0: raw: %u %fV\n\r", adc0, pt_volts);
+  //}
+
 
   //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
- int i = 0;
-  while (true) {
-    Serial.printf("%d %s\n\r", i, FCError__strings[sd_card_status]);
-    i += 1;
-  }
+  //int i = 0;
+  //while (true) {
+  //  Serial.printf("%d %s\n\r", i, FCError__strings[sd_card_status]);
+  //  i += 1;
+  //}
 
-  // 12 is the minimum tooth
-  const int MAX_AIRBRAKE_ANGLE = 0;
-  // 20 tooth
-  const int MIN_AIRBRAKE_ANGLE = 60;
+  //// 12 is the minimum tooth
+  //const int MAX_AIRBRAKE_ANGLE = 0;
+  //// 20 tooth
+  //const int MIN_AIRBRAKE_ANGLE = 60;
 
   // pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
   // digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
