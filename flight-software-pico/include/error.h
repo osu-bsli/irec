@@ -61,7 +61,8 @@
   C(READ_PRESSURE_DATA_FAILURE) \
   C(SENSOR_INITIALIZATION_FAILURE) \
   C(SD_CARD_INIT_FAILURE) \
-  C(SD_CARD_FILE_OPEN_FAILURE)
+  C(SD_CARD_FILE_OPEN_FAILURE) \
+  C(FS_NOT_FOUND)
 // Regular error
 #define C(x) x,
 // Error with specific number code

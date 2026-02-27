@@ -57,8 +57,10 @@ static struct fc_bm1422 bm1422;
 static TinyGPSPlus gps;
 
 
-static bool sd_card_initialized_success = false;
+//static bool sd_card_initialized_success = false;
 
+// TODO explicitly pass in the SPI bus
+/// Initialize state for writing to the SD card
 static FSError sdcard_and_logging_init(fs::File *fileOut)
 {
 
@@ -66,23 +68,35 @@ static FSError sdcard_and_logging_init(fs::File *fileOut)
 
   // TODO: Maybe try re-opening the SD card if it disconnects mid-flight
 
-  //SPI.setMISO(PIN_FS_SPI_MISO);
-  //SPI.setCS(PIN_SD_CS);
-  //SPI.setSCK(PIN_FS_SPI_SCK);
-  //SPI.setMOSI(PIN_FS_SPI_MOSI);
+  SPI1.setMISO(PIN_FS_SPI_MISO);
+  SPI1.setMOSI(PIN_FS_SPI_MOSI);
+  ////SPI.setCS(PIN_SD_CS);
+  SPI1.setSCK(PIN_FS_SPI_SCK);
 
-  SPI.begin();
-  pinMode(PIN_ACTIVITY_LED, OUTPUT);
-  if (SD.begin(PIN_SD_CS))//, SPI, 8000000))
+  if (!SD.begin(PIN_SD_CS))
   {
-    Serial.println("SD card initialized!");
-    sd_card_initialized_success = true;
-    digitalWrite(PIN_ACTIVITY_LED, 1);
+    Serial.printf("SD card initialized\n\r");
   }
   else
   {
-    digitalWrite(PIN_ACTIVITY_LED, 0);
     return SD_CARD_INIT_FAILURE;
+  }
+
+  //Open root
+
+  auto root_file = SD.open("/");
+  if (!root_file) {
+    return FS_NOT_FOUND;
+  }
+  
+  bool finished_directory = false;
+  while (!finished_directory) {
+    File entry = root_file.openNextFile();
+    if (!entry) {
+      finished_directory = true;
+    } else {
+      Serial.printf("\t%s\n\r", entry.name());
+    }
   }
 
   // Find a %d filename that is free to use
@@ -148,7 +162,7 @@ static FSError sensors_setup()
 
   bool retry = false;
   int num_retries = 0;
-  const int MAX_RETRIES = 50;
+  const int MAX_RETRIES = 10;
 
   do
   {
@@ -411,23 +425,37 @@ void setup()
 {
   gpio_config();
 
-  //fs::File file;
-  //FSError sd_card_status = sdcard_and_logging_init(&file);
-  //FSError sensor_status = sensors_setup();
-
   Serial.begin(115200);
   Serial.printf("Hello world\n\r");
+
+  //fs::File file;
+  //FSError sd_card_status = sdcard_and_logging_init(&file);
+  //if (sd_card_status != SUCCESS) {
+    //// TODO handle sd card failure
+  //}
+  //FSError sensor_status = sensors_setup();
+  //if (sensor_status != SUCCESS) {
+    //// TODO handle sensor init failure
+  //}
 
   // Pressure Transducer read code
   Adafruit_ADS1115 pt_ads;
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
 
+  //static const uint8_t log_packet[] = "CHICKEN_BUTT";
+
+  //file.write((uint8_t*) &log_packet, sizeof(log_packet));
+  //file.flush();
 
   //while (true) {
-  //  uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
-  //  float pt_volts = pt_ads.computeVolts(adc0);
-  //  Serial.printf("AIN0: raw: %u %fV\n\r", adc0, pt_volts);
+    //Serial.printf("SUCCESS!?!??\n\r");
   //}
+
+  while (true) {
+    uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
+    float pt_volts = pt_ads.computeVolts(adc0);
+    Serial.printf("AIN0: raw: %u %fV\n\r", adc0, pt_volts);
+  }
 
 
   //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
@@ -489,12 +517,6 @@ void setup()
   //    }
   //    Serial.printf("%d\r\n", i);
   //  }
-
-  // //while (true) {
-  //   Serial.printf("sensor initialization status: %s\n\r", FCError__strings[sensor_status]);
-  // }
-
-  //data_log_loop(); 
 }
 
 void loop()

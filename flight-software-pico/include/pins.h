@@ -6,9 +6,9 @@
 #define PIN_GPS_TX 47
 
 #define PIN_SD_CS 9
-#define PIN_FS_SPI_MISO 11
-#define PIN_FS_SPI_MOSI 12
 #define PIN_FS_SPI_SCK 10
+#define PIN_FS_SPI_MOSI 11
+#define PIN_FS_SPI_MISO 12
 
 // Airbrake servo pin
 #define PIN_ENABLE_AIRBRAKES 8
