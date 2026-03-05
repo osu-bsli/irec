@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <RH_RF95.h>
 #include <SPI.h>
+#include <SD.h>
 
 /************ Radio Setup ***************/
 
@@ -10,8 +11,29 @@
 #define RFM95_CS   5
 #define RFM95_INT  0
 #define RFM95_RST  6
+#define BrianTag "[KF8EBM] "
 
-#define BrianTag "KF8EBM "
+// splitting a string and return the part nr index split by separator
+String getStringPartByNr(String data, char separator, int index) {
+    int stringData = 0;        //variable to count data part nr 
+    String dataPart = "";      //variable to hole the return text
+
+    for(int i = 0; i<data.length()-1; i++) {    //Walk through the text one letter at a time
+        if(data[i]==separator) {
+            //Count the number of times separator character appears in the text
+            stringData++;
+        } else if(stringData==index) {
+            //get the text when separator is the rignt one
+            dataPart.concat(data[i]);
+        } else if(stringData>index) {
+            //return text and stop if the next separator appears - to save CPU-time
+            return dataPart;
+            break;
+        }
+    }
+    //return text if this is the last part
+    return dataPart;
+}
 
 struct __attribute__((packed)) telemetry_packet {
     char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
@@ -27,10 +49,9 @@ struct __attribute__((packed)) telemetry_packet {
     float ms5607_pressure_mbar; // Pressure (unit: mbar)
 };
 
-// // Singleton instance of the radio driver
-// RH_RF95 rf95(RFM95_CS, RFM95_INT);
-
 int16_t packetnum = 0;  // packet counter, we increment per xmission
+
+File FlightData;
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
@@ -38,15 +59,16 @@ void setup() {
   delay(3000);
   Serial.begin(9600);
   //while (!Serial) delay(1); // Wait for Serial Console (comment out line if no computer)
-  Serial.printf("hello");
-
-  Serial.println("setup spi");
+  
   SPI.setRX(4);
   SPI.setTX(3);
   SPI.setSCK(2);
   SPI.begin();
-  Serial.println("done with spi");
 
+  SPI1.setRX(12);
+  SPI1.setTX(11);
+  SPI1.setSCK(10);
+  SPI1.begin();
 
   // Singleton instance of the radio driver
 
@@ -65,7 +87,7 @@ void setup() {
   if (!rf95.init()) {
     Serial.println("RFM95 radio init failed");
     while (1) {
-      Serial.println("help");
+      Serial.println("RFM95 radio init failed - power cycle please");
       delay(1000);
     }
   }
@@ -86,10 +108,20 @@ void setup() {
   // rf95.setEncryptionKey(key);
 
   Serial.print("RFM95 radio @");  Serial.print((int)RF95_FREQ);  Serial.println(" MHz");
+
+  Serial.println("Connecting to SD card via SPI...");
+  if(!SD.begin(9,SPI_HALF_SPEED,SPI1)) {
+    Serial.println("Failed to connect to SD card");
+  }
+  else {
+    Serial.println("Successfully connected to SD card");
+    Serial.println("SD initialized.");
+    SD.mkdir("");
+  }
 }
 
 void loop() {
-  // 1. LISTEN for incoming LoRa transmissions
+
   if (rf95.available()) {
     uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
     uint8_t len = sizeof(buf);
@@ -99,24 +131,10 @@ void loop() {
       Serial.print(rf95.lastRssi());
       Serial.print("]: ");
       Serial.println((char*)buf);
+      
     } else {
       Serial.println("Receive failed");
     }
   }
 
-  // 2. CHECK Serial Monitor for outgoing text
-  if (Serial.available() > 0) {
-    // Read the string until newline
-    String input = BrianTag + Serial.readStringUntil('\n');
-    input.trim(); // Remove any stray whitespace/carriage returns
-
-    if (input.length() > 0) {
-      Serial.print("Sending: ");
-      Serial.println(input);
-      
-      // Convert String to uint8_t array and send
-      rf95.send((uint8_t *)input.c_str(), input.length() + 1);
-      rf95.waitPacketSent();
-    }
-  }
 }
