@@ -36,9 +36,13 @@
 #include <SD.h>
 #include <TinyGPS++.h>
 #include <Wire.h>
+#include <SPI.h>
 
 // Adafruit
 #include <Adafruit_ADS1X15.h>
+
+// Flash
+#include <WinbondW25N.h>
 
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
@@ -98,6 +102,8 @@ static FSError sdcard_and_logging_init(fs::File *fileOut)
       Serial.printf("\t%s\n\r", entry.name());
     }
   }
+
+  return SUCCESS;
 
   // Find a %d filename that is free to use
   char file_name[16];
@@ -167,7 +173,7 @@ static FSError sensors_setup()
   do
   {
     if (result != SUCCESS) {
-      Serial.printf("[Error] %i/50 Retrying to initialize sensors...\n\r", num_retries + 1);
+      Serial.printf("[Error] %i/10 Retrying to initialize sensors...\n\r", num_retries + 1);
       num_retries += 1;
     }
 
@@ -428,11 +434,29 @@ void setup()
   Serial.begin(115200);
   Serial.printf("Hello world\n\r");
 
-  //fs::File file;
-  //FSError sd_card_status = sdcard_and_logging_init(&file);
-  //if (sd_card_status != SUCCESS) {
-    //// TODO handle sd card failure
-  //}
+  // const uint8_t flash_message[] = "I LOVE YURI!!!";
+  // uint8_t flash_buffer[512];
+
+  // // Zero the flash writing buffer
+  // memset(flash_buffer, 0, 512);
+
+  // SPI1.setSCK(PIN_FS_SPI_SCK);
+  // SPI1.setMOSI(PIN_FS_SPI_MOSI);
+  // SPI1.setMISO(PIN_FS_SPI_MISO);
+  // W25N flash;
+  // flash.begin(PIN_FLASH_CS);
+
+  // //flash.
+  // //SPIFlash flash(PIN_FC_CS, &SPI1);
+
+  // fs::File file;
+  // FSError sd_card_status = sdcard_and_logging_init(&file);
+  // if (sd_card_status != SUCCESS) {
+  //   while (true) {
+  //     Serial.printf("%s\n\r", FCError__strings[sd_card_status]);
+  //   }
+  //   // TODO handle sd card failure
+  // }
   //FSError sensor_status = sensors_setup();
   //if (sensor_status != SUCCESS) {
     //// TODO handle sensor init failure
@@ -451,10 +475,11 @@ void setup()
     //Serial.printf("SUCCESS!?!??\n\r");
   //}
 
+  // Print PT ADC
   while (true) {
     uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
     float pt_volts = pt_ads.computeVolts(adc0);
-    Serial.printf("AIN0: raw: %u %fV\n\r", adc0, pt_volts);
+    Serial.printf("%u,%fV\n\r", pdMS_TO_TICKS(xTaskGetTickCount()), pt_volts);
   }
 
 

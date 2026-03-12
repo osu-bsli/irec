@@ -5,6 +5,7 @@
 #define PIN_GPS_RX 48
 #define PIN_GPS_TX 47
 
+#define PIN_FLASH_CS 13
 #define PIN_SD_CS 9
 #define PIN_FS_SPI_SCK 10
 #define PIN_FS_SPI_MOSI 11
