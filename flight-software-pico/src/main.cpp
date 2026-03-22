@@ -23,6 +23,7 @@
 #include "pins.h"
 #include "test_data.h"
 #include "telemetry.h"
+#include <error.h>
 
 // Pico
 #include <pico/stdlib.h>
@@ -47,6 +48,9 @@
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
 #define LOG_INTERVAL_MS 10
+#define MAX_SERVO_CURRENT_AMPS 1.8
+
+#define ADC_RESOLUTION_BITS 12
 
 const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
 
@@ -151,14 +155,6 @@ static void gpio_config() {
   gpio_pull_up(PIN_I2C0_SCL);
 
   bi_decl(bi_2pins_with_func(PIN_I2C0_SDA, PIN_I2C0_SCL, GPIO_FUNC_I2C));
-
-  i2c_init(i2c1, I2C_PRESSURE_TRANSDUCER_FREQUENCY);
-  gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
-  gpio_pull_up(PIN_I2C1_SDA);
-  gpio_pull_up(PIN_I2C1_SCL);
-
-  bi_decl(bi_2pins_with_func(PIN_I2C1_SDA, PIN_I2C1_SCL, GPIO_FUNC_I2C));
 }
 
 static FSError sensors_setup()
@@ -168,38 +164,38 @@ static FSError sensors_setup()
 
   bool retry = false;
   int num_retries = 0;
-  const int MAX_RETRIES = 10;
+  const int MAX_RETRIES = 0;
 
   do
   {
     if (result != SUCCESS) {
-      Serial.printf("[Error] %i/10 Retrying to initialize sensors...\n\r", num_retries + 1);
+      Serial.printf("[Error] %i/%d Retrying to initialize sensors...\n\r", MAX_RETRIES, num_retries + 1);
       num_retries += 1;
     }
 
     result = SUCCESS;
 
-    //const FSError bm1422_status = fc_bm1422_initialize(&bm1422);
+    // const FSError bm1422_status = fc_bm1422_initialize(&bm1422);
     const FSError adxl375_status = fc_adxl375_initialize(&adxl375);
-    //const FSError bmi323_status = fc_bmi323_initialize(&bmi323);
+    const FSError bmi323_status = fc_bmi323_initialize(&bmi323);
     const FSError ms5607_status = fc_ms5607_initialize(&ms5607);
 
-    //Serial.printf("[Info] bm1422 status: %s\n\r", FCError__strings[bm1422_status]);
+    // Serial.printf("[Info] bm1422 status: %s\n\r", FCError__strings[bm1422_status]);
     Serial.printf("[Info] adxl375 status: %s\n\r", FCError__strings[adxl375_status]);
-    //Serial.printf("[Info] bmi323 status: %s\n\r", FCError__strings[bmi323_status]);
+    Serial.printf("[Info] bmi323 status: %s\n\r", FCError__strings[bmi323_status]);
     Serial.printf("[Info] ms5607 status: %s\n\r", FCError__strings[ms5607_status]);
 
-    //if (bm1422_status != SUCCESS) {
-    //  result = bm1422_status;
-    //}
+    // if (bm1422_status != SUCCESS) {
+     // result = bm1422_status;
+    // }
 
     if (adxl375_status != SUCCESS) {
       result = adxl375_status;
     }
 
-    //if (bmi323_status != SUCCESS) {
-    //  result = bmi323_status;
-    //}
+    if (bmi323_status != SUCCESS) {
+     result = bmi323_status;
+    }
 
     if (ms5607_status != SUCCESS) {
       result = ms5607_status;
@@ -248,108 +244,81 @@ void lora_and_sd_setup()
 }
 */
 
-/*
-void data_log_loop()
+void print_log_packet(struct log_packet_v3 *p) {
+  const uint8_t status_flags = *(&(p->status_flags)+1);
+  Serial.printf(
+    "magic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %x\n\rstatus flags: %u\n\r",
+    p->magic[0],
+    p->magic[1],
+    p->magic[2],
+    p->magic[3],
+    p->magic[4],
+    p->magic[5],
+    p->magic[6],
+    p->magic[7],
+    p->magic[8],
+    p->magic[9],
+    p->size,
+    p->crc16,
+    sizeof(p->status_flags)
+  );
+}
+
+/// Write log packet to SD Card
+void log_data(
+  struct log_packet_v3 *log_p
+)
 {
-  TickType_t time = 0;
-  Serial.println("Beginning data logging...");
+    // struct fc_bm1422_data bm1422_data;
+    // fc_bm1422_process(&bm1422, &bm1422_data);
 
-  while (true)
-  {
-    // SEGGER_RTT_printf(0, "Sensor time (ms): %d\n", time);
+//  Serial.printf(
+//                "[log packet]\n\rpressure: %f \n\rtemperature: %f\n\r",
+//                log_p.ms5607_pressure_mbar,
+//                log_p.ms5607_temperature_c
+//              );
 
-    int start_ms = xTaskGetTickCount();
-    struct fc_adxl375_data adxl375_data;
-    fc_adxl375_process(&adxl375, &adxl375_data);
+    // while (GPSSerial.available())
+    // {
+    //   gps.encode(GPSSerial.read());
+    // }
 
-    struct fc_bm1422_data bm1422_data;
-    fc_bm1422_process(&bm1422, &bm1422_data);
-
-    struct fc_bmi323_data bmi323_data;
-    fc_bmi323_process(&bmi323, &bmi323_data);
-
-    struct fc_ms5607_data ms5607_data;
-    fc_ms5607_process(&ms5607, &ms5607_data);
-    int elapsed_ms = xTaskGetTickCount() - start_ms;
-
-    // SEGGER_RTT_printf(0, "sensor process time: %d ms\n", elapsed_ms);
-
-    uint8_t status_flags = 0;
-    if (adxl375.is_in_degraded_state)
-      status_flags |= STATUS_FLAGS_ADXL375_DEGRADED;
-    if (bm1422.is_in_degraded_state)
-      status_flags |= STATUS_FLAGS_BM1422_DEGRADED;
-    if (bmi323.is_in_degraded_state)
-      status_flags |= STATUS_FLAGS_BMI323_DEGRADED;
-    if (ms5607.is_in_degraded_state)
-      status_flags |= STATUS_FLAGS_MS5607_DEGRADED;
-
-    struct log_packet_v3 log_p = {
-        .status_flags = status_flags,
-        .time_boot_ms = xTaskGetTickCount(),
-        .ms5607_pressure_mbar = ms5607_data.pressure_mbar,
-        .ms5607_temperature_c = ms5607_data.temperature_c,
-        .bmi323_accel_x = bmi323_data.accel_x,
-        .bmi323_accel_y = bmi323_data.accel_y,
-        .bmi323_accel_z = bmi323_data.accel_z,
-        .bmi323_gyro_x = bmi323_data.gyro_x,
-        .bmi323_gyro_y = bmi323_data.gyro_y,
-        .bmi323_gyro_z = bmi323_data.gyro_z,
-        .adxl375_accel_x = adxl375_data.accel_x,
-        .adxl375_accel_y = adxl375_data.accel_y,
-        .adxl375_accel_z = adxl375_data.accel_z,
-        .bm1422_magn_x = bm1422_data.magn_x,
-        .bm1422_magn_y = bm1422_data.magn_y,
-        .bm1422_magn_z = bm1422_data.magn_z,
-        .gps_lat = NAN,
-        .gps_lng = NAN,
-        .gps_alt = NAN,
-        .gps_speed = NAN,
-        .gps_course = -0x7FFFFFFF,
-        .gps_num_sats = 0xFF
-    };
-
-    while (GPSSerial.available())
-    {
-      gps.encode(GPSSerial.read());
-    }
-
-    if (gps.location.isValid())
-    {
-      log_p.gps_lat = gps.location.lat();
-      log_p.gps_lng = gps.location.lng();
-    }
+    // if (gps.location.isValid())
+    // {
+    //   log_p.gps_lat = gps.location.lat();
+    //   log_p.gps_lng = gps.location.lng();
+    // }
     
-    if (gps.altitude.isValid())
-    {
-      log_p.gps_alt = gps.altitude.meters();
-    }
+    // if (gps.altitude.isValid())
+    // {
+    //   log_p.gps_alt = gps.altitude.meters();
+    // }
     
-    if (gps.speed.isValid())
-    {
-      log_p.gps_speed = gps.speed.value();
-    }
+    // if (gps.speed.isValid())
+    // {
+    //   log_p.gps_speed = gps.speed.value();
+    // }
     
-    if (gps.course.isValid())
-    {
-      log_p.gps_course = gps.course.value();
-    }
+    // if (gps.course.isValid())
+    // {
+    //   log_p.gps_course = gps.course.value();
+    // }
 
-    if (gps.satellites.isValid())
-    {
-      log_p.gps_num_sats = gps.satellites.value();
-    }
+    // if (gps.satellites.isValid())
+    // {
+    //   log_p.gps_num_sats = gps.satellites.value();
+    // }
 
-    log_packet_make_header(&log_p);
-    log_file.write((uint8_t *)&log_p, sizeof(log_p));
-    log_file.flush();
+    // log_packet_make_header(&log_p);
+    // log_file.write((uint8_t *)&log_p, sizeof(log_p));
+    // log_file.flush();
 
-    if (time % 1000 == 0)
-    {
-      if (sd_card_initialized_success)
-      {
-        digitalWrite(ACTIVITY_PIN_LED, !digitalRead(ACTIVITY_PIN_LED));
-      }
+    // if (time % 1000 == 0)
+    // {
+      // if (sd_card_initialized_success)
+      // {
+        // digitalWrite(ACTIVITY_PIN_LED, !digitalRead(ACTIVITY_PIN_LED));
+      // }
       
       //Serial.print("Lat: ");
       //Serial.print(gps.location.lat(), 6);
@@ -361,13 +330,106 @@ void data_log_loop()
       //Serial.print(gps.altitude.meters());
       //Serial.println(" m");
       
-    }
-
-    vTaskDelayUntil(&time, interval_ms);
-  }
+    // }
 }
-*/
 
+/// TODO probably add more sensor state for PT and GPS or something
+/// Produces a bitfield corresponding to which sensors are properly reading data
+uint8_t get_sensor_state() {
+  uint8_t result = 0;
+
+  if (adxl375.is_in_degraded_state)
+  {
+    result |= STATUS_FLAGS_ADXL375_DEGRADED;
+  }
+  if (bm1422.is_in_degraded_state)
+  {
+    result |= STATUS_FLAGS_BM1422_DEGRADED;
+  }
+  if (bmi323.is_in_degraded_state)
+  {
+    result |= STATUS_FLAGS_BMI323_DEGRADED;
+  }
+  if (ms5607.is_in_degraded_state)
+  {
+    result |= STATUS_FLAGS_MS5607_DEGRADED;
+  }
+
+  return result;  
+}
+
+/// Acquires i2c sensor data and updates the provided log packet struct
+/// If an error is encountered reading the data it provides it, but otherwise processes the data
+FSError acquire_sensor_data(
+  struct log_packet_v3 *log_p
+) {
+  struct fc_adxl375_data adxl375_data;
+  const FSError adxl_status = fc_adxl375_process(&adxl375, &adxl375_data);
+
+  if (adxl_status != SUCCESS) {
+    // TODO maybe an error somewhere in the log
+    return adxl_status;
+    // Serial.printf("adxl read error\n\r");
+  }
+
+  // struct fc_bm1422_data bm1422_data;
+  // const FSError bm1422_status = fc_bm1422_process(&bm1422, bm1422_data);
+
+  // if (bm1422_status != SUCCESS) {
+  //   // TODO maybe an error somewhere in the log
+  //   // Serial.printf("bmi323 read error\n\r");
+  //   return bm1422_status;
+  // }
+
+  struct fc_bmi323_data bmi323_data;
+  const FSError bmi323_status = fc_bmi323_process(&bmi323, &bmi323_data);
+
+  if (bmi323_status != SUCCESS) {
+    // TODO maybe an error somewhere in the log
+    // Serial.printf("bmi323 read error\n\r");
+    return bmi323_status;
+  }
+
+  struct fc_ms5607_data ms5607_data;
+  const FSError ms5607_status = fc_ms5607_process(&ms5607, &ms5607_data);
+
+  if (ms5607_status != SUCCESS) {
+    // TODO maybe an error somewhere in the log
+    // Serial.printf("ms5607 read error\n\r");
+    return ms5607_status;
+  }
+
+  return SUCCESS;
+}
+
+void init_airbrakes(Servo *servo) {
+  // Allow current to the air brakes
+  pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
+  digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
+
+  (*servo).attach(PIN_AIRBRAKES_TX, 900, 2100);
+
+  // Current sense setup
+  analogReadResolution(ADC_RESOLUTION_BITS);
+}
+
+FSError servo_overcurrent() {
+  const int ADC_STEPS = (1 << int(ADC_RESOLUTION_BITS)) - 1;
+  const float MAX_EXPECTED_VOLTAGE = 3.3;
+  const int GAIN = 50;
+  const float CSENSE_RESISTANCE = 0.01;
+
+  const int csense_raw = analogRead(PIN_CSENSE);
+  const float csense_voltage = ((float) csense_raw) / ADC_STEPS * MAX_EXPECTED_VOLTAGE;
+  const float servo_current = csense_voltage / CSENSE_RESISTANCE / GAIN;
+  //Serial.printf("%d %fV %fA\n\r", csense_raw, csense_voltage, servo_current);
+  if (servo_current > MAX_SERVO_CURRENT_AMPS) {
+    digitalWrite(PIN_ENABLE_AIRBRAKES, LOW);
+    return SERVO_OVER_CURRENT;
+  }
+  
+  return SUCCESS;
+}
 
 /*
 void gps_test_loop()
@@ -432,7 +494,6 @@ void setup()
   gpio_config();
 
   Serial.begin(115200);
-  Serial.printf("Hello world\n\r");
 
   // const uint8_t flash_message[] = "I LOVE YURI!!!";
   // uint8_t flash_buffer[512];
@@ -457,107 +518,90 @@ void setup()
   //   }
   //   // TODO handle sd card failure
   // }
-  //FSError sensor_status = sensors_setup();
-  //if (sensor_status != SUCCESS) {
-    //// TODO handle sensor init failure
-  //}
 
-  // Pressure Transducer read code
+  // FLIGHT COMPUTER INITIALIZATION  
+
+  // Sensor board
+  FSError sensor_status = sensors_setup();
+  if (sensor_status != SUCCESS) {
+    // TODO handle sensor init failure
+    while (true) {
+      Serial.printf("sensor failure: %s\n\r", FCError__strings[sensor_status]);
+    }
+  }
+
+  // Pressure Transducer
   Adafruit_ADS1115 pt_ads;
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
 
-  //static const uint8_t log_packet[] = "CHICKEN_BUTT";
+  // FLIGHT COMPUTER RUNTIME
 
-  //file.write((uint8_t*) &log_packet, sizeof(log_packet));
-  //file.flush();
+  TickType_t time = 0;
 
-  //while (true) {
-    //Serial.printf("SUCCESS!?!??\n\r");
-  //}
-
-  // Print PT ADC
   while (true) {
-    uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
-    float pt_volts = pt_ads.computeVolts(adc0);
-    Serial.printf("%u,%fV\n\r", pdMS_TO_TICKS(xTaskGetTickCount()), pt_volts);
+    int start_ms = xTaskGetTickCount();
+
+    // Acquire
+
+    struct log_packet_v3 log_p = {
+        .status_flags = get_sensor_state(),
+        .time_boot_ms = xTaskGetTickCount(),
+        .ms5607_pressure_mbar = NAN,
+        .ms5607_temperature_c = NAN,
+        .bmi323_accel_x = NAN,
+        .bmi323_accel_y = NAN,
+        .bmi323_accel_z = NAN,
+        .bmi323_gyro_x = NAN,
+        .bmi323_gyro_y = NAN,
+        .bmi323_gyro_z = NAN,
+        .adxl375_accel_x = NAN,
+        .adxl375_accel_y = NAN,
+        .adxl375_accel_z = NAN,
+        .bm1422_magn_x = NAN,
+        .bm1422_magn_y = NAN,
+        .bm1422_magn_z = NAN,
+        .gps_lat = NAN,
+        .gps_lng = NAN,
+        .gps_alt = NAN,
+        .gps_speed = NAN,
+        .gps_course = -0x7FFFFFFF,
+        .gps_num_sats = 0xFF,
+        .pt_volts = NAN
+    };
+
+    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+
+    const uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
+    log_p.pt_volts = pt_ads.computeVolts(adc0);
+
+    // Produces the CRC make sure this is done last
+    // log_packet_make_header(&log_p);
+
+    int elapsed_ms = xTaskGetTickCount() - start_ms;
+
+    // Validate packet
+
+    // Process
+
+    print_log_packet(&log_p);
+
+    // TODO add air brake deployment etc.
+
+    // Log
+
+    log_data(&log_p);
+
+    vTaskDelayUntil(&time, interval_ms); // TODO make this compensate for the length of the acquire, process, and log sections
+
+    // pdMS_TO_TICKS(xTaskGetTickCount())
+
+    //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+
+    // vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
-
-
-  //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
-
-  //int i = 0;
-  //while (true) {
-  //  Serial.printf("%d %s\n\r", i, FCError__strings[sd_card_status]);
-  //  i += 1;
-  //}
-
-  //// 12 is the minimum tooth
-  //const int MAX_AIRBRAKE_ANGLE = 0;
-  //// 20 tooth
-  //const int MIN_AIRBRAKE_ANGLE = 60;
-
-  // pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
-  // digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
-
-  // Servo servo;
-  // servo.attach(PIN_AIRBRAKES_TX, 900, 2100);
-  // servo.write(0);
-
-  // vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-  // // The main gear of the Rahul airbrakes have 81 or 82 teeth
-  // The black rails have 30 teeth each, but for safety we can
-  // limit our track to 20 teeth of travel
-  //
-  // Our gear ratio with these constraints is ~0.25
-  // 180 / 0.25 = 45
-
-
-  // const int ADC_RESOLUTION_BITS = 12;
-  // const int ADC_STEPS = (1 << int(ADC_RESOLUTION_BITS)) - 1;
-  // const float MAX_EXPECTED_VOLTAGE = 3.3;
-  // const int GAIN = 50;
-  // const float CSENSE_RESISTANCE = 0.01;
-  // analogReadResolution(ADC_RESOLUTION_BITS);
-  //  const int MAX_CYCLE = 155;
-  //  const int MIN_CYCLE = 155;
-  //  int i = MAX_CYCLE;
-  //  while (true) {
-  //    servo.write(i);
-  //    vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-
-  //   const int csense_raw = analogRead(A1);//PIN_CSENSE_TO_ADC);
-  //   const float csense_voltage = ((float) csense_raw) / ADC_STEPS * MAX_EXPECTED_VOLTAGE;
-  //   const float servo_current = csense_voltage / CSENSE_RESISTANCE / GAIN;
-  //   //Serial.printf("%d %fV %fA\n\r", csense_raw, csense_voltage, servo_current);
-  //   if (servo_current > 1.8) {
-  //     digitalWrite(PIN_ENABLE_AIRBRAKES, LOW);
-  //   }
-
-  //    i -= 5;
-  //    if (i == MIN_CYCLE) {
-  //      i = MAX_CYCLE;
-  //      digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
-  //    }
-  //    Serial.printf("%d\r\n", i);
-  //  }
 }
 
 void loop()
 {
-  // ping_servo();
-
-  // while (Serial1.available())
-  // {
-  // slip_read_byte(&slip, Serial1.read());
-  // digitalWrite(PIN_LED, !digitalRead(PIN_LED));
-  // }
-
-  // LoRa.beginPacket();
-  // LoRa.println("KF8EBM Hello World!");
-  // Serial.println("KF8EBM Hello World!");
-  // LoRa.endPacket();
-
   delay(100);
 }

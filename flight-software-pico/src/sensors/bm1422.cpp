@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <HardwareSerial.h>
 #include <Wire.h>
+#include <i2c.h>
 
 /*
  * Header files are for sharing things that other C files need.
@@ -22,7 +23,7 @@
  */
 
 /* I2C constants (Pg. 10) */
-#define I2C_ADDRESS 0x0Eu // There is a low and high address
+#define I2C_ADDRESS 0x7Eu // There is a low and high address
 #define WHO_AM_I 0x41
 
 // Register constants (pg. 10)
@@ -101,11 +102,11 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 	uint8_t data;
 
 	// WHO AM I
-	const FSError wia_status = read_registers(REGISTER_WIA, &data, 1);
+	const FSError wia_status = i2c_read(I2C_ADDRESS, REGISTER_WIA, &data, 1);
 	if (wia_status != SUCCESS)
 	{
 		device->is_in_degraded_state = true;
-		return BM1422_WHO_AM_I_READ_FAILURE;
+		return wia_status;//BM1422_WHO_AM_I_READ_FAILURE;
 	}
 	if (data != WHO_AM_I)
 	{
@@ -120,7 +121,7 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 	// ODR = 100 Hz
 	// continuous sampling mode
 	data = 0b11001000;
-	const FSError cntl1_status = write_registers(REGISTER_CNTL1, &data, 1);
+	const FSError cntl1_status = i2c_write(I2C_ADDRESS, REGISTER_CNTL1, &data, 1);
 	if (cntl1_status != SUCCESS)
 	{
 		device->is_in_degraded_state = true;
@@ -129,7 +130,7 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 
 	// write anything to CNTL4 high byte (0x5D) to set RSTB_LV=1
 	data = 0x00;
-	const FSError cntl4_status = write_registers(REGISTER_CNTL4_H, &data, 1);
+	const FSError cntl4_status = i2c_write(I2C_ADDRESS, REGISTER_CNTL4_H, &data, 1);
 	if (cntl4_status != SUCCESS)
 	{
 		device->is_in_degraded_state = true;
@@ -138,7 +139,7 @@ FSError fc_bm1422_initialize(struct fc_bm1422 *device)
 
 	// FORCE (bit 6) = 1 in CNTL3 to start measurements
 	data = 0b01000000;
-	const FSError cntl3_status = write_registers(REGISTER_CNTL3, &data, 1);
+	const FSError cntl3_status = i2c_write(I2C_ADDRESS, REGISTER_CNTL3, &data, 1);
 	if (cntl3_status != SUCCESS)
 	{
 		device->is_in_degraded_state = true;

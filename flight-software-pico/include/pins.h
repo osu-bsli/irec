@@ -14,7 +14,8 @@
 // Airbrake servo pin
 #define PIN_ENABLE_AIRBRAKES 8
 #define PIN_AIRBRAKES_TX 7
-#define PIN_CSENSE_TO_ADC 27
+// Analog Pin 1
+#define PIN_CSENSE A1 
 
 //Sensor board
 #define PIN_I2C0_SCL 21

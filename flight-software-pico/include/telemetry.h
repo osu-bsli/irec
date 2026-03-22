@@ -21,6 +21,7 @@ enum StatusFlags {
     STATUS_FLAGS_MS5607_DEGRADED = 1 << 7,
 };
 
+// TODO make this an actual thing
 enum RocketState {
     ROCKET_PREFLIGHT,
     ROCKET_TAKEOFF,
@@ -74,6 +75,7 @@ struct __attribute__((packed)) log_packet_v3 {
     float gps_speed;
     int32_t gps_course;
     uint8_t gps_num_sats;
+    float pt_volts;
 };
 
 void telemetry_packet_make_header(struct telemetry_packet *p);

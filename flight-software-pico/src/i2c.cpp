@@ -97,11 +97,11 @@ FSError i2c_read(
   );
 
   if (reg_write_status == PICO_ERROR_GENERIC) {
-    return I2C_REGISTER_READ_FAILURE;
+    return I2C_REGISTER_READ_FAILURE; // Address not acknowledged or found
   }
 
   if (reg_write_status == PICO_ERROR_TIMEOUT) {
-    return I2C_REGISTER_READ_TIMEOUT;
+    return I2C_REGISTER_READ_TIMEOUT; // timeout
   }
   
   int read_status = i2c_read_timeout_us(
@@ -114,11 +114,11 @@ FSError i2c_read(
   );
 
   if (read_status == PICO_ERROR_GENERIC) {
-    return I2C_READ_FAILURE;
+    return I2C_READ_FAILURE; // Address not acknowledged or found
   }
 
   if (read_status == PICO_ERROR_TIMEOUT) {
-    return I2C_READ_TIMEOUT;
+    return I2C_READ_TIMEOUT; // timout
   }
 
   return SUCCESS;

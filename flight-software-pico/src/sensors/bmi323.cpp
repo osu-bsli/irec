@@ -14,6 +14,7 @@
 #include <Wire.h>
 #include <HardwareSerial.h>
 #include <error.h>
+#include <i2c.h>
 
 /* sensor configuration
  * - Accelerometer range: +/- 4 g       (max).
@@ -114,51 +115,51 @@
  * than the total amount of data expected and the first 2 bytes written to the buffer should be
  * ignored (datasheet pg. 218).
  * This function will block the current FreeRTOS task until the read finishes. */
-static FSError read_registers(
-    struct fc_bmi323 *device,
-    uint8_t reg,
-    uint8_t *data,
-    uint8_t length
-){
-    FSError result = SUCCESS;
+// static FSError read_registers(
+//     struct fc_bmi323 *device,
+//     uint8_t reg,
+//     uint8_t *data,
+//     uint8_t length
+// ){
+//     FSError result = SUCCESS;
 
-    Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-    Wire.write(reg);
-    if (Wire.endTransmission() != 0)
-    {
-        result = I2C_REGISTER_READ_FAILURE;
-    }
+//     Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+//     Wire.write(reg);
+//     if (Wire.endTransmission() != 0)
+//     {
+//         result = I2C_REGISTER_READ_FAILURE;
+//     }
 
-    if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
-    {
-        result = I2C_REGISTER_READ_FAILURE;
-    }
-    Wire.readBytes(data, length);
+//     if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+//     {
+//         result = I2C_REGISTER_READ_FAILURE;
+//     }
+//     Wire.readBytes(data, length);
 
-    return result;
-}
+//     return result;
+// }
 
-/* Starts writing multiple bytes starting from a register (useful for batch writing to multiple
- * contiguous registers at once).
- * This function will block the current FreeRTOS task until the write finishes. */
-static FSError write_registers(
-    struct fc_bmi323 *device,
-    uint8_t reg,
-    uint8_t *data,
-    uint8_t length
-){
-    FSError result = SUCCESS;
+// /* Starts writing multiple bytes starting from a register (useful for batch writing to multiple
+//  * contiguous registers at once).
+//  * This function will block the current FreeRTOS task until the write finishes. */
+// static FSError write_registers(
+//     struct fc_bmi323 *device,
+//     uint8_t reg,
+//     uint8_t *data,
+//     uint8_t length
+// ){
+//     FSError result = SUCCESS;
 
-    Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-    Wire.write(reg);
-    Wire.write(data, length);
+//     Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+//     Wire.write(reg);
+//     Wire.write(data, length);
 
-    if (Wire.endTransmission()) {
-        result = I2C_REGISTER_WRITE_FAILURE;
-    }
+//     if (Wire.endTransmission()) {
+//         result = I2C_REGISTER_WRITE_FAILURE;
+//     }
 
-    return result;
-}
+//     return result;
+// }
 
 FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 {
@@ -175,7 +176,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     /* check chip id (datasheet pg. 66) */
     uint16_t chip_id_value[2] = {0x1234, 0x5678};
-    FSError chip_id_status = read_registers(bmi323, REGISTER_CHIP_ID, (uint8_t *)chip_id_value, sizeof(chip_id_value));
+    FSError chip_id_status = i2c_read(I2C_ADDRESS, REGISTER_CHIP_ID, (uint8_t *)chip_id_value, sizeof(chip_id_value));
     if (chip_id_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
@@ -190,22 +191,22 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     /* check ERR_REG before enabling sensors (datasheet pg. 67) */
     uint16_t err_value[2] = {0x1234, 0x5678};
-    FSError err_reg_status = read_registers(bmi323, REGISTER_ERR_REG, (uint8_t *)err_value, sizeof(err_value));
+    FSError err_reg_status = i2c_read(I2C_ADDRESS, REGISTER_ERR_REG, (uint8_t *)err_value, sizeof(err_value));
     if (err_reg_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
         return BMI323_ERROR_REGISTER_READ_FAILURE;
     }
 
-    if (err_value[1])
+    if (err_value[1] == 0x5678) // read the data sheet
     {
         bmi323->is_in_degraded_state = true;
-        return BMI323_STATUS_FAILURE;
+        return BMI323_ERROR_REGISTER_FAILURE;
     }
 
     /* check STATUS */
     uint16_t status_value[2] = {0x1234, 0x5678};
-    FSError status = read_registers(bmi323, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
+    FSError status = i2c_read(I2C_ADDRESS, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
     if (status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
@@ -217,7 +218,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     uint8_t int_conf_data[] = {1, 0};
 
-    FSError conf_status = write_registers(bmi323, REGISTER_INT_CONF, &int_conf_data[2], 2);
+    FSError conf_status = i2c_write(I2C_ADDRESS, REGISTER_INT_CONF, &int_conf_data[2], 2);
     if (conf_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
@@ -229,8 +230,8 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     /* =================================================================================== */
 
     uint8_t acc_conf_bytes[4]; /* 2 dummy bytes required by read_registers() */
-    FSError acc_conf_status = read_registers(
-        bmi323,
+    FSError acc_conf_status = i2c_read(
+        I2C_ADDRESS,
         REGISTER_ACC_CONF,
         acc_conf_bytes,
         sizeof(acc_conf_bytes)
@@ -254,8 +255,8 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     acc_conf_bytes[2] &= 0x00u;
     acc_conf_bytes[3] |= 0x70u; /* write to non-reserved bits */
     acc_conf_bytes[2] |= 0x98u;
-    acc_conf_status = write_registers(
-        bmi323,
+    acc_conf_status = i2c_write(
+        I2C_ADDRESS,
         REGISTER_ACC_CONF,
         &acc_conf_bytes[2],
         2
@@ -271,8 +272,8 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     /* =================================================================================== */
 
     uint8_t gyro_conf_bytes[4]; /* 2 dummy bytes required by read_registers() */
-    FSError gyro_conf_read_status = read_registers(
-        bmi323,
+    FSError gyro_conf_read_status = i2c_read(
+        I2C_ADDRESS,
         REGISTER_GYR_CONF,
         gyro_conf_bytes,
         sizeof(acc_conf_bytes)
@@ -297,8 +298,8 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     gyro_conf_bytes[3] |= 0x70u;
     gyro_conf_bytes[2] |= 0xC8u;
 
-    FSError gyro_conf_write_status = write_registers(
-        bmi323,
+    FSError gyro_conf_write_status = i2c_write(
+        I2C_ADDRESS,
         REGISTER_GYR_CONF,
         &gyro_conf_bytes[2],
         sizeof(gyro_conf_bytes) - 2
@@ -312,8 +313,8 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     // TODO: Double check these
     uint8_t int_map2_bytes[2] = {40u, 05u};
-    FSError int_map2_status = write_registers(
-        bmi323,
+    FSError int_map2_status = i2c_write(
+        I2C_ADDRESS,
         REGISTER_INT_MAP2,
         int_map2_bytes,
         sizeof(int_map2_bytes)
@@ -341,8 +342,8 @@ FSError fc_bmi323_process(
     // TODO: Also think about using actual GPIO interrupts to handle data ready.
 
     int16_t sensor_data[8]; // dummy, 3-axis accel, 3-axis gyro, temp
-    FSError datax_status = read_registers(
-        bmi323,
+    FSError datax_status = i2c_read(
+        I2C_ADDRESS,
         REGISTER_ACC_DATA_X,
         (uint8_t *)sensor_data,
         sizeof(sensor_data)
