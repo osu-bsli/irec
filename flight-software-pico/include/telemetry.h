@@ -51,7 +51,7 @@ struct __attribute__((packed)) telemetry_packet {
 struct __attribute__((packed)) log_packet_v3 {
     char magic[9]; // 'COREYMAYS' in ASCII with no null terminator
     uint8_t size; // Total size of struct
-    uint16_t crc16;
+    uint64_t crc16;
 
     uint8_t status_flags; // StatusFlags bitfield
     uint32_t time_boot_ms; // Timestamp (ms since system boot)
@@ -73,9 +73,9 @@ struct __attribute__((packed)) log_packet_v3 {
     float gps_lng; // Longitude (unit: degrees)
     float gps_alt; // Altitude  (unit: meters)
     float gps_speed;
+    float pt_volts;
     int32_t gps_course;
     uint8_t gps_num_sats;
-    float pt_volts;
 };
 
 void telemetry_packet_make_header(struct telemetry_packet *p);

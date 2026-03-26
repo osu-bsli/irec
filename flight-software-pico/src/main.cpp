@@ -247,7 +247,7 @@ void lora_and_sd_setup()
 void print_log_packet(struct log_packet_v3 *p) {
   const uint8_t status_flags = *(&(p->status_flags)+1);
   Serial.printf(
-    "magic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %x\n\rstatus flags: %u\n\r",
+    "[Packet Print]\n\rmagic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %02x\n\rstatus flags: %u\n\rtime_boot_ms: %lu\n\rms5607_pressure_mbar: %f\n\rms5607_temperature_c: %f\n\rbmi323_accel_z: %f\n\rbmi323_accel_y: %f\n\rbmi323_accel_z: %f\n\rbmi323_gyro_x: %f\n\rbmi323_gyro_y: %f\n\rbmi323_gyro_z: %f\n\radxl375_accel_x: %f\n\radxl375_accel_y: %f\n\radxl375_accel_z: %f\n\rbm1422_magn_x: %f\n\rbm1422_magn_y: %f\n\rbm1422_magn_z: %f\n\rgps_lat: %f\n\rgps_lng: %f\n\rgps_alt: %f\n\rgps_speed: %f\n\rgps_course: %lu\n\rgps_num_sats: %u\n\rpt_volts: %f\n\r",
     p->magic[0],
     p->magic[1],
     p->magic[2],
@@ -260,7 +260,29 @@ void print_log_packet(struct log_packet_v3 *p) {
     p->magic[9],
     p->size,
     p->crc16,
-    sizeof(p->status_flags)
+    p->status_flags,
+    p->time_boot_ms,
+    p->ms5607_pressure_mbar,
+    p->ms5607_temperature_c,
+    p->bmi323_accel_x,
+    p->bmi323_accel_y,
+    p->bmi323_accel_z,
+    p->bmi323_gyro_x,
+    p->bmi323_gyro_y,
+    p->bmi323_gyro_z,
+    p->adxl375_accel_x,
+    p->adxl375_accel_y,
+    p->adxl375_accel_z,
+    p->bm1422_magn_x,
+    p->bm1422_magn_y,
+    p->bm1422_magn_z,
+    p->gps_lat,
+    p->gps_lng,
+    p->gps_alt,
+    p->gps_speed,
+    p->gps_course,
+    p->gps_num_sats,
+    p->pt_volts
   );
 }
 
@@ -564,9 +586,9 @@ void setup()
         .gps_lng = NAN,
         .gps_alt = NAN,
         .gps_speed = NAN,
+        .pt_volts = NAN,
         .gps_course = -0x7FFFFFFF,
         .gps_num_sats = 0xFF,
-        .pt_volts = NAN
     };
 
     FSError sensor_acquire_status = acquire_sensor_data(&log_p);
@@ -575,7 +597,10 @@ void setup()
     log_p.pt_volts = pt_ads.computeVolts(adc0);
 
     // Produces the CRC make sure this is done last
-    // log_packet_make_header(&log_p);
+    log_packet_make_header(&log_p);
+
+    // TODO CRC 16 crc_modbus overflows into status flag field
+    // TODO something is going on with this struct and it isn't good...
 
     int elapsed_ms = xTaskGetTickCount() - start_ms;
 
@@ -584,6 +609,7 @@ void setup()
     // Process
 
     print_log_packet(&log_p);
+    //Serial.printf("%u,%f\n\r", log_p.time_boot_ms, log_p.pt_volts);
 
     // TODO add air brake deployment etc.
 
