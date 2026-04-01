@@ -10,6 +10,7 @@
  */
 
 // C
+#include <cstdint>
 #include <stdio.h>
 #include <string>
 
@@ -64,6 +65,7 @@ static struct fc_bm1422 bm1422;
 #define GPSSerial Serial2
 static TinyGPSPlus gps;
 
+Adafruit_ADS1115 pt_ads;
 
 //static bool sd_card_initialized_success = false;
 
@@ -245,9 +247,12 @@ void lora_and_sd_setup()
 */
 
 void print_log_packet(struct log_packet_v3 *p) {
-  const uint8_t status_flags = *(&(p->status_flags)+1);
+  // %u is poo poo and C doesn't support printing char as a number so we have to use this work around for those values smaller than a word
+  const uint32_t status_flags = 0 | p->status_flags;
+  const uint32_t crc = 0 | p->crc16;
+  const uint32_t num_sats = 0 | p->gps_num_sats;
   Serial.printf(
-    "[Packet Print]\n\rmagic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %02x\n\rstatus flags: %u\n\rtime_boot_ms: %lu\n\rms5607_pressure_mbar: %f\n\rms5607_temperature_c: %f\n\rbmi323_accel_z: %f\n\rbmi323_accel_y: %f\n\rbmi323_accel_z: %f\n\rbmi323_gyro_x: %f\n\rbmi323_gyro_y: %f\n\rbmi323_gyro_z: %f\n\radxl375_accel_x: %f\n\radxl375_accel_y: %f\n\radxl375_accel_z: %f\n\rbm1422_magn_x: %f\n\rbm1422_magn_y: %f\n\rbm1422_magn_z: %f\n\rgps_lat: %f\n\rgps_lng: %f\n\rgps_alt: %f\n\rgps_speed: %f\n\rgps_course: %lu\n\rgps_num_sats: %u\n\rpt_volts: %f\n\r",
+    "[Packet Print]\n\rmagic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %02x\n\rstatus flags: %u\n\rtime_boot_ms: %lu\n\rms5607_pressure_mbar: %f\n\rms5607_temperature_c: %f\n\rbmi323_accel_x: %f\n\rbmi323_accel_y: %f\n\rbmi323_accel_z: %f\n\rbmi323_gyro_x: %f\n\rbmi323_gyro_y: %f\n\rbmi323_gyro_z: %f\n\radxl375_accel_x: %f\n\radxl375_accel_y: %f\n\radxl375_accel_z: %f\n\rbm1422_magn_x: %f\n\rbm1422_magn_y: %f\n\rbm1422_magn_z: %f\n\rgps_lat: %f\n\rgps_lng: %f\n\rgps_alt: %f\n\rgps_speed: %f\n\rgps_course: %lu\n\rgps_num_sats: %u\n\rpt_volts: %f\n\r",
     p->magic[0],
     p->magic[1],
     p->magic[2],
@@ -259,8 +264,8 @@ void print_log_packet(struct log_packet_v3 *p) {
     p->magic[8],
     p->magic[9],
     p->size,
-    p->crc16,
-    p->status_flags,
+    crc,
+    status_flags,
     p->time_boot_ms,
     p->ms5607_pressure_mbar,
     p->ms5607_temperature_c,
@@ -281,7 +286,7 @@ void print_log_packet(struct log_packet_v3 *p) {
     p->gps_alt,
     p->gps_speed,
     p->gps_course,
-    p->gps_num_sats,
+    num_sats,
     p->pt_volts
   );
 }
@@ -392,6 +397,10 @@ FSError acquire_sensor_data(
     // TODO maybe an error somewhere in the log
     return adxl_status;
     // Serial.printf("adxl read error\n\r");
+  } else {
+    log_p->adxl375_accel_x = adxl375_data.accel_x;
+    log_p->adxl375_accel_y = adxl375_data.accel_y;
+    log_p->adxl375_accel_z = adxl375_data.accel_z;
   }
 
   // struct fc_bm1422_data bm1422_data;
@@ -410,6 +419,13 @@ FSError acquire_sensor_data(
     // TODO maybe an error somewhere in the log
     // Serial.printf("bmi323 read error\n\r");
     return bmi323_status;
+  } else {
+    log_p->bmi323_accel_x = bmi323_data.accel_x;
+    log_p->bmi323_accel_y = bmi323_data.accel_y;
+    log_p->bmi323_accel_z = bmi323_data.accel_z;
+    log_p->bmi323_gyro_x = bmi323_data.gyro_x;
+    log_p->bmi323_gyro_y = bmi323_data.gyro_y;
+    log_p->bmi323_gyro_z = bmi323_data.gyro_z;
   }
 
   struct fc_ms5607_data ms5607_data;
@@ -419,6 +435,9 @@ FSError acquire_sensor_data(
     // TODO maybe an error somewhere in the log
     // Serial.printf("ms5607 read error\n\r");
     return ms5607_status;
+  } else {
+    log_p->ms5607_pressure_mbar = ms5607_data.pressure_mbar;
+    log_p->ms5607_temperature_c = ms5607_data.temperature_c;
   }
 
   return SUCCESS;
@@ -451,6 +470,75 @@ FSError servo_overcurrent() {
   }
   
   return SUCCESS;
+}
+
+void runtime() {
+  TimeType_t time = 0;
+  while (true) {
+    int start_ms = xTaskGetTickCount();
+
+    // Acquire
+
+    struct log_packet_v3 log_p = {
+        .status_flags = get_sensor_state(),
+        .time_boot_ms = start_ms,//xTaskGetTickCount(),
+        .ms5607_pressure_mbar = NAN,
+        .ms5607_temperature_c = NAN,
+        .bmi323_accel_x = NAN,
+        .bmi323_accel_y = NAN,
+        .bmi323_accel_z = NAN,
+        .bmi323_gyro_x = NAN,
+        .bmi323_gyro_y = NAN,
+        .bmi323_gyro_z = NAN,
+        .adxl375_accel_x = NAN,
+        .adxl375_accel_y = NAN,
+        .adxl375_accel_z = NAN,
+        .bm1422_magn_x = NAN,
+        .bm1422_magn_y = NAN,
+        .bm1422_magn_z = NAN,
+        .gps_lat = NAN,
+        .gps_lng = NAN,
+        .gps_alt = NAN,
+        .gps_speed = NAN,
+        .pt_volts = NAN,
+        .gps_course = -0x7FFFFFFF,
+        .gps_num_sats = 0xFF,
+    };
+
+    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+
+    const uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
+    log_p.pt_volts = pt_ads.computeVolts(adc0);
+
+    // Produces the CRC make sure this is done last
+    log_packet_make_header(&log_p);
+
+    // TODO CRC 16 crc_modbus overflows into status flag field
+    // TODO something is going on with this struct and it isn't good...
+
+    int elapsed_ms = xTaskGetTickCount() - start_ms;
+
+    // Validate packet
+
+    // Process
+
+    print_log_packet(&log_p);
+    //Serial.printf("%u,%f\n\r", log_p.time_boot_ms, log_p.pt_volts);
+
+    // TODO add air brake deployment etc.
+
+    // Log
+
+    log_data(&log_p);
+
+    vTaskDelayUntil(&time, interval_ms); // TODO make this compensate for the length of the acquire, process, and log sections
+
+    // pdMS_TO_TICKS(xTaskGetTickCount())
+
+    //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+
+    // vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
 }
 
 /*
@@ -511,6 +599,7 @@ void gps_test_loop()
 //   Serial.println(" ms");
 // }
 
+
 void setup()
 {
   gpio_config();
@@ -553,77 +642,22 @@ void setup()
   }
 
   // Pressure Transducer
-  Adafruit_ADS1115 pt_ads;
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
 
   // FLIGHT COMPUTER RUNTIME
 
-  TickType_t time = 0;
+  xTaskCreate( (void *)() runtime,
+               "Acquire",
+               configMINIMAL_STACK_SIZE,
+               NULL,
+               configMAX_PRIORITIES - 1,
+               NULL
+             );
+
+  vTaskStartScheduler();
 
   while (true) {
-    int start_ms = xTaskGetTickCount();
-
-    // Acquire
-
-    struct log_packet_v3 log_p = {
-        .status_flags = get_sensor_state(),
-        .time_boot_ms = xTaskGetTickCount(),
-        .ms5607_pressure_mbar = NAN,
-        .ms5607_temperature_c = NAN,
-        .bmi323_accel_x = NAN,
-        .bmi323_accel_y = NAN,
-        .bmi323_accel_z = NAN,
-        .bmi323_gyro_x = NAN,
-        .bmi323_gyro_y = NAN,
-        .bmi323_gyro_z = NAN,
-        .adxl375_accel_x = NAN,
-        .adxl375_accel_y = NAN,
-        .adxl375_accel_z = NAN,
-        .bm1422_magn_x = NAN,
-        .bm1422_magn_y = NAN,
-        .bm1422_magn_z = NAN,
-        .gps_lat = NAN,
-        .gps_lng = NAN,
-        .gps_alt = NAN,
-        .gps_speed = NAN,
-        .pt_volts = NAN,
-        .gps_course = -0x7FFFFFFF,
-        .gps_num_sats = 0xFF,
-    };
-
-    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
-
-    const uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
-    log_p.pt_volts = pt_ads.computeVolts(adc0);
-
-    // Produces the CRC make sure this is done last
-    log_packet_make_header(&log_p);
-
-    // TODO CRC 16 crc_modbus overflows into status flag field
-    // TODO something is going on with this struct and it isn't good...
-
-    int elapsed_ms = xTaskGetTickCount() - start_ms;
-
-    // Validate packet
-
-    // Process
-
-    print_log_packet(&log_p);
-    //Serial.printf("%u,%f\n\r", log_p.time_boot_ms, log_p.pt_volts);
-
-    // TODO add air brake deployment etc.
-
-    // Log
-
-    log_data(&log_p);
-
-    vTaskDelayUntil(&time, interval_ms); // TODO make this compensate for the length of the acquire, process, and log sections
-
-    // pdMS_TO_TICKS(xTaskGetTickCount())
-
-    //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
-
-    // vTaskDelay(1000 / portTICK_PERIOD_MS);
+    Serial.printf("[Error] Insufficient RAM for the runtime task\n\r");
   }
 }
 

@@ -51,7 +51,7 @@ struct __attribute__((packed)) telemetry_packet {
 struct __attribute__((packed)) log_packet_v3 {
     char magic[9]; // 'COREYMAYS' in ASCII with no null terminator
     uint8_t size; // Total size of struct
-    uint64_t crc16;
+    uint16_t crc16;
 
     uint8_t status_flags; // StatusFlags bitfield
     uint32_t time_boot_ms; // Timestamp (ms since system boot)
