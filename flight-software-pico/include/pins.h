@@ -2,8 +2,9 @@
 // ex: GPIO21 is 21 not 27
 
 
-#define PIN_GPS_RX 48
-#define PIN_GPS_TX 47
+// TODO make sure these are the right GPS pins
+#define PIN_GPS_RX 1
+#define PIN_GPS_TX 2
 
 #define PIN_FLASH_CS 13
 #define PIN_SD_CS 9

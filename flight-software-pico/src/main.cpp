@@ -10,6 +10,7 @@
  */
 
 // C
+#include <charconv>
 #include <cstdint>
 #include <stdio.h>
 #include <string>
@@ -65,7 +66,9 @@ static struct fc_bm1422 bm1422;
 #define GPSSerial Serial2
 static TinyGPSPlus gps;
 
-Adafruit_ADS1115 pt_ads;
+static Adafruit_ADS1115 pt_ads;
+
+Servo AirBrakeServo;
 
 //static bool sd_card_initialized_success = false;
 
@@ -209,12 +212,12 @@ static FSError sensors_setup()
 }
 
 
-void sd_setup()
-{
+// void sd_setup()
+// {
   // PIN_SPI_CLK, PIN_SPI_MISO, PIN_SPI_MOSI
   //SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
   //log_file = sdcard_and_logging_init();
-}
+// }
 
 /*
 void lora_and_sd_setup()
@@ -246,48 +249,48 @@ void lora_and_sd_setup()
 }
 */
 
-static void print_log_packet(struct log_packet_v3 *p) {
+static void print_log_packet(struct log_packet_v3 p) {
   // %u is poo poo and C doesn't support printing char as a number so we have to use this work around for those values smaller than a word
-  const uint32_t status_flags = 0 | p->status_flags;
-  const uint32_t crc = 0 | p->crc16;
-  const uint32_t num_sats = 0 | p->gps_num_sats;
+  const uint32_t status_flags = 0 | p.status_flags;
+  const uint32_t crc = 0 | p.crc16;
+  const uint32_t num_sats = 0 | p.gps_num_sats;
   Serial.printf(
     "[Packet Print]\n\rmagic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %02x\n\rstatus flags: %u\n\rtime_boot_ms: %u\n\rms5607_pressure_mbar: %f\n\rms5607_temperature_c: %f\n\rbmi323_accel_x: %f\n\rbmi323_accel_y: %f\n\rbmi323_accel_z: %f\n\rbmi323_gyro_x: %f\n\rbmi323_gyro_y: %f\n\rbmi323_gyro_z: %f\n\radxl375_accel_x: %f\n\radxl375_accel_y: %f\n\radxl375_accel_z: %f\n\rbm1422_magn_x: %f\n\rbm1422_magn_y: %f\n\rbm1422_magn_z: %f\n\rgps_lat: %f\n\rgps_lng: %f\n\rgps_alt: %f\n\rgps_speed: %f\n\rgps_course: %lu\n\rgps_num_sats: %u\n\rpt_volts: %f\n\r",
-    p->magic[0],
-    p->magic[1],
-    p->magic[2],
-    p->magic[3],
-    p->magic[4],
-    p->magic[5],
-    p->magic[6],
-    p->magic[7],
-    p->magic[8],
-    p->magic[9],
-    p->size,
+    p.magic[0],
+    p.magic[1],
+    p.magic[2],
+    p.magic[3],
+    p.magic[4],
+    p.magic[5],
+    p.magic[6],
+    p.magic[7],
+    p.magic[8],
+    p.magic[9],
+    p.size,
     crc,
     status_flags,
-    p->time_boot_ms,
-    p->ms5607_pressure_mbar,
-    p->ms5607_temperature_c,
-    p->bmi323_accel_x,
-    p->bmi323_accel_y,
-    p->bmi323_accel_z,
-    p->bmi323_gyro_x,
-    p->bmi323_gyro_y,
-    p->bmi323_gyro_z,
-    p->adxl375_accel_x,
-    p->adxl375_accel_y,
-    p->adxl375_accel_z,
-    p->bm1422_magn_x,
-    p->bm1422_magn_y,
-    p->bm1422_magn_z,
-    p->gps_lat,
-    p->gps_lng,
-    p->gps_alt,
-    p->gps_speed,
-    p->gps_course,
+    p.time_boot_ms,
+    p.ms5607_pressure_mbar,
+    p.ms5607_temperature_c,
+    p.bmi323_accel_x,
+    p.bmi323_accel_y,
+    p.bmi323_accel_z,
+    p.bmi323_gyro_x,
+    p.bmi323_gyro_y,
+    p.bmi323_gyro_z,
+    p.adxl375_accel_x,
+    p.adxl375_accel_y,
+    p.adxl375_accel_z,
+    p.bm1422_magn_x,
+    p.bm1422_magn_y,
+    p.bm1422_magn_z,
+    p.gps_lat,
+    p.gps_lng,
+    p.gps_alt,
+    p.gps_speed,
+    p.gps_course,
     num_sats,
-    p->pt_volts
+    p.pt_volts
   );
 }
 
@@ -443,12 +446,12 @@ FSError acquire_sensor_data(
   return SUCCESS;
 }
 
-void init_airbrakes(Servo *servo) {
+void init_airbrakes() {
   // Allow current to the air brakes
   pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
   digitalWrite(PIN_ENABLE_AIRBRAKES, HIGH);
 
-  (*servo).attach(PIN_AIRBRAKES_TX, 900, 2100);
+  AirBrakeServo.attach(PIN_AIRBRAKES_TX, 900, 2100);
 
   // Current sense setup
   analogReadResolution(ADC_RESOLUTION_BITS);
@@ -464,7 +467,9 @@ FSError servo_overcurrent() {
   const float csense_voltage = ((float) csense_raw) / ADC_STEPS * MAX_EXPECTED_VOLTAGE;
   const float servo_current = csense_voltage / CSENSE_RESISTANCE / GAIN;
   //Serial.printf("%d %fV %fA\n\r", csense_raw, csense_voltage, servo_current);
+
   if (servo_current > MAX_SERVO_CURRENT_AMPS) {
+    // Cut current
     digitalWrite(PIN_ENABLE_AIRBRAKES, LOW);
     return SERVO_OVER_CURRENT;
   }
@@ -472,12 +477,17 @@ FSError servo_overcurrent() {
   return SUCCESS;
 }
 
+// Everything related to Airbrake state is handled
+// here to avoid having to do more advanced threading models
 static void runtime( void * pvParameters ) {
   static TickType_t time = xTaskGetTickCount();
+  static TickType_t last_motor_time = xTaskGetTickCount();
   while (true) {
+    time = xTaskGetTickCount();
+    
     struct log_packet_v3 log_p = {
         .status_flags = get_sensor_state(),
-        .time_boot_ms = xTaskGetTickCount(),
+        .time_boot_ms = time,
         .ms5607_pressure_mbar = NAN,
         .ms5607_temperature_c = NAN,
         .bmi323_accel_x = NAN,
@@ -501,47 +511,37 @@ static void runtime( void * pvParameters ) {
         .gps_num_sats = 0xFF,
     };
 
-    print_log_packet(&log_p);
-    Serial.printf("time: %u", xTaskGetTickCount());
+    // Acquire step
 
-    xTaskDelayUntil(&time, interval_ms);
-  }
-    // int start_ms = xTaskGetTickCount();
+    FSError sensor_acquire_status = acquire_sensor_data(&log_p); // Should just work, but it doesn't
 
-    // Acquire
+    const uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
+    log_p.pt_volts = pt_ads.computeVolts(adc0);
 
+    log_packet_make_header(&log_p); // This must be run last for CRC to be correct
 
-    // FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+    print_log_packet(log_p); // THIS FUNCTION FUCKING SUCKS
+    Serial.printf("time: %u %u %u\n\r", xTaskGetTickCount(), time, log_p.time_boot_ms);
 
-    // const uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
-    // log_p.pt_volts = pt_ads.computeVolts(adc0);
+    // Control systems
 
-    // Produces the CRC make sure this is done last
-    // log_packet_make_header(&log_p);
-
-    // TODO CRC 16 crc_modbus overflows into status flag field
-    // TODO something is going on with this struct and it isn't good...
-
-    // int elapsed_ms = xTaskGetTickCount() - start_ms;
-
-    // Validate packet
-
-    // Process
-
-    //Serial.printf("%u,%f\n\r", log_p.time_boot_ms, log_p.pt_volts);
-
-    // TODO add air brake deployment etc.
+    // Motor update
 
     // Log
 
     // log_data(&log_p);
-
-    // xTaskDelayUntil(&time, interval_ms);
     
-    // pdMS_TO_TICKS(xTaskGetTickCount())
+    xTaskDelayUntil(&time, interval_ms);
+  }
+}
 
-    //GPSSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+static void moc_task( void * pvParameters ) {
+  static TickType_t time = 0;
+  while (true) {
+    FSError overcurrent_status = servo_overcurrent();
 
+    xTaskDelayUntil(&time, interval_ms); // runs at 100hz
+  }
 }
 
 /*
@@ -605,23 +605,70 @@ void gps_test_loop()
 
 void setup()
 {
+
+  // FLIGHT COMPUTER INITIALIZATION  
   gpio_config();
 
   Serial.begin(115200);
 
-  // FSError sensor_status = sensors_setup();
-  // if (sensor_status != SUCCESS) {
-  //   // TODO handle sensor init failure
-  //   while (true) {
-  //     Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
-  //   }
-  // }
+  // Sensors board
+  FSError sensor_status = sensors_setup();
+  if (sensor_status != SUCCESS) {
+    // TODO handle sensor init failure
+    while (true) {
+      Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
+    }
+  }
 
-  // // Pressure Transducer
-  // pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
+  // Pressure Transducer
+  pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
 
-  //TickType_t time = 0;
+  // GPS ?
+  GPSSerial.setRX(PIN_GPS_RX);
+  GPSSerial.setTX(PIN_GPS_TX);
+  GPSSerial.begin(9600, SERIAL_8N1);
 
+  init_airbrakes();
+
+  // FLIGHT COMPUTER RUNTIME
+
+  BaseType_t runtime_status;
+  TaskHandle_t runtime_handle;
+
+  // runtime task
+  runtime_status = xTaskCreate( runtime,
+               "Acquire",
+               16384,
+               NULL,
+               configMAX_PRIORITIES - 1,
+               &runtime_handle
+             );
+
+  // motor overcurrent task
+  
+  BaseType_t moc_status;
+  TaskHandle_t moc_handle;
+
+  moc_status = xTaskCreate( moc_task,
+               "Motor Overcurrent",
+               2048,
+               NULL,
+               configMAX_PRIORITIES - 1,
+               &moc_handle
+             );
+
+  if (runtime_status != pdPASS) {
+    while (true){
+      Serial.printf("[Error] Could not create runtime task");
+    }
+  }
+
+  // Keep the task alive
+  while (true) {
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+
+  
   // const uint8_t flash_message[] = "I LOVE YURI!!!";
   // uint8_t flash_buffer[512];
 
@@ -645,35 +692,6 @@ void setup()
   //   }
   //   // TODO handle sd card failure
   // }
-
-  // FLIGHT COMPUTER INITIALIZATION  
-
-  // Sensor board
-
-  // FLIGHT COMPUTER RUNTIME
-
-  BaseType_t runtime_status;
-  TaskHandle_t runtime_handle;
-
-  // Acquire task
-  runtime_status = xTaskCreate( runtime,
-               "Acquire",
-               16384,
-               NULL,
-               tskIDLE_PRIORITY,//configMAX_PRIORITIES - 1,
-               &runtime_handle
-             );
-
-  if (runtime_status != pdPASS) {
-    while (true){
-      Serial.printf("[Error] Could not create runtime task");
-    }
-  }
-
-  while (true) {
-    // Serial.println("[Watchdog]");
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-  }
 }
 
 void loop()
