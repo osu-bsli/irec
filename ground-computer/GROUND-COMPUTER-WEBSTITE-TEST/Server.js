@@ -1,12 +1,30 @@
-// following thenewboston youtube channel
+// To run use "node server.js"
 var http = require('http');
+var fs = require('fs');
+var WebSocket = require('ws');
 
-function OnRequest(request, response){
-    console.log("A user made a request" + request.url);
-    response.writeHead(200,{"Context-Type": "text/plain"});
-    response.write("Here is some data");
-    response.end();
-}
+var server = http.createServer(function(req, res){
+    if(req.url === '/'){
+        fs.createReadStream('index.html').pipe(res);
+    }
+});
 
-http.createServer(OnRequest).listen(8888);
-console.log('Server is now running...');
+var wss = new WebSocket.Server({ server });
+
+wss.on('connection', function(ws){
+    console.log("Client connected");
+
+    // Simulated telemetry (replace with real data)
+    setInterval(function(){
+        var data = {
+            altitude: Math.random() * 100,
+            temperature: 20 + Math.random() * 5,
+            time: Date.now()
+        };
+
+        ws.send(JSON.stringify(data));
+    }, 1000);
+});
+
+server.listen(8888);
+console.log("Server running on http://localhost:8888");
