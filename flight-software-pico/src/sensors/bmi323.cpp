@@ -29,7 +29,7 @@
  */
 
 /* i2c constants */
-#define I2C_ADDRESS 0x68u /* depends on how "SDO" pin is wired (datasheet pg. 217) */
+#define I2C_ADDRESS 0x69u /* depends on how "SDO" pin is wired (datasheet pg. 217) */
 
 /* register constants (datasheet pg. 62) */
 #define REGISTER_CHIP_ID 0x00u

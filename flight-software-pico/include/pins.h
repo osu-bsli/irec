@@ -3,8 +3,8 @@
 
 
 // TODO make sure these are the right GPS pins
-#define PIN_GPS_RX 1
-#define PIN_GPS_TX 2
+#define PIN_GPS_RX 17
+#define PIN_GPS_TX 16
 
 #define PIN_FLASH_CS 13
 #define PIN_SD_CS 9

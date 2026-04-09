@@ -17,7 +17,6 @@
 
 // Flight Computer
 #include <error.h>
-#include "AltimeterFilter.h"
 #include "sensors/adxl375.h"
 #include "sensors/bm1422.h"
 #include "sensors/bmi323.h"
@@ -26,6 +25,11 @@
 #include "test_data.h"
 #include "telemetry.h"
 #include <error.h>
+
+// AirBrakes
+#include "Filters/AB_Filter_Main.h"
+#include "AB_Struct_Storage.h"
+#include "AB_Deployment.h"
 
 // Pico
 #include <pico/stdlib.h>
@@ -47,7 +51,7 @@
 // Flash
 #include <WinbondW25N.h>
 
-#define I2C_SENSOR_FREQUENCY 200000
+#define I2C_SENSOR_FREQUENCY 10000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
 #define LOG_INTERVAL_MS 10
 #define MAX_SERVO_CURRENT_AMPS 1.8
@@ -63,7 +67,7 @@ static struct fc_bmi323 bmi323;
 static struct fc_ms5607 ms5607;
 static struct fc_bm1422 bm1422;
 
-#define GPSSerial Serial2
+#define GPSSerial Serial1
 static TinyGPSPlus gps;
 
 static Adafruit_ADS1115 pt_ads;
@@ -194,17 +198,17 @@ static FSError sensors_setup()
      // result = bm1422_status;
     // }
 
-    if (adxl375_status != SUCCESS) {
-      result = adxl375_status;
-    }
+    // if (adxl375_status != SUCCESS) {
+    //   result = adxl375_status;
+    // }
 
     if (bmi323_status != SUCCESS) {
      result = bmi323_status;
     }
 
-    if (ms5607_status != SUCCESS) {
-      result = ms5607_status;
-    }
+    // if (ms5607_status != SUCCESS) {
+    //   result = ms5607_status;
+    // }
 
   } while (result != SUCCESS && num_retries < MAX_RETRIES);
 
@@ -431,6 +435,8 @@ FSError acquire_sensor_data(
     log_p->bmi323_gyro_z = bmi323_data.gyro_z;
   }
 
+  Serial.printf("%032x %032x %032x\n\r", bmi323_data.accel_x, bmi323_data.accel_y, bmi323_data.accel_z);
+
   struct fc_ms5607_data ms5607_data;
   const FSError ms5607_status = fc_ms5607_process(&ms5607, &ms5607_data);
 
@@ -477,26 +483,47 @@ FSError servo_overcurrent() {
   return SUCCESS;
 }
 
+const float SEA_LEVEL_PRESSURE_PA = 101325.0f; 
+float get_altitude_from_pressure(float pressure_pa) {
+    if (pressure_pa < 0.1f) return 0.0f;
+    return 44330.0f * (1.0f - std::pow(pressure_pa / SEA_LEVEL_PRESSURE_PA, 1.0f / 5.255f));
+}
+
 // Everything related to Airbrake state is handled
 // here to avoid having to do more advanced threading models
 static void runtime( void * pvParameters ) {
   static TickType_t time = xTaskGetTickCount();
   static TickType_t last_motor_time = xTaskGetTickCount();
+
+  // Setup Calibration ???????? TODO
+
+  AB_Filter_Main_Variables M;
+  AB_Predict_Deployment_Angle_Variables DA_Vars;
+  AB_Predict_Apogee_Variables AP_Vars;
+  float apogeeIC[4] = {0.0,0.0,0.0,0.0};
+  static float base_altitude = 0.0;
+
+  AB_Filter_Initialize(M);
+  PredictDeploymentAngleInitialize(DA_Vars);
+  
   while (true) {
-    time = xTaskGetTickCount();
+    const TickType_t current_time = xTaskGetTickCount();
+    const TickType_t delta_time = current_time - time;
+    const float delta_time_float = portTICK_PERIOD_MS / delta_time;
+    time = current_time;
     
     struct log_packet_v3 log_p = {
         .status_flags = get_sensor_state(),
         .time_boot_ms = time,
         .ms5607_pressure_mbar = NAN,
         .ms5607_temperature_c = NAN,
-        .bmi323_accel_x = NAN,
+        .bmi323_accel_x = NAN, // LOW G
         .bmi323_accel_y = NAN,
         .bmi323_accel_z = NAN,
         .bmi323_gyro_x = NAN,
         .bmi323_gyro_y = NAN,
         .bmi323_gyro_z = NAN,
-        .adxl375_accel_x = NAN,
+        .adxl375_accel_x = NAN, // HIGH G
         .adxl375_accel_y = NAN,
         .adxl375_accel_z = NAN,
         .bm1422_magn_x = NAN,
@@ -520,10 +547,38 @@ static void runtime( void * pvParameters ) {
 
     log_packet_make_header(&log_p); // This must be run last for CRC to be correct
 
-    print_log_packet(log_p); // THIS FUNCTION FUCKING SUCKS
-    Serial.printf("time: %u %u %u\n\r", xTaskGetTickCount(), time, log_p.time_boot_ms);
+    // print_log_packet(log_p); // THIS FUNCTION FUCKING SUCKS
+    // Serial.printf("time: %u %u %u\n\r", xTaskGetTickCount(), time, log_p.time_boot_ms);
+    // Serial.printf("flags: %u\n\r", log_p.status_flags);
+    Serial.printf("%f %f %f\n\r", log_p.bmi323_accel_x, log_p.bmi323_accel_y, log_p.bmi323_accel_z);
 
     // Control systems
+
+    // TODO update M
+
+    // Calculate dt using previous point
+    float dt = delta_time_float / 1000.0f; // ms to s
+    if (dt <= 0.0f) dt = 0.001f; 
+    M.Sensors.dt = dt;
+        
+    // Update sensor data in Master Struct
+    M.Sensors.Accelerometer << log_p.bmi323_accel_x, log_p.bmi323_accel_y, log_p.bmi323_accel_z;
+    M.Sensors.AccelerometerHG << -log_p.adxl375_accel_x, -log_p.adxl375_accel_y, log_p.adxl375_accel_z; 
+    M.Sensors.Gyroscope << log_p.bmi323_gyro_x, log_p.bmi323_gyro_y, log_p.bmi323_gyro_z;
+    M.Sensors.Barometer = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100) - base_altitude; 
+    M.Sensors.GPS.setZero(); 
+
+    AB_loop(M);
+
+    float v_horiz = sqrt(M.HorizState.Velocity_North * M.HorizState.Velocity_North + 
+                             M.HorizState.Velocity_East * M.HorizState.Velocity_East);
+    float zenith_deg = atan2(v_horiz, M.VertState.Velocity_Up) * RAD_TO_DEG;
+
+    apogeeIC[0] = M.VertState.Altitude;
+    apogeeIC[1] = M.VertState.Velocity_Up;
+    apogeeIC[2] = zenith_deg;
+
+    float airbrake_pct = PredictDeploymentAngle(apogeeIC, DA_Vars, AP_Vars); 
 
     // Motor update
 
@@ -612,13 +667,13 @@ void setup()
   Serial.begin(115200);
 
   // Sensors board
-  FSError sensor_status = sensors_setup();
-  if (sensor_status != SUCCESS) {
-    // TODO handle sensor init failure
-    while (true) {
-      Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
-    }
-  }
+  // FSError sensor_status = sensors_setup();
+  // if (sensor_status != SUCCESS) {
+  //   // TODO handle sensor init failure
+  //   while (true) {
+  //     Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
+  //   }
+  // }
 
   // Pressure Transducer
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
@@ -632,30 +687,51 @@ void setup()
 
   // FLIGHT COMPUTER RUNTIME
 
+  while (true) {
+    struct fc_bmi323_data bmi323_data;
+    const FSError bmi323_status = fc_bmi323_process(&bmi323, &bmi323_data);
+
+    if (bmi323_status != SUCCESS) {
+      // TODO maybe an error somewhere in the log
+      // Serial.printf("bmi323 read error\n\r");
+      // return bmi323_status;
+    } // else {
+    //   log_p->bmi323_accel_x = bmi323_data.accel_x;
+    //   log_p->bmi323_accel_y = bmi323_data.accel_y;
+    //   log_p->bmi323_accel_z = bmi323_data.accel_z;
+    //   log_p->bmi323_gyro_x = bmi323_data.gyro_x;
+    //   log_p->bmi323_gyro_y = bmi323_data.gyro_y;
+    //   log_p->bmi323_gyro_z = bmi323_data.gyro_z;
+    // }
+
+    Serial.printf("%032x %032x %032x\n\r", bmi323_data.accel_x, bmi323_data.accel_y, bmi323_data.accel_z);
+  }
+
+
   BaseType_t runtime_status;
   TaskHandle_t runtime_handle;
 
   // runtime task
-  runtime_status = xTaskCreate( runtime,
-               "Acquire",
-               16384,
-               NULL,
-               configMAX_PRIORITIES - 1,
-               &runtime_handle
-             );
+  // runtime_status = xTaskCreate( runtime,
+  //              "Acquire",
+  //              32768,
+  //              NULL,
+  //              configMAX_PRIORITIES - 1,
+  //              &runtime_handle
+  //            );
 
-  // motor overcurrent task
+  // // motor overcurrent task
   
-  BaseType_t moc_status;
-  TaskHandle_t moc_handle;
+  // BaseType_t moc_status;
+  // TaskHandle_t moc_handle;
 
-  moc_status = xTaskCreate( moc_task,
-               "Motor Overcurrent",
-               2048,
-               NULL,
-               configMAX_PRIORITIES - 1,
-               &moc_handle
-             );
+  // moc_status = xTaskCreate( moc_task,
+  //              "Motor Overcurrent",
+  //              2048,
+  //              NULL,
+  //              configMAX_PRIORITIES - 1,
+  //              &moc_handle
+  //            );
 
   if (runtime_status != pdPASS) {
     while (true){
