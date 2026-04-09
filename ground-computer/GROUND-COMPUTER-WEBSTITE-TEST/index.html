@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- ===== PAGE SETTINGS ===== -->
+    <meta charset="UTF-8"> <!-- Fixes weird symbols like Â° -->
+    <title>Ground Station</title>
+
+    <!-- ===== CHART LIBRARY ===== -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- ===== STYLES ===== -->
+    <style>
+        /* ===== GLOBAL PAGE STYLE ===== */
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: #0b0f14; /* EDIT: background color */
+            color: #e6edf3;      /* EDIT: text color */
+        }
+
+        /* ===== TOP BAR ===== */
+        .topbar {
+            background: #111827;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .status {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* ===== STATUS DOT (GREEN/RED) ===== */
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .green { background: #22c55e; } /* Connected */
+        .red { background: #ef4444; }   /* Disconnected */
+
+        /* ===== MAIN GRID LAYOUT ===== */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr; /* 3 columns */
+            gap: 15px;
+            padding: 15px;
+        }
+
+        /* ===== PANEL BOX ===== */
+        .panel {
+            background: #111827;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .panel h3 {
+            margin: 5px 0 10px;
+        }
+
+        /* ===== FULL WIDTH PANEL ===== */
+        .wide {
+            grid-column: span 3;
+        }
+
+        /* ===== CHART SIZE ===== */
+        canvas {
+            width: 100%;
+            height: 200px;
+        }
+
+        /* ===== BIG NUMBER TEXT ===== */
+        .big {
+            font-size: 22px;
+            margin: 5px 0;
+        }
+
+        /* ===== SMALL LABEL TEXT ===== */
+        .label {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        /* ===== SIGNAL BAR ===== */
+        .bar {
+            height: 10px;
+            background: #1f2937;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .fill {
+            height: 100%;
+            background: #22c55e; /* EDIT: signal color */
+            width: 80%; /* gets updated dynamically */
+        }
+
+        /* ===== PYRO STATUS BOX ===== */
+        .pyro {
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .armed { background: #e8970a; } /* orange */
+        .fired { background: #ef4444; } /* red */
+    </style>
+</head>
+
+<body>
+
+<!-- ===== TOP STATUS BAR ===== -->
+<div class="topbar">
+    <div>Ground Station</div>
+
+    <div class="status">
+        <!-- CONNECTION STATUS -->
+        <div><span class="dot green"></span> Connected</div>
+
+        <!-- GPS STATUS -->
+        <div>GPS: LOCK</div>
+
+        <!-- TIME DISPLAY -->
+        <div>Time: <span id="time"></span></div>
+    </div>
+</div>
+
+<!-- ===== MAIN GRID ===== -->
+<div class="container">
+
+    <!-- ===== MOTION PANEL ===== -->
+    <!-- Shows velocity (EDIT: can change to position/acceleration) -->
+    <div class="panel">
+        <h3>Motion</h3>
+        <canvas id="motionChart"></canvas> <!-- JS connects here -->
+    </div>
+
+    <!-- ===== ORIENTATION PANEL ===== -->
+    <!-- Roll / Pitch / Yaw from IMU -->
+    <div class="panel">
+        <h3>Orientation</h3>
+
+        <!-- EDIT: values updated in JS -->
+        <div class="big">Roll: <span id="roll"></span>°</div>
+        <div class="big">Pitch: <span id="pitch"></span>°</div>
+        <div class="big">Yaw: <span id="yaw"></span>°</div>
+    </div>
+
+    <!-- ===== ENVIRONMENT PANEL ===== -->
+    <!-- Altitude / Pressure -->
+    <div class="panel">
+        <h3>Environment</h3>
+        <canvas id="envChart"></canvas>
+    </div>
+
+    <!-- ===== 3D MODEL PANEL ===== -->
+    <!-- Future: Three.js model goes here -->
+    <div class="panel wide">
+        <h3>3D Orientation</h3>
+
+        <!-- EDIT: replace this with 3D canvas -->
+        <div style="height:200px; display:flex; align-items:center; justify-content:center; color:#6b7280;">
+            (3D Model Placeholder)
+        </div>
+    </div>
+
+    <!-- ===== SYSTEM PANEL ===== -->
+    <div class="panel wide">
+        <h3>System</h3>
+
+        <!-- ===== SIGNAL STRENGTH ===== -->
+        <div class="label">Signal Strength</div>
+        <div class="bar">
+            <div id="signalBar" class="fill"></div> <!-- JS updates width -->
+        </div>
+
+        <!-- ===== PYRO STATUS ===== -->
+        <div class="label">Pyros</div>
+
+        <!-- EDIT: change text/classes based on state -->
+        <div id="pyro1" class="pyro armed">Pyro 1: ARMED</div>
+        <div id="pyro2" class="pyro">Pyro 2: IDLE</div>
+    </div>
+
+</div>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+
+//
+// ===== CHART CREATION FUNCTION =====
+// Reusable function for making charts
+//
+function createChart(id, label){
+    return new Chart(document.getElementById(id), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: label, // EDIT: graph name
+                data: [],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            animation: false, // smoother real-time
+            scales: { x: { display: false } }
+        }
+    });
+}
+
+//
+// ===== CREATE CHARTS =====
+//
+let motionChart = createChart('motionChart', 'Velocity'); // EDIT label
+let envChart = createChart('envChart', 'Altitude');       // EDIT label
+
+//
+// ===== UPDATE GRAPH DATA =====
+//
+function update(chart, value){
+    chart.data.labels.push('');
+    chart.data.datasets[0].data.push(value);
+
+    // Keep only last 20 points
+    if(chart.data.labels.length > 20){
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+    }
+
+    chart.update();
+}
+
+//
+// ===== SIMULATED TELEMETRY LOOP =====
+// Replace this with real data later
+//
+setInterval(() => {
+
+    // ===== FAKE DATA (EDIT: replace with real telemetry) =====
+    let velocity = Math.random() * 50;
+    let altitude = Math.random() * 100;
+
+    // ===== UPDATE GRAPHS =====
+    update(motionChart, velocity);
+    update(envChart, altitude);
+
+    // ===== ORIENTATION VALUES =====
+    document.getElementById('roll').textContent = (Math.random()*180-90).toFixed(1);
+    document.getElementById('pitch').textContent = (Math.random()*180-90).toFixed(1);
+    document.getElementById('yaw').textContent = (Math.random()*360).toFixed(1);
+
+    // ===== SIGNAL STRENGTH =====
+    let signal = Math.random() * 100;
+    document.getElementById('signalBar').style.width = signal + "%";
+
+    // ===== CLOCK =====
+    document.getElementById('time').textContent = new Date().toLocaleTimeString();
+
+}, 500);
+
+</script>
+
+</body>
+</html>
