@@ -4,15 +4,16 @@ W25N::W25N(){};
 
 
 void W25N::sendData(char * buf, uint32_t len){
-  SPI1.beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
+  _spi->beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
   digitalWrite(_cs, LOW);
-  SPI1.transfer(buf, len);
+  _spi->transfer(buf, len);
   digitalWrite(_cs, HIGH);
-  SPI1.endTransaction();
+  _spi->endTransaction();
 }
 
-int W25N::begin(uint32_t cs){
-  SPI1.begin();
+int W25N::begin(SPIClass *spi, uint32_t cs){
+  spi->begin();
+  _spi = spi;
   _cs = cs;
   pinMode(_cs, OUTPUT);
   digitalWrite(_cs, HIGH);
@@ -115,12 +116,12 @@ int W25N::loadProgData(uint16_t columnAdd, char* buf, uint32_t dataLen){
   char cmdbuf[3] = {W25N_PROG_DATA_LOAD, columnHigh, columnLow};
   this->block_WIP();
   this->writeEnable();
-  SPI1.beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
+  _spi->beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
   digitalWrite(_cs, LOW);
-  SPI1.transfer(cmdbuf, sizeof(cmdbuf));
-  SPI1.transfer(buf, dataLen);
+  _spi->transfer(cmdbuf, sizeof(cmdbuf));
+  _spi->transfer(buf, dataLen);
   digitalWrite(_cs, HIGH);
-  SPI1.endTransaction();
+  _spi->endTransaction();
   return 0;
 }
 
@@ -137,12 +138,12 @@ int W25N::loadRandProgData(uint16_t columnAdd, char* buf, uint32_t dataLen){
   char cmdbuf[3] = {W25N_RAND_PROG_DATA_LOAD, columnHigh, columnLow};
   this->block_WIP();
   this->writeEnable();
-  SPI1.beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
+  _spi->beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
   digitalWrite(_cs, LOW);
-  SPI1.transfer(cmdbuf, sizeof(cmdbuf));
-  SPI1.transfer(buf, dataLen);
+  _spi->transfer(cmdbuf, sizeof(cmdbuf));
+  _spi->transfer(buf, dataLen);
   digitalWrite(_cs, HIGH);
-  SPI1.endTransaction();
+  _spi->endTransaction();
   return 0;
 }
 
@@ -181,12 +182,12 @@ int W25N::read(uint16_t columnAdd, char* buf, uint32_t dataLen){
   char columnLow = columnAdd & 0xff;
   char cmdbuf[4] = {W25N_READ, columnHigh, columnLow, 0x00};
   this->block_WIP();
-  SPI1.beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
+  _spi->beginTransaction(SPISettings(80000000, MSBFIRST, SPI_MODE0));
   digitalWrite(_cs, LOW);
-  SPI1.transfer(cmdbuf, sizeof(cmdbuf));
-  SPI1.transfer(buf, dataLen);
+  _spi->transfer(cmdbuf, sizeof(cmdbuf));
+  _spi->transfer(buf, dataLen);
   digitalWrite(_cs, HIGH);
-  SPI1.endTransaction();
+  _spi->endTransaction();
   return 0;
 }
 //Returns the Write In Progress bit from flash.

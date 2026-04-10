@@ -47,6 +47,8 @@
 #define W25M02GV_MAX_PAGE         131071
 #define W25M02GV_MAX_DIES         2
 
+#define W25N04KV_MAX_PAGE         262143
+
 enum chipModels{
   W25N01GV,
   W25M02GV
@@ -55,6 +57,7 @@ enum chipModels{
 
 class W25N {
   private:
+    SPIClass *_spi;
     int _cs;
     enum chipModels _model;
     int _dieSelect;
@@ -75,10 +78,10 @@ class W25N {
      * buffer. */
     void sendData(char * buf, uint32_t len);
 
-    /* begin(int cs) -- initialises the flash and checks that the flash is 
+    /* begin(SPIClass *spi, int cs) -- initialises the flash and checks that the flash is 
      * functioning and is the right model.
      * Output -- 0 if working, 1 if error*/
-    int begin(uint32_t cs);
+    int begin(SPIClass *spi, uint32_t cs);
 
     /* reset() -- resets the device. */
     void reset();

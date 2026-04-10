@@ -29,7 +29,7 @@
  */
 
 /* i2c constants */
-#define I2C_ADDRESS 0x69u /* depends on how "SDO" pin is wired (datasheet pg. 217) */
+#define I2C_ADDRESS 0x68u /* depends on how "SDO" pin is wired (datasheet pg. 217) */
 
 /* register constants (datasheet pg. 62) */
 #define REGISTER_CHIP_ID 0x00u
@@ -218,7 +218,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     uint8_t int_conf_data[] = {1, 0};
 
-    FSError conf_status = i2c_write(I2C_ADDRESS, REGISTER_INT_CONF, &int_conf_data[2], 2);
+    FSError conf_status = i2c_write(I2C_ADDRESS, REGISTER_INT_CONF, int_conf_data, 2);
     if (conf_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
@@ -229,19 +229,6 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
     /* configure ACC_CONF register (acc_mode, acc_range, acc_bw, acc_avg_num, and acc_odr) */
     /* =================================================================================== */
 
-    uint8_t acc_conf_bytes[4]; /* 2 dummy bytes required by read_registers() */
-    FSError acc_conf_status = i2c_read(
-        I2C_ADDRESS,
-        REGISTER_ACC_CONF,
-        acc_conf_bytes,
-        sizeof(acc_conf_bytes)
-        );
-    if (status != SUCCESS)
-    {
-        bmi323->is_in_degraded_state = true;
-        return BMI323_ACC_CONF_READ_FAILURE;
-    }
-
     /* ACC_CONF.acc_mode =    0b111  for normal power mode (datasheet pg. 22)
      * ACC_CONF.acc_avg_num = 0b000  for no averaging
      * ACC_CONF.acc_bw =      0b1    for most accurate filtering (?)
@@ -251,14 +238,13 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
      * binary: [x]  [111]       [x]  [000]           [1]       [001]        [1000]
      * hex:    0x70                                  0x98
      */
-    acc_conf_bytes[3] &= 0x88u; /* erase non-reserved bits */
-    acc_conf_bytes[2] &= 0x00u;
-    acc_conf_bytes[3] |= 0x70u; /* write to non-reserved bits */
-    acc_conf_bytes[2] |= 0x98u;
-    acc_conf_status = i2c_write(
+    uint8_t acc_conf_bytes[2] = {0};
+    acc_conf_bytes[1] = 0b01110000; 
+    acc_conf_bytes[0] = 0b00011000;
+    FSError acc_conf_status = i2c_write(
         I2C_ADDRESS,
         REGISTER_ACC_CONF,
-        &acc_conf_bytes[2],
+        acc_conf_bytes,
         2
         ); /* no dummy bytes when writing */
     if (status != SUCCESS)
@@ -324,6 +310,9 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
         bmi323->is_in_degraded_state = true;
         return BMI323_INT_MAP_WRITE_FAILURE;
     }
+
+    Serial.println("Full bmi323 init success");
+    delay(1000);
 
     return SUCCESS;
 }

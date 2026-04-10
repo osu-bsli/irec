@@ -24,6 +24,7 @@
 #include "pins.h"
 #include "test_data.h"
 #include "telemetry.h"
+#include "logging.h"
 #include <error.h>
 
 // AirBrakes
@@ -75,77 +76,6 @@ static Adafruit_ADS1115 pt_ads;
 Servo AirBrakeServo;
 
 //static bool sd_card_initialized_success = false;
-
-// TODO explicitly pass in the SPI bus
-/// Initialize state for writing to the SD card
-static FSError sdcard_and_logging_init(fs::File *fileOut)
-{
-
-  // Set up SD card
-
-  // TODO: Maybe try re-opening the SD card if it disconnects mid-flight
-
-  SPI1.setMISO(PIN_FS_SPI_MISO);
-  SPI1.setMOSI(PIN_FS_SPI_MOSI);
-  ////SPI.setCS(PIN_SD_CS);
-  SPI1.setSCK(PIN_FS_SPI_SCK);
-
-  if (!SD.begin(PIN_SD_CS))
-  {
-    Serial.printf("SD card initialized\n\r");
-  }
-  else
-  {
-    return SD_CARD_INIT_FAILURE;
-  }
-
-  //Open root
-
-  auto root_file = SD.open("/");
-  if (!root_file) {
-    return FS_NOT_FOUND;
-  }
-  
-  bool finished_directory = false;
-  while (!finished_directory) {
-    File entry = root_file.openNextFile();
-    if (!entry) {
-      finished_directory = true;
-    } else {
-      Serial.printf("\t%s\n\r", entry.name());
-    }
-  }
-
-  return SUCCESS;
-
-  // Find a %d filename that is free to use
-  char file_name[16];
-  int file_num = 0;
-  do
-  {
-    snprintf(file_name, 16, "/%d", file_num);
-    file_num++;
-  } while (SD.exists(file_name));
-
-  // Open the file
-  auto file = SD.open(file_name, FILE_WRITE);
-  if (file)
-  {
-    Serial.print("Opened file \"");
-    Serial.print(file_name);
-    Serial.println("\" for telemetry logging\n");
-  }
-  else
-  {
-    Serial.print("Failed to open file \"");
-    Serial.print(file_name);
-    Serial.println("\" for telemetry logging\n");
-    return SD_CARD_FILE_OPEN_FAILURE;
-  }
-
-  *fileOut = file;
-  return SUCCESS;
-}
 
 
 
@@ -214,14 +144,6 @@ static FSError sensors_setup()
 
   return result;
 }
-
-
-// void sd_setup()
-// {
-  // PIN_SPI_CLK, PIN_SPI_MISO, PIN_SPI_MOSI
-  //SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-  //log_file = sdcard_and_logging_init();
-// }
 
 /*
 void lora_and_sd_setup()
@@ -660,20 +582,23 @@ void gps_test_loop()
 
 void setup()
 {
-
   // FLIGHT COMPUTER INITIALIZATION  
   gpio_config();
 
   Serial.begin(115200);
 
+  /* SD card and flash logging */
+  // This can block for a very long time while flash data is being moved to SD card
+  logging_setup();
+
   // Sensors board
-  // FSError sensor_status = sensors_setup();
-  // if (sensor_status != SUCCESS) {
-  //   // TODO handle sensor init failure
-  //   while (true) {
-  //     Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
-  //   }
-  // }
+  FSError sensor_status = sensors_setup();
+  if (sensor_status != SUCCESS) {
+    // TODO handle sensor init failure
+    while (true) {
+      Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
+    }
+  }
 
   // Pressure Transducer
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
@@ -704,7 +629,9 @@ void setup()
     //   log_p->bmi323_gyro_z = bmi323_data.gyro_z;
     // }
 
-    Serial.printf("%032x %032x %032x\n\r", bmi323_data.accel_x, bmi323_data.accel_y, bmi323_data.accel_z);
+    Serial.printf("%f %f %f\n\r", bmi323_data.accel_x, bmi323_data.accel_y, bmi323_data.accel_z);
+
+    delay(100);
   }
 
 
@@ -743,31 +670,6 @@ void setup()
   while (true) {
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
-
-  
-  // const uint8_t flash_message[] = "I LOVE YURI!!!";
-  // uint8_t flash_buffer[512];
-
-  // // Zero the flash writing buffer
-  // memset(flash_buffer, 0, 512);
-
-  // SPI1.setSCK(PIN_FS_SPI_SCK);
-  // SPI1.setMOSI(PIN_FS_SPI_MOSI);
-  // SPI1.setMISO(PIN_FS_SPI_MISO);
-  // W25N flash;
-  // flash.begin(PIN_FLASH_CS);
-
-  // //flash.
-  // //SPIFlash flash(PIN_FC_CS, &SPI1);
-
-  // fs::File file;
-  // FSError sd_card_status = sdcard_and_logging_init(&file);
-  // if (sd_card_status != SUCCESS) {
-  //   while (true) {
-  //     Serial.printf("%s\n\r", FCError__strings[sd_card_status]);
-  //   }
-  //   // TODO handle sd card failure
-  // }
 }
 
 void loop()

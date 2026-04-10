@@ -1,0 +1,1 @@
+void logging_setup();

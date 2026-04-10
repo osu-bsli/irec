@@ -53,10 +53,10 @@ struct __attribute__((packed)) log_packet_v3 {
     float adxl375_accel_x; // ADXL375 Acceleration X (unit: G)
     float adxl375_accel_y; // ADXL375 Acceleration Y (unit: G)
     float adxl375_accel_z; // ADXL375 Acceleration Z (unit: G)
-    float bm1422_magn_x; // BM1422 Magnetic Field X
-    float bm1422_magn_y; // BM1422 Magnetic Field Y
-    float bm1422_magn_z; // BM1422 Magnetic Field Z
-    float gps_lat; // Latitude  (unit: degres)
+    float bm1422_magn_x; // BM1422 Magnetic Field X (unit: μT)
+    float bm1422_magn_y; // BM1422 Magnetic Field Y (unit: μT)
+    float bm1422_magn_z; // BM1422 Magnetic Field Z (unit: μT)
+    float gps_lat; // Latitude  (unit: degrees)
     float gps_lng; // Longitude (unit: degrees)
     float gps_alt; // Altitude  (unit: meters)
     float gps_speed;
