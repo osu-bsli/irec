@@ -172,8 +172,6 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
      * THE FIRST 2 BYTES OF ANY I2C REGISTER READ FROM THE BMI323 ARE 0 DUMMY BYTES.
      */
 
-    FSError result;
-
     /* check chip id (datasheet pg. 66) */
     uint16_t chip_id_value[2] = {0x1234, 0x5678};
     FSError chip_id_status = i2c_read(I2C_ADDRESS, REGISTER_CHIP_ID, (uint8_t *)chip_id_value, sizeof(chip_id_value));
@@ -198,7 +196,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
         return BMI323_ERROR_REGISTER_READ_FAILURE;
     }
 
-    if (err_value[1] == 0x5678) // read the data sheet
+    if (err_value[1] == 0x5678) // if the received value for the error is not 0 then something is wrong
     {
         bmi323->is_in_degraded_state = true;
         return BMI323_ERROR_REGISTER_FAILURE;
@@ -206,16 +204,23 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
 
     /* check STATUS */
     uint16_t status_value[2] = {0x1234, 0x5678};
-    FSError status = i2c_read(I2C_ADDRESS, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
-    if (status != SUCCESS)
+    FSError status_read_status = i2c_read(I2C_ADDRESS, REGISTER_STATUS, (uint8_t *)status_value, sizeof(status_value));
+    if (status_read_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
-        return BMI323_STATUS_FAILURE;
+        return BMI323_STATUS_READ_FAILURE;
     }
+
+    // if (status_value[1] != 0)
+    // {
+    //     bmi323->is_in_degraded_state = true;
+    //     return BMI323_STATUS_FAILURE;
+    // }
 
     // The BMI323 doesn't reset when the STM32 does, so the powerup flag may not always be set
     //    if ((status_value[1] & 1) == 0) BKPT_ERROR;
 
+    // Interrupt configuration doesn't actually matter in our case
     uint8_t int_conf_data[] = {1, 0};
 
     FSError conf_status = i2c_write(I2C_ADDRESS, REGISTER_INT_CONF, int_conf_data, 2);
@@ -247,7 +252,7 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
         acc_conf_bytes,
         2
         ); /* no dummy bytes when writing */
-    if (status != SUCCESS)
+    if (acc_conf_status != SUCCESS)
     {
         bmi323->is_in_degraded_state = true;
         return BMI323_ACC_CONF_WRITE_FAILURE;
@@ -310,9 +315,6 @@ FSError fc_bmi323_initialize(struct fc_bmi323 *bmi323)
         bmi323->is_in_degraded_state = true;
         return BMI323_INT_MAP_WRITE_FAILURE;
     }
-
-    Serial.println("Full bmi323 init success");
-    delay(1000);
 
     return SUCCESS;
 }

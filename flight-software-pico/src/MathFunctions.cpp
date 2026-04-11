@@ -61,10 +61,19 @@ void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r
 //function that we will need to work on before test flight!
 float drag_coeff(float theta, float velocity, float height)
 {
-    //keep in mind the theta needs to be a percentage of deploymnet, not actual angle.
     float T = 15.04 - 0.00649 * height;
     float a = sqrt(1.4*287.0529*T);
-    return(-0.06828 * velocity / a * 0.01 + .243866 * theta + .333907);
+
+    float Mach = velocity/a;
+    float Cd  = 0.4792 + -0.3960 * Mach + 0.00091 * theta + 0.2975 * Mach * Mach - 0.000002 * theta * theta - 0.000211 * Mach * theta;
+
+    if (Cd > 0.5) {
+        Cd = 0.5;
+    }
+    else if (Cd < 0.01) {
+        Cd = 0.01;
+    }
+    return Cd;
 }
 
 //calculates air density from standard atmosphere table

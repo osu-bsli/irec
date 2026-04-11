@@ -4,7 +4,7 @@
 void PredictDeploymentAngleInitialize(AB_Predict_Deployment_Angle_Variables& Variables)
 {
     Variables.mid = 0.0;
-    Variables.targetApogee = 1970; //input target apogee in m
+    Variables.targetApogee = 1448; //input target apogee in m
     Variables.currentTarget = 0;
     Variables.predictedApogee = 0;
 }

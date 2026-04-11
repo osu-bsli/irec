@@ -195,7 +195,7 @@ void AB_loop(AB_Filter_Main_Variables& Variables)
     {
         if (Variables.Sensors.GPS.block<3, 1>(3, 0).norm() > 20.0f) 
         {
-            //AB_Attitude_State_Update_GPS(Variables.AttState, Variables.Sensors, Variables.AB_Att_UP_GPS, Variables.AB_Att_Pred);
+            AB_Attitude_State_Update_GPS(Variables.AttState, Variables.Sensors, Variables.AB_Att_UP_GPS, Variables.AB_Att_Pred);
         }
     }
 

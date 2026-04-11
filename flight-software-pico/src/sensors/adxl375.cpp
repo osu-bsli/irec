@@ -73,7 +73,6 @@ static FSError is_data_ready(
   struct fc_adxl375 *device,
   int *isready
 ){
-  FSError result = SUCCESS;
   uint8_t interrupt_data;
 
   /* read INT_SOURCE bits (pg. 23) */
@@ -86,7 +85,7 @@ static FSError is_data_ready(
 
   if (status != SUCCESS)
   {
-    result = ADXL375_DATA_READY_READ_FAILURE;
+    return ADXL375_DATA_READY_READ_FAILURE;
   } else {
     /* ============================= */
     /* DATA_READY is bit D7 (pg. 23) */
@@ -183,8 +182,6 @@ FSError fc_adxl375_initialize(struct fc_adxl375 *device)
 
 FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *data)
 {
-  FSError result = SUCCESS;
-
   /* ================================ */
   /* read raw acceleration data bytes */
   /* ================================ */
@@ -226,7 +223,7 @@ FSError fc_adxl375_process(struct fc_adxl375 *device, struct fc_adxl375_data *da
   /* TODO: Maybe I just need to calibrate the accel lmao */
   /* TODO: Yeah it's a high-G accel it needs careful calibration */
   /* TODO: Calibrate the ADXL375 and add code to write the calibration values to the sensor on startup */
-  char buf[64];
+  // char buf[64];
   // Serial.printf("adxl375: process\n");
   // sprintf(buf, "%f", device->acceleration_x);
   // Serial.printf("adxl375: accel x: %s\n", buf);
