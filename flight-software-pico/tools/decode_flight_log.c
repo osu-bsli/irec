@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../main/telemetry.h"
+#include "../include/telemetry.h"
 
 static const char EXPECTED_MAGIC[9] = { 'C','O','R','E','Y','M','A','Y','3' };
 

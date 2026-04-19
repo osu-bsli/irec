@@ -27,6 +27,7 @@
 #include "logging.h"
 #include <error.h>
 
+
 // AirBrakes
 #include "Filters/AB_Filter_Main.h"
 #include "AB_Struct_Storage.h"
@@ -55,12 +56,14 @@
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
 // 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
-#define LOG_INTERVAL_MS 2
+#define LOG_INTERVAL_MS 10
 #define MAX_SERVO_CURRENT_AMPS 2.2
 
 #define ADC_RESOLUTION_BITS 12
 
 const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
+
+FSError sdcard_init(fs::File *fileOut);
 
 static fs::File log_file;
 
@@ -79,6 +82,10 @@ static Adafruit_ADS1115 pt_ads;
 #define AIRBRAKE_DEPLOYED_ANGLE 33
 Servo AirBrakeServo;
 
+#define C5_HZ 587
+#define NOTE(n) (C5_HZ * pow(2, (n/12.0)))
+#define BEEP(n) tone(PIN_BUZZER, NOTE(n), 100)
+
 /// Due to the nature of the PICO we can configure
 /// nearly every pin to do multiple functions.
 /// As such all the pin configuration should
@@ -92,6 +99,8 @@ static void gpio_config() {
   gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
   gpio_pull_up(PIN_I2C0_SDA);
   gpio_pull_up(PIN_I2C0_SCL);
+
+  pinMode(PIN_ACTIVITY_LED, OUTPUT);
 
   bi_decl(bi_2pins_with_func(PIN_I2C0_SDA, PIN_I2C0_SCL, GPIO_FUNC_I2C));
 }
@@ -132,7 +141,6 @@ static FSError sensors_setup()
 }
 
 FSError logging_setup(File *file) {
-
   SPI1.setMISO(PIN_FS_SPI_MISO);
   SPI1.setMOSI(PIN_FS_SPI_MOSI);
   SPI1.setSCK(PIN_FS_SPI_SCK);
@@ -293,7 +301,6 @@ void log_data(
 //              );
 
 
-    // log_packet_make_header(&log_p);
     // log_file.write((uint8_t *)&log_p, sizeof(log_p));
     // log_file.flush();
 
@@ -570,23 +577,30 @@ static void runtime( void * pvParameters ) {
   }
 }
 
+#define FLIGHT_STATE_PAD 0
+#define FLIGHT_STATE_BOOST 1
+#define FLIGHT_STATE_COAST 2
+#define FLIGHT_STATE_AIRBRAKE 3
+#define FLIGHT_STATE_RETRACTED 4
+#define FLIGHT_STATE_SAVED 5
+
+#define NEXT_STATE(s) \
+  BEEP(s); \
+  flight_state = s; \
+  state_time_ms = 0;
 
 // 
 static void pp_runtime( void * pvParameters ) {
+  Serial.println("Runtime task begin...");
   TickType_t time = xTaskGetTickCount();
 
-  bool boost = false;
+  int flight_state = FLIGHT_STATE_PAD;
+  uint32_t state_time_ms = 0;
+  float accel_norm_ema = 0;
 
-  bool boost_timer_started = false;
-  const uint32_t BOOST_TIMER_END = 500 * 1000; // 500 SECONDS in MS
-  TickType_t boost_timer_start_time;
-
-  bool deploy_timer_started = false;
-  const uint8_t DEPLOY_TIMER_END = 1 * 1000; // 1 SECONDS in MS
-  TickType_t deploy_timer_start_time;
+  int32_t blink_counter = 0;
 
   while (true) {
-
     struct log_packet_v3 log_p = {
         .status_flags = get_sensor_state(),
         .time_boot_ms = time,
@@ -618,28 +632,74 @@ static void pp_runtime( void * pvParameters ) {
     FSError sensor_acquire_status = acquire_sensor_data(&log_p); // Should just work, but it doesn't
     FSError gps_acquire_status = acquire_gps_data(&log_p);
 
-    Serial.printf("%f %f %f %f\n\r", log_p.gps_lat, log_p.gps_lng, log_p.gps_alt, log_p.gps_speed);
+    log_packet_make_header(&log_p);
 
-    if (log_p.bmi323_accel_z > 3.0 && boost == false) {
-        tone(26, 587, 100);
-        boost = true;
-    } else if (log_p.bmi323_accel_z < 3.0 && boost == true) {
-        boost_timer_start_time = xTaskGetTickCount();
-        boost_timer_started = true;
+    // EMA
+    float accel_norm = sqrt(
+       powf(log_p.bmi323_accel_x, 2)
+     + powf(log_p.bmi323_accel_y, 2)
+     + powf(log_p.bmi323_accel_z, 2));
+    float alpha = 0.5;
+    accel_norm_ema = accel_norm * alpha + accel_norm_ema * (1 - alpha); 
 
-        AirBrakeServo.write(AIRBRAKE_DEPLOYED_ANGLE);
+    // Serial.printf("%f %f %f %f\n\r", log_p.gps_lat, log_p.gps_lng, log_p.gps_alt, log_p.gps_speed);
+
+    switch (flight_state)
+    {
+      case FLIGHT_STATE_PAD:
+        if (accel_norm_ema > 3.0)
+        {
+          NEXT_STATE(FLIGHT_STATE_BOOST);
+        }
+        break;
+      case FLIGHT_STATE_BOOST:
+        if (accel_norm_ema < 2.0)
+        {
+          NEXT_STATE(FLIGHT_STATE_COAST);
+        }
+        break;
+      case FLIGHT_STATE_COAST:
+        if (state_time_ms > 2000)
+        {
+          NEXT_STATE(FLIGHT_STATE_AIRBRAKE);
+          AirBrakeServo.write(AIRBRAKE_DEPLOYED_ANGLE);
+        }
+        break;
+      case FLIGHT_STATE_AIRBRAKE:
+        if (state_time_ms > 30000)
+        {
+          NEXT_STATE(FLIGHT_STATE_RETRACTED);
+          AirBrakeServo.write(AIRBRAKE_STOWED_ANGLE);
+        }
+        break;
+      case FLIGHT_STATE_RETRACTED:
+        if (state_time_ms > 600000)
+        {
+          NEXT_STATE(FLIGHT_STATE_SAVED);
+          log_file.close();
+          SD.end();
+        }
+        break;
+      case FLIGHT_STATE_SAVED:
+        break;
     }
 
-    if (boost_timer_started && xTaskGetTickCount() - boost_timer_start_time > BOOST_TIMER_END) {
-      log_file.close();
-      tone(26, 1000, 100);
-      SD.end();
-    } else {
-      if (time % 1000 == 0)
-        tone(26, 659, 100);
+    if (flight_state != FLIGHT_STATE_SAVED)
+    {
       log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
+      log_file.flush();
+
+      if (blink_counter >= 500)
+      {
+        blink_counter -= 500;
+        digitalWrite(PIN_ACTIVITY_LED, !digitalRead(PIN_ACTIVITY_LED));
+        // Serial.println(accel_norm_ema);
+        BEEP(12);
+      }
     }
 
+    state_time_ms += interval_ms;
+    blink_counter += interval_ms;
     xTaskDelayUntil(&time, interval_ms); // runs at 100hz
   }
 }
@@ -724,19 +784,22 @@ void setup()
   // FLIGHT COMPUTER INITIALIZATION  
   gpio_config();
 
-  tone(26, 523, 100);
-
+  tone(PIN_BUZZER, 523, 100);
+  delay(5000);
+  tone(PIN_BUZZER, 523, 100);
+  
   Serial.begin(115200);
 
   /* SD card and flash logging */
-  // This can block for a very long time while flash data is being moved to SD card
-  const FSError log_status = logging_setup(&log_file);
+  Serial.println("Setting up SD card...");
+  FSError log_status = sdcard_init(&log_file);
   if (log_status != SUCCESS) {
+    Serial.printf("[Error] SD Card Logging Initialization Failure: %s\n\r", FCError__strings[log_status]);
     while (true) {
-      Serial.printf("[Error] SD Card Logging Initialization Failure: %s\n\r", FCError__strings[log_status]);
     }
   }
 
+  Serial.println("Setting up sensors...");
   // Sensors board
   FSError sensor_status = sensors_setup();
   if (sensor_status != SUCCESS) {
@@ -746,13 +809,16 @@ void setup()
   }
 
   // Pressure Transducer
+  Serial.println("Setting up PT...");
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
 
   // GPS ?
+  Serial.println("Setting up GPS...");
   GPSSerial.setRX(PIN_GPS_RX);
   GPSSerial.setTX(PIN_GPS_TX);
   GPSSerial.begin(9600, SERIAL_8N1);
 
+  Serial.println("Setting up airbrakes...");
   init_airbrakes();
 
   // FLIGHT COMPUTER RUNTIME
@@ -773,6 +839,7 @@ void setup()
   BaseType_t pp_status;
   TaskHandle_t pp_handle;
 
+  Serial.println("Starting runtime task...");
   pp_status = xTaskCreate( pp_runtime,
                "PP",
                32768,

@@ -25,6 +25,8 @@
 #define PIN_I2C1_SCL 15
 #define PIN_I2C1_SDA 14
 
-#define PIN_ACTIVITY_LED 35
+#define PIN_ACTIVITY_LED 1
 //#define PIN_LED 35
+
+#define PIN_BUZZER 26
     

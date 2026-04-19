@@ -87,9 +87,14 @@ static int32_t flash_find_first_free_partition_index()
 /*
  * Preconditions: SPI1 is initialized and its pins are set
  */
-static FSError sdcard_init(fs::File *fileOut)
+FSError sdcard_init(fs::File *fileOut)
 {
-    if (!SD.begin(PIN_SD_CS, SPI1))
+    SPI1.setMISO(PIN_FS_SPI_MISO);
+    SPI1.setMOSI(PIN_FS_SPI_MOSI);
+    SPI1.setSCK(PIN_FS_SPI_SCK);
+    SPI1.begin();
+
+    if (SD.begin(PIN_SD_CS, SPI1))
     {
         Serial.printf("[SD] SD card initialized\n\r");
     }
@@ -97,30 +102,6 @@ static FSError sdcard_init(fs::File *fileOut)
     {
         return SD_CARD_INIT_FAILURE;
     }
-
-    // Open root
-
-    auto root_file = SD.open("/");
-    if (!root_file)
-    {
-        return FS_NOT_FOUND;
-    }
-
-    bool finished_directory = false;
-    while (!finished_directory)
-    {
-        File entry = root_file.openNextFile();
-        if (!entry)
-        {
-            finished_directory = true;
-        }
-        else
-        {
-            Serial.printf("\t%s\n\r", entry.name());
-        }
-    }
-
-    return SUCCESS;
 
     // Find a %d filename that is free to use
     char file_name[16];
