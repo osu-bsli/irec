@@ -55,13 +55,17 @@
 
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
-// 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
-#define LOG_INTERVAL_MS 10
+
 #define MAX_SERVO_CURRENT_AMPS 2.2
 
 #define ADC_RESOLUTION_BITS 12
 
-const static TickType_t interval_ms = LOG_INTERVAL_MS; // 100 Hz
+// FreeRTOS tick is 1ms when using Arduino like this
+// 20ms for 50hz, 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
+const static TickType_t runtime_interval_ms = 10; // 100 Hz
+const static TickType_t moc_interval_ms = 10; // 100 Hz
+const static TickType_t deploy_interval_ms = 20; // 50 Hz
+// const static TickType_t error_interval_ms = 100; // 10 Hz
 
 FSError sdcard_init(fs::File *fileOut);
 
@@ -77,7 +81,6 @@ static TinyGPSPlus gps;
 
 static Adafruit_ADS1115 pt_ads;
 
-
 #define AIRBRAKE_STOWED_ANGLE 91
 #define AIRBRAKE_DEPLOYED_ANGLE 33
 Servo AirBrakeServo;
@@ -85,6 +88,57 @@ Servo AirBrakeServo;
 #define C5_HZ 587
 #define NOTE(n) (C5_HZ * pow(2, (n/12.0)))
 #define BEEP(n) tone(PIN_BUZZER, NOTE(n), 100)
+
+enum LogQueueType: uint8_t {
+  SENSOR,
+  ERROR,
+  DEPLOYMENT_ANGLE
+};
+
+struct LogQueue {
+    enum LogQueueType type;
+    uint8_t error_code;
+    int deployment_angle;
+    uint8_t status_flags; // StatusFlags bitfield
+    uint32_t time_boot_ms; // Timestamp (ms since system boot)
+    float ms5607_pressure_mbar; // MS5607 Air Pressure (unit: mbar)
+    float ms5607_temperature_c; // MS5607 Temperature (unit: degrees C)
+    float bmi323_accel_x; // BMI323 Acceleration X (unit: G)
+    float bmi323_accel_y; // BMI323 Acceleration Y (unit: G)
+    float bmi323_accel_z; // BMI323 Acceleration Z (unit: G)
+    float bmi323_gyro_x; // BMI323 Gyroscope X (unit: deg/s)
+    float bmi323_gyro_y; // BMI323 Gyroscope Y (unit: deg/s)
+    float bmi323_gyro_z; // BMI323 Gyroscope Z (unit: deg/s)
+    float adxl375_accel_x; // ADXL375 Acceleration X (unit: G)
+    float adxl375_accel_y; // ADXL375 Acceleration Y (unit: G)
+    float adxl375_accel_z; // ADXL375 Acceleration Z (unit: G)
+    float bm1422_magn_x; // BM1422 Magnetic Field X
+    float bm1422_magn_y; // BM1422 Magnetic Field Y
+    float bm1422_magn_z; // BM1422 Magnetic Field Z
+    float gps_lat; // Latitude  (unit: degres)
+    float gps_lng; // Longitude (unit: degrees)
+    float gps_alt; // Altitude  (unit: meters)
+    float gps_speed;
+    float pt_volts;
+    int32_t gps_course;
+    uint8_t gps_num_sats;
+} LogQueue;
+
+struct AcquirePacket {
+  AB_Predict_Deployment_Angle_Variables DA_Vars;
+  AB_Predict_Apogee_Variables AP_Vars;
+  float apogeeIC[4];
+} AcquirePacket;
+
+const uint32_t acquire_queue_len = 10;
+static StaticQueue_t acquire_queue_data;
+uint8_t acquire_queue_storage_buffer[acquire_queue_len*sizeof(AcquirePacket)];
+static QueueHandle_t acquire_queue;
+
+const uint32_t log_queue_len = 100;
+static StaticQueue_t log_queue_data;
+uint8_t log_queue_storage_buffer[log_queue_len*sizeof(LogQueue)];
+static QueueHandle_t log_queue;
 
 /// Due to the nature of the PICO we can configure
 /// nearly every pin to do multiple functions.
@@ -140,57 +194,6 @@ static FSError sensors_setup()
   return result;
 }
 
-FSError logging_setup(File *file) {
-  SPI1.setMISO(PIN_FS_SPI_MISO);
-  SPI1.setMOSI(PIN_FS_SPI_MOSI);
-  SPI1.setSCK(PIN_FS_SPI_SCK);
-  SPI1.begin();
-
-  if(!SD.begin(PIN_SD_CS, SPI_HALF_SPEED, SPI1)) {
-    Serial.println("Failed to connect to SD card");
-    return SD_CARD_INIT_FAILURE;
-  }
-  else {
-    Serial.println("Connected to SD Card");
-    *file = SD.open("log.csv", FILE_WRITE);
-  }
-
-  file->printf("Chicken,Butt,Fart\n");
-  file->printf("%f,%f,%f\n", 0.0, 1.0, 0.0);
-
-
-  return SUCCESS;
-}
-/*
-void lora_and_sd_setup()
-{
-  SPI.begin(7, 6, 5);
-  LoRa.setSPI(SPI);
-  LoRa.setPins(4, 18);
-  LoRa.setTxPower(20);
-  pinMode(ACTIVITY_PIN_LED, OUTPUT);
-  while (!LoRa.begin(433E6))
-  {
-    delay(500);
-    digitalWrite(ACTIVITY_PIN_LED, 1);
-    delay(500);
-    digitalWrite(ACTIVITY_PIN_LED, 0);
-  }
-
-  digitalWrite(ACTIVITY_PIN_LED, 1);
-  delay(250);
-  digitalWrite(ACTIVITY_PIN_LED, 0);
-  delay(250);
-  digitalWrite(ACTIVITY_PIN_LED, 1);
-
-  LoRa.setSignalBandwidth(125E3);
-  LoRa.setSpreadingFactor(12);
-  LoRa.setPreambleLength(8);
-
-  log_file = sdcard_and_logging_init();
-}
-*/
-
 int motor_map(float value) {
   int size = AIRBRAKE_STOWED_ANGLE - AIRBRAKE_DEPLOYED_ANGLE;
 
@@ -206,50 +209,50 @@ int motor_map(float value) {
   return result;
 }
 
-static void print_log_packet(struct log_packet_v3 p) {
-  // %u is poo poo and C doesn't support printing char as a number so we have to use this work around for those values smaller than a word
-  const uint32_t status_flags = 0 | p.status_flags;
-  const uint32_t crc = 0 | p.crc16;
-  const uint32_t num_sats = 0 | p.gps_num_sats;
-  Serial.printf(
-    "[Packet Print]\n\rmagic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %02x\n\rstatus flags: %u\n\rtime_boot_ms: %u\n\rms5607_pressure_mbar: %f\n\rms5607_temperature_c: %f\n\rbmi323_accel_x: %f\n\rbmi323_accel_y: %f\n\rbmi323_accel_z: %f\n\rbmi323_gyro_x: %f\n\rbmi323_gyro_y: %f\n\rbmi323_gyro_z: %f\n\radxl375_accel_x: %f\n\radxl375_accel_y: %f\n\radxl375_accel_z: %f\n\rbm1422_magn_x: %f\n\rbm1422_magn_y: %f\n\rbm1422_magn_z: %f\n\rgps_lat: %f\n\rgps_lng: %f\n\rgps_alt: %f\n\rgps_speed: %f\n\rgps_course: %lu\n\rgps_num_sats: %u\n\rpt_volts: %f\n\r",
-    p.magic[0],
-    p.magic[1],
-    p.magic[2],
-    p.magic[3],
-    p.magic[4],
-    p.magic[5],
-    p.magic[6],
-    p.magic[7],
-    p.magic[8],
-    p.magic[9],
-    p.size,
-    crc,
-    status_flags,
-    p.time_boot_ms,
-    p.ms5607_pressure_mbar,
-    p.ms5607_temperature_c,
-    p.bmi323_accel_x,
-    p.bmi323_accel_y,
-    p.bmi323_accel_z,
-    p.bmi323_gyro_x,
-    p.bmi323_gyro_y,
-    p.bmi323_gyro_z,
-    p.adxl375_accel_x,
-    p.adxl375_accel_y,
-    p.adxl375_accel_z,
-    p.bm1422_magn_x,
-    p.bm1422_magn_y,
-    p.bm1422_magn_z,
-    p.gps_lat,
-    p.gps_lng,
-    p.gps_alt,
-    p.gps_speed,
-    p.gps_course,
-    num_sats,
-    p.pt_volts
-  );
-}
+// static void print_log_packet(struct log_packet_v3 p) {
+//   // %u is poo poo and C doesn't support printing char as a number so we have to use this work around for those values smaller than a word
+//   const uint32_t status_flags = 0 | p.status_flags;
+//   const uint32_t crc = 0 | p.crc16;
+//   const uint32_t num_sats = 0 | p.gps_num_sats;
+//   Serial.printf(
+//     "[Packet Print]\n\rmagic: %c%c%c%c%c%c%c%c%c\n\rsize: %u\n\rcrc: %02x\n\rstatus flags: %u\n\rtime_boot_ms: %u\n\rms5607_pressure_mbar: %f\n\rms5607_temperature_c: %f\n\rbmi323_accel_x: %f\n\rbmi323_accel_y: %f\n\rbmi323_accel_z: %f\n\rbmi323_gyro_x: %f\n\rbmi323_gyro_y: %f\n\rbmi323_gyro_z: %f\n\radxl375_accel_x: %f\n\radxl375_accel_y: %f\n\radxl375_accel_z: %f\n\rbm1422_magn_x: %f\n\rbm1422_magn_y: %f\n\rbm1422_magn_z: %f\n\rgps_lat: %f\n\rgps_lng: %f\n\rgps_alt: %f\n\rgps_speed: %f\n\rgps_course: %lu\n\rgps_num_sats: %u\n\rpt_volts: %f\n\r",
+//     p.magic[0],
+//     p.magic[1],
+//     p.magic[2],
+//     p.magic[3],
+//     p.magic[4],
+//     p.magic[5],
+//     p.magic[6],
+//     p.magic[7],
+//     p.magic[8],
+//     p.magic[9],
+//     p.size,
+//     crc,
+//     status_flags,
+//     p.time_boot_ms,
+//     p.ms5607_pressure_mbar,
+//     p.ms5607_temperature_c,
+//     p.bmi323_accel_x,
+//     p.bmi323_accel_y,
+//     p.bmi323_accel_z,
+//     p.bmi323_gyro_x,
+//     p.bmi323_gyro_y,
+//     p.bmi323_gyro_z,
+//     p.adxl375_accel_x,
+//     p.adxl375_accel_y,
+//     p.adxl375_accel_z,
+//     p.bm1422_magn_x,
+//     p.bm1422_magn_y,
+//     p.bm1422_magn_z,
+//     p.gps_lat,
+//     p.gps_lng,
+//     p.gps_alt,
+//     p.gps_speed,
+//     p.gps_course,
+//     num_sats,
+//     p.pt_volts
+//   );
+// }
 
 FSError acquire_gps_data(log_packet_v3 *log_p) {
     while (GPSSerial.available())
@@ -284,44 +287,6 @@ FSError acquire_gps_data(log_packet_v3 *log_p) {
     }
 
     return SUCCESS; // add gps knockout????? errror
-}
-
-/// Write log packet to SD Card
-void log_data(
-  struct log_packet_v3 *log_p
-)
-{
-    // struct fc_bm1422_data bm1422_data;
-    // fc_bm1422_process(&bm1422, &bm1422_data);
-
-//  Serial.printf(
-//                "[log packet]\n\rpressure: %f \n\rtemperature: %f\n\r",
-//                log_p.ms5607_pressure_mbar,
-//                log_p.ms5607_temperature_c
-//              );
-
-
-    // log_file.write((uint8_t *)&log_p, sizeof(log_p));
-    // log_file.flush();
-
-    // if (time % 1000 == 0)
-    // {
-      // if (sd_card_initialized_success)
-      // {
-        // digitalWrite(ACTIVITY_PIN_LED, !digitalRead(ACTIVITY_PIN_LED));
-      // }
-      
-      //Serial.print("Lat: ");
-      //Serial.print(gps.location.lat(), 6);
-      //Serial.print(" | Lon: ");
-      //Serial.print(gps.location.lng(), 6);
-      //Serial.print(" | Sats: ");
-      //Serial.print(gps.satellites.value());
-      //Serial.print(" | Alt: ");
-      //Serial.print(gps.altitude.meters());
-      //Serial.println(" m");
-      
-    // }
 }
 
 /// TODO probably add more sensor state for PT and GPS or something
@@ -449,19 +414,13 @@ float get_altitude_from_pressure(float pressure_pa) {
     return 44330.0f * (1.0f - std::pow(pressure_pa / SEA_LEVEL_PRESSURE_PA, 1.0f / 5.255f));
 }
 
-// Everything related to Airbrake state is handled
-// here to avoid having to do more advanced threading models
 static void runtime( void * pvParameters ) {
   static TickType_t time = xTaskGetTickCount();
-  static TickType_t last_motor_time = xTaskGetTickCount();
-
-  // Setup Calibration ???????? TODO
 
   AB_Filter_Main_Variables M;
   AB_Predict_Deployment_Angle_Variables DA_Vars;
   AB_Predict_Apogee_Variables AP_Vars;
   float apogeeIC[4] = {0.0,0.0,0.0,0.0};
-
 
   float pressures[5] = {0.0};
   fc_ms5607_data pressure_init_data;
@@ -517,8 +476,6 @@ static void runtime( void * pvParameters ) {
 
     // log_packet_make_header(&log_p); // This must be run last for CRC to be correct
 
-    const TickType_t acquire_time = xTaskGetTickCount() - time;
-
     // print_log_packet(log_p); // THIS FUNCTION FUCKING SUCKS
     // Serial.printf("time: %u %u %u\n\r", xTaskGetTickCount(), time, log_p.time_boot_ms);
     // Serial.printf("flags: %u\n\r", log_p.status_flags);
@@ -529,6 +486,7 @@ static void runtime( void * pvParameters ) {
 
     // Control systems
 
+    // TODO switch to microseconds for dt
     // Calculate dt using previous point
     float dt = delta_time_float / 1000.0f; // ms to s
     if (dt <= 0.0f) dt = 0.001f; 
@@ -543,164 +501,66 @@ static void runtime( void * pvParameters ) {
 
     AB_loop(M);
 
-    float v_horiz = sqrt(M.HorizState.Velocity_North * M.HorizState.Velocity_North + 
+    const float v_horiz = sqrt(M.HorizState.Velocity_North * M.HorizState.Velocity_North + 
                              M.HorizState.Velocity_East * M.HorizState.Velocity_East);
-    float zenith_deg = atan2(v_horiz, M.VertState.Velocity_Up) * RAD_TO_DEG;
+    const float zenith_deg = atan2(v_horiz, M.VertState.Velocity_Up) * RAD_TO_DEG;
 
     apogeeIC[0] = M.VertState.Altitude;
     apogeeIC[1] = M.VertState.Velocity_Up;
     apogeeIC[2] = zenith_deg;
 
-    const TickType_t gnc_time = xTaskGetTickCount() - time - acquire_time;
-    TickType_t motor_time = 0;
+    // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
+    // log_file.flush();
 
-    float airbrake_pct = 0.0;
+    struct AcquirePacket acquire_packet;
+    memcpy(&acquire_packet.AP_Vars, &AP_Vars, sizeof(AB_Predict_Apogee_Variables));
+    memcpy(&acquire_packet.DA_Vars, &DA_Vars, sizeof(AB_Predict_Deployment_Angle_Variables));
+    memcpy(&acquire_packet.apogeeIC, &apogeeIC, sizeof(float)*4);
 
-    Vector3f degrees = M.AttState.Quaternion_Body_To_ENU.toRotationMatrix().canonicalEulerAngles(0,1,2);
-
-
-    if (time - last_motor_time > 100) {
-      // airbrake_pct = PredictDeploymentAngle(apogeeIC, DA_Vars, AP_Vars);
-      last_motor_time = time;
-      // motor_time = xTaskGetTickCount() - time - acquire_time - gnc_time;
-      Serial.printf("%f euler: %f %f %f accel: %f %f %f\n\r", M.VertState.Altitude, (float) degrees.x() * 180.0 / PI, degrees.y() * 180 / PI, degrees.z() * 180 / PI, log_p.bmi323_accel_x, log_p.bmi323_accel_y, log_p.bmi323_accel_z);
-    }
-
-    // Motor update
-
-    // Log
-
-    // log_data(&log_p);
+    xQueueSendToFront(
+      acquire_queue,
+      &acquire_packet,
+      0
+    );
     
-    xTaskDelayUntil(&time, interval_ms);
+    xTaskDelayUntil(&time, runtime_interval_ms);
     // Serial.printf("dt: %u target: %u acquire: %u filter: %u motor time: %u motor deploy: %f\n\r", delta_time, interval_ms, acquire_time, gnc_time, motor_time, airbrake_pct);
   }
 }
 
-#define FLIGHT_STATE_PAD 0
-#define FLIGHT_STATE_BOOST 1
-#define FLIGHT_STATE_COAST 2
-#define FLIGHT_STATE_AIRBRAKE 3
-#define FLIGHT_STATE_RETRACTED 4
-#define FLIGHT_STATE_SAVED 5
-
-#define NEXT_STATE(s) \
-  BEEP(s); \
-  flight_state = s; \
-  state_time_ms = 0;
-
-// 
-static void pp_runtime( void * pvParameters ) {
-  Serial.println("Runtime task begin...");
-  TickType_t time = xTaskGetTickCount();
-
-  int flight_state = FLIGHT_STATE_PAD;
-  uint32_t state_time_ms = 0;
-  float accel_norm_ema = 0;
-
-  int32_t blink_counter = 0;
+static void deploy( void * pvParameters ) {
+  static TickType_t time = xTaskGetTickCount();
 
   while (true) {
-    struct log_packet_v3 log_p = {
-        .status_flags = get_sensor_state(),
-        .time_boot_ms = time,
-        .ms5607_pressure_mbar = NAN,
-        .ms5607_temperature_c = NAN,
-        .bmi323_accel_x = NAN, // LOW G
-        .bmi323_accel_y = NAN,
-        .bmi323_accel_z = NAN,
-        .bmi323_gyro_x = NAN,
-        .bmi323_gyro_y = NAN,
-        .bmi323_gyro_z = NAN,
-        .adxl375_accel_x = NAN, // HIGH G
-        .adxl375_accel_y = NAN,
-        .adxl375_accel_z = NAN,
-        .bm1422_magn_x = NAN,
-        .bm1422_magn_y = NAN,
-        .bm1422_magn_z = NAN,
-        .gps_lat = NAN,
-        .gps_lng = NAN,
-        .gps_alt = NAN,
-        .gps_speed = NAN,
-        .pt_volts = NAN,
-        .gps_course = -0x7FFFFFFF,
-        .gps_num_sats = 0xFF,
-    };
+    const TickType_t current_time = xTaskGetTickCount();
+    const TickType_t delta_time = current_time - time;
+    // const float delta_time_float = portTICK_PERIOD_MS / delta_time;
+    time = current_time;
 
-    // Acquire step
+    struct AcquirePacket acquire_packet;
 
-    FSError sensor_acquire_status = acquire_sensor_data(&log_p); // Should just work, but it doesn't
-    FSError gps_acquire_status = acquire_gps_data(&log_p);
+    BaseType_t receive_status = xQueueReceive(
+      acquire_queue,
+      &acquire_packet,
+      0
+    );
 
-    log_packet_make_header(&log_p);
-
-    // EMA
-    float accel_norm = sqrt(
-       powf(log_p.bmi323_accel_x, 2)
-     + powf(log_p.bmi323_accel_y, 2)
-     + powf(log_p.bmi323_accel_z, 2));
-    float alpha = 0.5;
-    accel_norm_ema = accel_norm * alpha + accel_norm_ema * (1 - alpha); 
-
-    // Serial.printf("%f %f %f %f\n\r", log_p.gps_lat, log_p.gps_lng, log_p.gps_alt, log_p.gps_speed);
-
-    switch (flight_state)
-    {
-      case FLIGHT_STATE_PAD:
-        if (accel_norm_ema > 3.0)
-        {
-          NEXT_STATE(FLIGHT_STATE_BOOST);
-        }
-        break;
-      case FLIGHT_STATE_BOOST:
-        if (accel_norm_ema < 2.0)
-        {
-          NEXT_STATE(FLIGHT_STATE_COAST);
-        }
-        break;
-      case FLIGHT_STATE_COAST:
-        if (state_time_ms > 2000)
-        {
-          NEXT_STATE(FLIGHT_STATE_AIRBRAKE);
-          AirBrakeServo.write(AIRBRAKE_DEPLOYED_ANGLE);
-        }
-        break;
-      case FLIGHT_STATE_AIRBRAKE:
-        if (state_time_ms > 30000)
-        {
-          NEXT_STATE(FLIGHT_STATE_RETRACTED);
-          AirBrakeServo.write(AIRBRAKE_STOWED_ANGLE);
-        }
-        break;
-      case FLIGHT_STATE_RETRACTED:
-        if (state_time_ms > 600000)
-        {
-          NEXT_STATE(FLIGHT_STATE_SAVED);
-          log_file.close();
-          SD.end();
-        }
-        break;
-      case FLIGHT_STATE_SAVED:
-        break;
+    if (receive_status != pdPASS) {
+      Serial.printf("receive failure\n\r");
     }
 
-    if (flight_state != FLIGHT_STATE_SAVED)
-    {
-      log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
-      log_file.flush();
+    const float airbrake_pct = PredictDeploymentAngle(
+        acquire_packet.apogeeIC,
+        acquire_packet.DA_Vars,
+        acquire_packet.AP_Vars
+      );
+    const int servo_degrees = motor_map(airbrake_pct);
 
-      if (blink_counter >= 500)
-      {
-        blink_counter -= 500;
-        digitalWrite(PIN_ACTIVITY_LED, !digitalRead(PIN_ACTIVITY_LED));
-        // Serial.println(accel_norm_ema);
-        BEEP(12);
-      }
-    }
+    AirBrakeServo.write(servo_degrees);
 
-    state_time_ms += interval_ms;
-    blink_counter += interval_ms;
-    xTaskDelayUntil(&time, interval_ms); // runs at 100hz
+    Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
+
+    xTaskDelayUntil(&time, deploy_interval_ms); // TODO log deployed angle
   }
 }
 
@@ -711,72 +571,8 @@ static void moc_task( void * pvParameters ) {
 
     // Serial.printf("overcurrent status: %s\n\r", FS_ERROR_NAMES(overcurrent_status));
 
-    xTaskDelayUntil(&time, interval_ms); // runs at 100hz
+    xTaskDelayUntil(&time, moc_interval_ms); // runs at 100hz
   }
-}
-
-/*
-void gps_test_loop()
-{
-  TickType_t time = 0;
-  Serial.println("Beginning GPS test and data logging...");
-
-  while (1)
-  {
-    while (GPSSerial.available())
-    {
-      gps.encode(GPSSerial.read());
-    }
-
-    if (time % 1000 == 0)
-    {
-      Serial.print("Lat: ");
-      Serial.print(gps.location.lat(), 6);
-      Serial.print(" | Lon: ");
-      Serial.print(gps.location.lng(), 6);
-      Serial.print(" | Sats: ");
-      Serial.print(gps.satellites.value());
-      Serial.print(" | Alt: ");
-      Serial.print(gps.altitude.meters());
-      Serial.println(" m");
-    }
-    
-    vTaskDelayUntil(&time, interval_ms);
-  }
-}
-*/
-
-// void airbrake_fake_data_test()
-// {
-//   int start_ms = xTaskGetTickCount();
-//   TickType_t t;
-
-//   int i = 0;
-//   while (i < DATA_LEN && i < 2000)
-//   {
-//     auto pressure_mbar = ms5607_pressure_mbar[i];
-//     auto accel_z_mps2 = adxl375_accel_z_mps2_fc_frame[i];
-//     auto filter_out = airbrakes_process(pressure_mbar, accel_z_mps2);
-//     airbrakes_check_for_retraction(filter_out);
-//     xTaskDelayUntil(&t, 10);
-//     if (i % 100 == 0)
-//     {
-//       Serial.println(i);
-//     }
-//     i++;
-//   }
-
-//   int end_ms = xTaskGetTickCount();
-
-//   Serial.print("Completed 2000 iterations in ");
-//   Serial.print(end_ms - start_ms);
-//   Serial.println(" ms");
-// }
-
-FSError write_last_flight_to_sd(File *file) {
-  file->close();
-
-  return SUCCESS;
 }
 
 void setup()
@@ -821,39 +617,57 @@ void setup()
   Serial.println("Setting up airbrakes...");
   init_airbrakes();
 
+  acquire_queue = xQueueCreateStatic(
+                                     acquire_queue_len,
+                                     sizeof(AcquirePacket),
+                                     acquire_queue_storage_buffer,
+                                     &acquire_queue_data
+                                   );
+
+  log_queue = xQueueCreateStatic(
+                                   log_queue_len,
+                                   sizeof(LogQueue),
+                                   log_queue_storage_buffer,
+                                   &log_queue_data
+                                 );
+
   // FLIGHT COMPUTER RUNTIME
 
-  // BaseType_t runtime_status;
-  // TaskHandle_t runtime_handle;
+  BaseType_t runtime_status;
+  TaskHandle_t runtime_handle;
 
   // runtime task
-  // runtime_status = xTaskCreate( runtime,
-  //              "Acquire",
-  //              32768,
-  //              NULL,
-  //              configMAX_PRIORITIES - 1,
-  //              &runtime_handle
-          // );
-
-
-  BaseType_t pp_status;
-  TaskHandle_t pp_handle;
-
-  Serial.println("Starting runtime task...");
-  pp_status = xTaskCreate( pp_runtime,
-               "PP",
+  runtime_status = xTaskCreate( runtime,
+               "Acquire",
                32768,
                NULL,
                configMAX_PRIORITIES - 1,
-               &pp_handle
-             );
+               &runtime_handle
+       );
 
-  if (pp_status != pdPASS) {
+  if (runtime_status != pdPASS) {
     while (true){
-      Serial.printf("[Error] Could not create pp task");
+      Serial.printf("[Error] Could not create runtime task");
     }
-  }  
+  }
 
+  BaseType_t deploy_status;
+  TaskHandle_t deploy_handle;
+
+  // deploy task
+  deploy_status = xTaskCreate( deploy,
+               "Deploy",
+               32768,
+               NULL,
+               configMAX_PRIORITIES - 1,
+               &deploy_handle
+       );
+
+  if (deploy_status != pdPASS) {
+    while (true){
+      Serial.printf("[Error] Could not create deploy task");
+    }
+  }
 
   // motor overcurrent task
   
@@ -868,11 +682,6 @@ void setup()
                &moc_handle
              );
 
-  // if (runtime_status != pdPASS) {
-  //   while (true){
-  //     Serial.printf("[Error] Could not create runtime task");
-  //   }
-  // }
 
   if (moc_status != pdPASS) {
     while (true){
@@ -880,18 +689,8 @@ void setup()
     }
   }
 
-  // delay(10);
+  Serial.printf("Tasks and Queues initialized...\n\r");
 
-  // AirBrakeServo.write();
-
-  // while (true) { 
-  //   AirBrakeServo.write(AIRBRAKE_STOWED_ANGLE);
-  //   delay(2000);
-  //   AirBrakeServo.write(AIRBRAKE_DEPLOYED_ANGLE);
-  //   delay(2000);
-  // }
-
-  
   // Keep the task alive
   while (true) {
     vTaskDelay(100 / portTICK_PERIOD_MS);

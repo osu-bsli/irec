@@ -22,16 +22,16 @@ enum StatusFlags {
 };
 
 // TODO make this an actual thing
-enum RocketState {
-    ROCKET_PREFLIGHT,
-    ROCKET_TAKEOFF,
-    ROCKET_CRUISE,
-    ROCKET_APOGEE,
-    ROCKET_FREEFALL,
-    ROCKET_DROGUE,
-    ROCKET_LAND,
-    ROCKET_ERROR,
-};
+// enum RocketState {
+//     ROCKET_PREFLIGHT,
+//     ROCKET_TAKEOFF,
+//     ROCKET_CRUISE,
+//     ROCKET_APOGEE,
+//     ROCKET_FREEFALL,
+//     ROCKET_DROGUE,
+//     ROCKET_LAND,
+//     ROCKET_ERROR,
+// };
 
 struct __attribute__((packed)) telemetry_packet {
     char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
