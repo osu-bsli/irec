@@ -15,11 +15,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-// TODO finish ms5607 errors
-// TODO remove generic FAILURE
 #define FS_ERROR_NAMES \
   Cn(SUCCESS, 0) \
-  C(FAILURE) \
   C(INSUFFICIENT_MEMORY) \
   C(I2C_READ_FAILURE) \
   C(I2C_READ_TIMEOUT) \
@@ -65,7 +62,11 @@
   C(SD_CARD_INIT_FAILURE) \
   C(SD_CARD_FILE_OPEN_FAILURE) \
   C(FS_NOT_FOUND) \
-  C(SERVO_OVER_CURRENT)
+  C(SERVO_OVER_CURRENT)\
+  C(RUNTIME_TASK_INIT)\
+  C(DEPLOY_TASK_INIT)\
+  C(MOTOR_OVC_TASK_INIT)\
+  C(ERROR_LOG_TASK_INIT)
 // Regular error
 #define C(x) x,
 // Error with specific number code
@@ -79,3 +80,5 @@ enum FSError: uint8_t { FS_ERROR_NAMES TOP };
 #define Cn(x,y) #x,
 static const char * __FC_error__strings[] = { FS_ERROR_NAMES };
 static const char ** FCError__strings = &__FC_error__strings[0];
+
+void log_error(uint32_t fs_error);

@@ -14,7 +14,6 @@
 #include <HardwareSerial.h>
 #include <i2c.h>
 #include <error.h>
-#include <sensors/sensor_registers.h>
 
 /*
  * Header files are for sharing things that other C files need.

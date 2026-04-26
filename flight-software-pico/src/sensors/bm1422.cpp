@@ -49,43 +49,43 @@
 #define REGISTER_GAIN_PARA_X 0x9C // LSB
 #define REGISTER_GAIN_PARA_Y 0x9E // LSB
 
-static FSError read_registers(
-	uint8_t reg,
-	uint8_t *data,
-	uint8_t length
-){
-	FSError result = SUCCESS;
-	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-	Wire.write(reg);
-	if (Wire.endTransmission() != 0)
-	{
-		result = I2C_REGISTER_READ_FAILURE;
-	} else if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
-	{
-		result = I2C_REGISTER_READ_FAILURE;
-	}
-	Wire.readBytes(data, length);
+// static FSError read_registers(
+// 	uint8_t reg,
+// 	uint8_t *data,
+// 	uint8_t length
+// ){
+// 	FSError result = SUCCESS;
+// 	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+// 	Wire.write(reg);
+// 	if (Wire.endTransmission() != 0)
+// 	{
+// 		result = I2C_REGISTER_READ_FAILURE;
+// 	} else if (Wire.requestFrom((uint8_t)I2C_ADDRESS, length) != length)
+// 	{
+// 		result = I2C_REGISTER_READ_FAILURE;
+// 	}
+// 	Wire.readBytes(data, length);
 
-	return result;
-}
+// 	return result;
+// }
 
-static FSError write_registers(
-	uint8_t reg,
-	uint8_t *data,
-	uint8_t length
-){
-	FSError result = SUCCESS;
+// static FSError write_registers(
+// 	uint8_t reg,
+// 	uint8_t *data,
+// 	uint8_t length
+// ){
+// 	FSError result = SUCCESS;
 
-	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
-	Wire.write(reg);
-	Wire.write(data, length);
+// 	Wire.beginTransmission((uint8_t)I2C_ADDRESS);
+// 	Wire.write(reg);
+// 	Wire.write(data, length);
 
-	if (Wire.endTransmission()) {
-		result = I2C_REGISTER_WRITE_FAILURE;
-	}
+// 	if (Wire.endTransmission()) {
+// 		result = I2C_REGISTER_WRITE_FAILURE;
+// 	}
 
-	return result;
-}
+// 	return result;
+// }
 
 /*
  * Public functions.
@@ -155,7 +155,8 @@ FSError fc_bm1422_process(struct fc_bm1422 *device, struct fc_bm1422_data *data)
 	uint8_t raw_data[6];
 
 	/* Begin i2c read */
-	FSError datax_status = read_registers(
+	FSError datax_status = i2c_read(// TODO make sure this works, was a different func before
+		I2C_ADDRESS,
 		REGISTER_DATAX,
 		raw_data,
 		sizeof(raw_data)
