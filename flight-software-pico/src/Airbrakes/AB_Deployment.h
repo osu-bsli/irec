@@ -2,11 +2,18 @@
 #include "AB_Struct_Storage.h"
 #include "MathFunctions.h"
 
-#define MASS 21 //kg
+#define MASS 21 // kg
 #define M_PI 3.14159265358979323846
-void PredictDeploymentAngleInitialize(AB_Predict_Deployment_Angle_Variables& Variables);
+void PredictDeploymentAngleInitialize();
 
-float PredictDeploymentAngle(float* apogeeIC, AB_Predict_Deployment_Angle_Variables& Variables, AB_Predict_Apogee_Variables& AppVariables);
+float PredictDeploymentAngle(struct apogeeIC *ic, float targetApogee);
 
-float PredictApogee(float* apogeeIC, AB_Predict_Apogee_Variables& Variables);
+float PredictApogee(const struct apogeeIC ic);
 
+struct apogeeIC
+{
+    float positionZ;
+    float velocityZ;
+    float thetaZ;
+    float deploymentAngle;
+};

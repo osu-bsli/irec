@@ -132,9 +132,7 @@ struct LogQueue
 
 struct AcquirePacket
 {
-  AB_Predict_Deployment_Angle_Variables DA_Vars;
-  AB_Predict_Apogee_Variables AP_Vars;
-  float apogeeIC[4];
+  struct apogeeIC ic;
 } AcquirePacket;
 
 const uint32_t acquire_queue_len = 10;
@@ -451,10 +449,8 @@ static void runtime(void *pvParameters)
 {
   static TickType_t time = xTaskGetTickCount();
 
+  struct apogeeIC ic = {0};
   AB_Filter_Main_Variables M;
-  AB_Predict_Deployment_Angle_Variables DA_Vars;
-  AB_Predict_Apogee_Variables AP_Vars;
-  float apogeeIC[4] = {0.0, 0.0, 0.0, 0.0};
 
   float pressures[5] = {0.0};
   fc_ms5607_data pressure_init_data;
@@ -467,7 +463,6 @@ static void runtime(void *pvParameters)
   static float base_altitude = pressures[0] + pressures[1] + pressures[2] + pressures[3] + pressures[4] / 5; // average of the first 5 values
 
   AB_Filter_Initialize(M);
-  PredictDeploymentAngleInitialize(DA_Vars);
 
   while (true)
   {
@@ -532,7 +527,10 @@ static void runtime(void *pvParameters)
     // Update sensor data in Master Struct
     M.Sensors.Accelerometer << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
     M.Sensors.AccelerometerHG << -log_p.adxl375_accel_x, -log_p.adxl375_accel_y, log_p.adxl375_accel_z;
-    M.Sensors.Gyroscope << log_p.bmi323_gyro_x, log_p.bmi323_gyro_y, log_p.bmi323_gyro_z;
+    M.Sensors.Gyroscope << 
+      log_p.bmi323_gyro_x * (M_PI / 180.0f),
+      log_p.bmi323_gyro_y * (M_PI / 180.0f),
+      log_p.bmi323_gyro_z * (M_PI / 180.0f);
     M.Sensors.Barometer = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100) + base_altitude;
     M.Sensors.GPS.setZero();
 
@@ -542,17 +540,14 @@ static void runtime(void *pvParameters)
                                M.HorizState.Velocity_East * M.HorizState.Velocity_East);
     const float zenith_deg = atan2(v_horiz, M.VertState.Velocity_Up) * RAD_TO_DEG;
 
-    apogeeIC[0] = M.VertState.Altitude;
-    apogeeIC[1] = M.VertState.Velocity_Up;
-    apogeeIC[2] = zenith_deg;
+    ic.positionZ = M.VertState.Altitude;
+    ic.velocityZ = M.VertState.Velocity_Up;
+    ic.thetaZ = zenith_deg;
 
     // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
     // log_file.flush();
 
-    struct AcquirePacket acquire_packet;
-    memcpy(&acquire_packet.AP_Vars, &AP_Vars, sizeof(AB_Predict_Apogee_Variables));
-    memcpy(&acquire_packet.DA_Vars, &DA_Vars, sizeof(AB_Predict_Deployment_Angle_Variables));
-    memcpy(&acquire_packet.apogeeIC, &apogeeIC, sizeof(float) * 4);
+    struct AcquirePacket acquire_packet {.ic = ic};
 
     xQueueSendToFront(
         acquire_queue,
@@ -587,15 +582,17 @@ static void deploy(void *pvParameters)
       Serial.printf("receive failure\n\r");
     }
 
-    const float airbrake_pct = PredictDeploymentAngle(
-        acquire_packet.apogeeIC,
-        acquire_packet.DA_Vars,
-        acquire_packet.AP_Vars);
+    const float airbrake_pct = PredictDeploymentAngle(&acquire_packet.ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS);
     const int servo_degrees = motor_map(airbrake_pct);
 
     AirBrakeServo.write(servo_degrees);
 
-    Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
+    // Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
+    Serial.printf("======== PredictDeploymentAngle parameters =========\n");
+    Serial.printf("          positionZ: %f\n", acquire_packet.ic.positionZ);
+    Serial.printf("          velocityZ: %f\n", acquire_packet.ic.velocityZ);
+    Serial.printf("             thetaZ: %f\n", acquire_packet.ic.thetaZ);
+    Serial.printf("    deploymentAngle: %f\n", acquire_packet.ic.deploymentAngle);
 
     xTaskDelayUntil(&time, deploy_interval_ms); // TODO log deployed angle
   }
@@ -740,6 +737,10 @@ void setup()
 
 #ifdef CONFIG_TEST_SENSORS
   sensors_test_loop();
+#endif
+
+#ifdef CONFIG_TEST_AIRBRAKES_WITH_PRERECORDED_DATA
+
 #endif
 
   /* SD card and flash logging */
