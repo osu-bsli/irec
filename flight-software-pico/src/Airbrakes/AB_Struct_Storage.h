@@ -18,21 +18,11 @@ struct AB_Snsrs { //Struct containing all sensor data
 };
 
 struct AB_Snsrs_prevData { //Struct containing all sensor data
-    Matrix<float, 3, 1>Accelerometer; //Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1>AccelerometerHG; //Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1> Gyroscope; //AngularV(rad/s) X, Y, Z
-    Matrix<float, 3, 1> Magnetometer; //Field(uT) X, Y, Z
     Matrix<float, 6, 1> GPS; //position(m) X, Y, Z and velocity(m/s) X, Y, Z
-    float Barometer; //altitude(m) Z
 };
 
 struct AB_Snsrs_booleans { //Struct containing all sensor data
-    bool Accelerometer; //Accel(m/s^2) X, Y, Z
-    bool AccelerometerHG; //Accel(m/s^2) X, Y, Z
-    bool Gyroscope; //AngularV(rad/s) X, Y, Z
-    bool Magnetometer; //Field(uT) X, Y, Z
     bool GPS; //position(m) X, Y, Z and velocity(m/s) X, Y, Z
-    bool Barometer; //altitude(m) Z
 };
 
 struct AB_Attitude_State { //struct containing the state for the rocket's attitude
@@ -201,60 +191,11 @@ struct AB_Horizontal_Update_GPS{//update using gps struct(uses gps position and 
     Matrix<float, 4, 4> I;
 }; 
 
-struct AB_Predict_Deployment_Angle_Variables{//runtime variables for angle deployment function
-    float low;
-    float high;
-    float mid;
-    float targetApogee;
-    float currentAlt;
-    float currentTarget;
-    float predictedApogee;
-};
-
-struct AB_Predict_Apogee_Variables{//runtime variables for apogee prediction function
-    float positionZ; 
-    float velocityZ;
-    float thetaZ; 
-    float deploymentAngle;
-    float dt;
-    int iter;
-    float cos_theta;
-    float v_total1;
-    float k1_rho;
-    float drag1;
-    float k1_v;
-    float k1_x;
-    float k1_theta;
-    float vk1;
-    float posk1;
-    float thetaK1;
-    float cos_tk1;
-    float v_total2;
-    float k2_rho;
-    float drag2;
-    float k2_v;
-    float k2_x;
-    float k2_theta;
-    float vk2;
-    float posk2;
-    float thetaK2;
-    float cos_tk2;
-    float v_total3;
-    float k3_rho;
-    float drag3;
-    float k3_v;
-    float k3_x;
-    float k3_theta;
-    float vk3;
-    float posk3;
-    float thetaK3;
-    float cos_tk3;
-    float v_total4;
-    float k4_rho;
-    float drag4;
-    float k4_v;
-    float k4_x;
-    float k4_theta;
+enum AB_Filter_Flight_Stage {
+    AB_Filter_Flight_Stage_PAD,
+    AB_Filter_Flight_Stage_BURNING,
+    AB_Filter_Flight_Stage_BURNOUT,
+    AB_Filter_Flight_Stage_APOGEE,
 };
 
 struct AB_Filter_Main_Variables{
@@ -281,9 +222,7 @@ struct AB_Filter_Main_Variables{
     // variables for runtime
     bool highG;
     float max_apogee;
-    bool apogee;
-    bool burning;
-    bool burnout;
+    AB_Filter_Flight_Stage flight_stage;
     float time_since_launch;
     int mag_calibration_count;
     bool mag_calibrated;
@@ -297,8 +236,7 @@ struct AB_Filter_Main_Variables{
     // vectors for runtime
     Eigen::Vector3f R0;
     Eigen::Vector3f Rdot;
-    Eigen::Vector3f R;
     Eigen::Vector3f AccelBias;
-    Eigen::Vector3f Mag_Reference;
+    Eigen::Vector3f R;
     Eigen::Vector3f mag_calibration_sum;
 };
