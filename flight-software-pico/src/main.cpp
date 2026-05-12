@@ -54,6 +54,8 @@
 // Flash
 #include <WinbondW25N.h>
 
+#include <RP2350.h>
+
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
 
@@ -542,7 +544,7 @@ static void runtime(void *pvParameters)
 
     ic.positionZ = M.VertState.Altitude;
     ic.velocityZ = M.VertState.Velocity_Up;
-    ic.thetaZ = zenith_deg;
+    ic.thetaZRad = zenith_deg;
 
     // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
     // log_file.flush();
@@ -591,7 +593,7 @@ static void deploy(void *pvParameters)
     Serial.printf("======== PredictDeploymentAngle parameters =========\n");
     Serial.printf("          positionZ: %f\n", acquire_packet.ic.positionZ);
     Serial.printf("          velocityZ: %f\n", acquire_packet.ic.velocityZ);
-    Serial.printf("             thetaZ: %f\n", acquire_packet.ic.thetaZ);
+    Serial.printf("             thetaZ: %f\n", acquire_packet.ic.thetaZRad);
     Serial.printf("    deploymentAngle: %f\n", acquire_packet.ic.deploymentAngle);
 
     xTaskDelayUntil(&time, deploy_interval_ms); // TODO log deployed angle
@@ -720,16 +722,56 @@ void pressure_transducer_setup()
   pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
 }
 
+void test_airbrakes_algo_performance_loop()
+{
+  struct apogeeIC ic = {
+    .positionZ = 5000,
+    .velocityZ = 500, // around mach 1.5
+    .thetaZRad = 80 * (M_PI / 180.0),
+    .deploymentAngle = 0.1,
+  };
+  
+  while (true)
+  {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    // Reset and enable the cycle counter
+    DWT->CYCCNT = 0;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+    // Run function to benchmark
+    const float airbrake_pct = PredictDeploymentAngle(&ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS);
+
+    // Take time
+    int us_taken = DWT->CYCCNT / SYS_CLK_MHZ;
+    
+    Serial.printf("======== PredictDeploymentAngle parameters =========\n");
+    Serial.printf("          positionZ: %f\n", ic.positionZ);
+    Serial.printf("          velocityZ: %f\n", ic.velocityZ);
+    Serial.printf("          thetaZRad: %f\n", ic.thetaZRad);
+    Serial.printf("    deploymentAngle: %f\n", ic.deploymentAngle);
+    // Serial.println();
+    Serial.printf("       airbrake_pct: %f\n", airbrake_pct);
+    // Serial.println();
+
+    // convert cycles to microseconds assuming 150 MHz clock
+
+    Serial.printf("       time taken: %d us\n", us_taken);
+
+    delay(100);
+  }
+}
+
 void setup()
 {
   // FLIGHT COMPUTER INITIALIZATION
   gpio_config();
 
+  Serial.begin(921600);
+  
   tone(PIN_BUZZER, 523, 100);
   delay(5000);
   tone(PIN_BUZZER, 523, 100);
 
-  Serial.begin(115200);
 
 #ifdef CONFIG_TEST_GPS
   gps_test_loop();
@@ -741,6 +783,10 @@ void setup()
 
 #ifdef CONFIG_TEST_AIRBRAKES_WITH_PRERECORDED_DATA
 
+#endif
+
+#ifdef CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE
+  test_airbrakes_algo_performance_loop();
 #endif
 
   /* SD card and flash logging */

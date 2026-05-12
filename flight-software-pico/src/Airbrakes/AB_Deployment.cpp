@@ -11,7 +11,7 @@ void PredictDeploymentAngleInitialize()
 float PredictDeploymentAngle(struct apogeeIC *ic, float targetApogee)
 {
     float low = 0.05;
-    float high = 95.0;
+    float high = 95.0 * (M_PI / 180);
     float currentAlt = ic->positionZ;
 
     float currentTarget;
@@ -50,7 +50,7 @@ float PredictApogee(const struct apogeeIC ic)
     // Unpack [0]=vertical position, [1]=vertical velocity, [2]= zenith angle, [3] deployment angle
     float positionZ = ic.positionZ; 
     float velocityZ = ic.velocityZ; 
-    float thetaZ = ic.thetaZ; 
+    float thetaZ = ic.thetaZRad; 
     float deploymentAngle = ic.deploymentAngle;
     float dt = 0.3;
     int iter = 0;
@@ -65,7 +65,7 @@ float PredictApogee(const struct apogeeIC ic)
         {
             cos_theta = 0.01;
         } 
-        float v_total1 = velocityZ /cos_theta;
+        float v_total1 = velocityZ / cos_theta;
         //clamp to prevent velocity from being exactly 0 near apogee, since we divide by it
         if (fabs(v_total1) < 0.001) 
         {
