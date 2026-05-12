@@ -14,6 +14,6 @@ struct apogeeIC
 {
     float positionZ;
     float velocityZ;
-    float thetaZ;
+    float thetaZRad;
     float deploymentAngle;
 };
