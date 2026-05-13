@@ -10,7 +10,7 @@
 #include <math.h>
 #include "MathFunctions.h"
 
-class OutDataEntry
+class OutDataSeries
 {
 public:
     std::vector<float> v_data;
@@ -23,7 +23,7 @@ class SingleInMultiOutData
 public:
     std::string in_data_label;
     std::vector<float> v_in_data;
-    std::vector<OutDataEntry> out_data_entries;
+    std::vector<OutDataSeries> out_data_series;
 
     SingleInMultiOutData(std::string in_data_label)
     {
@@ -32,12 +32,12 @@ public:
 
     void AddOutDataSource(std::string label, std::function<float(float)> data_source_func)
     {
-        OutDataEntry e = {
+        OutDataSeries e = {
             .v_data = std::vector<float>(),
             .label = label,
             .data_source_func = data_source_func,
         };
-        out_data_entries.push_back(e);
+        out_data_series.push_back(e);
     }
 
     void PushBackInDataPoint(float val)
@@ -47,7 +47,7 @@ public:
 
     void ClearOutDataPoints()
     {
-        for (auto &e : out_data_entries)
+        for (auto &e : out_data_series)
         {
             e.v_data.clear();
         }
@@ -55,7 +55,7 @@ public:
 
     void GenerateOutDataPoints()
     {
-        for (auto &e : out_data_entries)
+        for (auto &e : out_data_series)
         {
             for (float in_val : v_in_data)
             {
@@ -64,9 +64,14 @@ public:
         }
     }
 
-    int NumEntries()
+    int GetDataSeriesLength()
     {
         return v_in_data.size();
+    }
+
+    int GetNumOutDataSeries()
+    {
+        return out_data_series.size();
     }
 };
 
@@ -75,12 +80,17 @@ SingleInMultiOutData altitude_m("Altitude (m)");
 bool graphOutOfDate = true;
 const int maxAltitude_m = 9144; // 30000 ft
 
-float azimuthElevation_deg;
+float airbrakeDeployment_pct;
 float velocity_mps;
 
 float data_source_func_Cd(float altitude_m)
 {
-    return drag_coeff(azimuthElevation_deg, velocity_mps, altitude_m);
+    return drag_coeff(airbrakeDeployment_pct, velocity_mps, altitude_m);
+}
+
+float data_source_func_air_density(float altitude_m)
+{
+    return rho_kg_per_m3(altitude_m);
 }
 
 void SetupVisualizer()
@@ -93,6 +103,7 @@ void SetupVisualizer()
     }
 
     altitude_m.AddOutDataSource("Drag coefficient (Cd)", data_source_func_Cd);
+    altitude_m.AddOutDataSource("Air density (kg/m^3)", data_source_func_air_density);
 }
 
 void RunFilter()
@@ -112,22 +123,24 @@ void ShowVisualizer()
     if (ImGui::Begin("Plots"))
     {
         ImVec2 size = ImGui::GetContentRegionAvail();
-        size.y /= 1;
+        size.y /= altitude_m.GetNumOutDataSeries();
         size.y -= ImGuiStyleVar_ItemSpacing;
 
-        // static ImPlotRect lims(0, 100, 0, maxAltitude_m);
+        static ImPlotRect lims(0, 100, 0, maxAltitude_m);
 
         if (ImPlot::BeginAlignedPlots("AlignedGroup"))
         {
-            for (const auto &e : altitude_m.out_data_entries)
+            for (const auto &e : altitude_m.out_data_series)
             {
-                if (ImPlot::BeginPlot("Plot", size))
+                char plotName[128];
+                snprintf(plotName, sizeof(plotName), "%s vs. %s", altitude_m.in_data_label.c_str(), e.label.c_str());
+                if (ImPlot::BeginPlot(plotName, size))
                 {
                     ImPlot::SetupAxes(altitude_m.in_data_label.c_str(), e.label.c_str());
-                    // ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
+                    ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
                     ImPlot::SetupAxisLimits(ImAxis_X1, 0, maxAltitude_m, ImPlotCond_Once);
                     ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1, ImPlotCond_Once);
-                    ImPlot::PlotLine(e.label.c_str(), altitude_m.v_in_data.data(), e.v_data.data(), altitude_m.NumEntries(), ImPlotLineFlags_None);
+                    ImPlot::PlotLine(e.label.c_str(), altitude_m.v_in_data.data(), e.v_data.data(), altitude_m.GetDataSeriesLength(), ImPlotLineFlags_None);
                     ImPlot::EndPlot();
                 }
             }
@@ -141,7 +154,7 @@ void ShowVisualizer()
     if (ImGui::Begin("Options"))
     {
         ImGui::Text("Drag options");
-        graphOutOfDate |= ImGui::SliderFloat("Azimuth elevation (deg)", &azimuthElevation_deg, 0, 90);
+        graphOutOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &airbrakeDeployment_pct, 0, 90);
         graphOutOfDate |= ImGui::SliderFloat("Velocity (m/s)", &velocity_mps, 0, 1000);
         ImGui::End();
     }

@@ -11,8 +11,8 @@ void Estimate_Horizontal_Velocity(AB_Attitude_State& AttState, AB_Vertical_State
 
 void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r_arm);
 
-float drag_coeff(float theta, float velocity, float);
+float drag_coeff(float ab_deployment_pct, float velocity_mps, float altitude_m);
 
-float rho(float height);
+float rho_kg_per_m3(float altitude_m);
 
 float surfaceA(float angleOfDeployment);

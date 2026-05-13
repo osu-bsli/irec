@@ -71,7 +71,7 @@ float PredictApogee(const struct apogeeIC ic)
         {
             v_total1 = 0.001;
         } 
-        float k1_rho = rho(positionZ);
+        float k1_rho = rho_kg_per_m3(positionZ);
         float drag1 = (0.5 / MASS) * k1_rho * drag_coeff(deploymentAngle, v_total1, positionZ) * surfaceA(deploymentAngle) * pow(v_total1, 2);
         float k1_v = -1 * gravity(positionZ) - (drag1 * cos_theta);
         float k1_x = velocityZ; 
@@ -92,7 +92,7 @@ float PredictApogee(const struct apogeeIC ic)
         {
             v_total2 = 0.001;
         } 
-        float k2_rho = rho(posk1);
+        float k2_rho = rho_kg_per_m3(posk1);
         float drag2 = (0.5 / MASS) * k2_rho * drag_coeff(deploymentAngle, v_total2, posk1) * surfaceA(deploymentAngle) * pow(v_total2, 2);
         float k2_v = -1 * gravity(positionZ) - (drag2 * cos_tk1);
         float k2_x = vk1; 
@@ -113,7 +113,7 @@ float PredictApogee(const struct apogeeIC ic)
         {
             v_total3 = 0.001;
         } 
-        float k3_rho = rho(posk2);
+        float k3_rho = rho_kg_per_m3(posk2);
         float drag3 = (0.5 / MASS) * k3_rho * drag_coeff(deploymentAngle, v_total3, posk2) * surfaceA(deploymentAngle) * pow(v_total3, 2);
         float k3_v = -1 * gravity(positionZ) - (drag3 * cos_tk2);
         float k3_x = vk2; 
@@ -134,7 +134,7 @@ float PredictApogee(const struct apogeeIC ic)
         {
             v_total4 = 0.001;
         } 
-        float k4_rho = rho(posk3);
+        float k4_rho = rho_kg_per_m3(posk3);
         float drag4 = (0.5 / MASS) * k4_rho * drag_coeff(deploymentAngle, v_total4, posk3) * surfaceA(deploymentAngle) * pow(v_total4, 2);
         float k4_v = -1 * gravity(positionZ) - (drag4 * cos_tk3);
         float k4_x = vk3; 
