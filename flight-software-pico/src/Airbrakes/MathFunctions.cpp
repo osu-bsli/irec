@@ -60,13 +60,13 @@ void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r
 }
 
 //function that we will need to work on before test flight!
-float drag_coeff(float theta, float velocity, float height)
+float drag_coeff(float ab_deployment_pct, float velocity_mps, float altitude_m)
 {
-    float T = 15.04 - 0.00649 * height;
+    float T = 15.04 - 0.00649 * altitude_m;
     float a = CHECK_NAN(sqrt(fabs(1.4*287.0529*T)));
 
-    float Mach = CHECK_NAN(velocity/a);
-    float Cd  = 0.4792 + -0.3960 * Mach + 0.00091 * theta + 0.2975 * Mach * Mach - 0.000002 * theta * theta - 0.000211 * Mach * theta;
+    float Mach = CHECK_NAN(velocity_mps/a);
+    float Cd  = 0.4792 + -0.3960 * Mach + 0.00091 * ab_deployment_pct + 0.2975 * Mach * Mach - 0.000002 * ab_deployment_pct * ab_deployment_pct - 0.000211 * Mach * ab_deployment_pct;
 
     if (Cd > 0.5) {
         Cd = 0.5;
@@ -78,13 +78,13 @@ float drag_coeff(float theta, float velocity, float height)
 }
 
 //calculates air density from standard atmosphere table
-float rho(float height)
+float rho_kg_per_m3(float altitude_m)
 {
-    if (height < 0) 
+    if (altitude_m < 0) 
     {
-        height = 0;
+        altitude_m = 0;
     }
-    float T = 15.04 - 0.00649 * height;
+    float T = 15.04 - 0.00649 * altitude_m;
     float p = 101.29 * pow((T + 273.1) / 288.08, 5.256);
     return CHECK_NAN(p / (0.2869 * (T + 273.1)));
 }
