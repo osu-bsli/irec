@@ -1,4 +1,5 @@
 #include "MathFunctions.h"
+#include <utility.h>
 
 float gravity(float altitude) 
 {
@@ -62,9 +63,9 @@ void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r
 float drag_coeff(float theta, float velocity, float height)
 {
     float T = 15.04 - 0.00649 * height;
-    float a = sqrt(1.4*287.0529*T);
+    float a = CHECK_NAN(sqrt(fabs(1.4*287.0529*T)));
 
-    float Mach = velocity/a;
+    float Mach = CHECK_NAN(velocity/a);
     float Cd  = 0.4792 + -0.3960 * Mach + 0.00091 * theta + 0.2975 * Mach * Mach - 0.000002 * theta * theta - 0.000211 * Mach * theta;
 
     if (Cd > 0.5) {
@@ -85,7 +86,7 @@ float rho(float height)
     }
     float T = 15.04 - 0.00649 * height;
     float p = 101.29 * pow((T + 273.1) / 288.08, 5.256);
-    return (p / (0.2869 * (T + 273.1)));
+    return CHECK_NAN(p / (0.2869 * (T + 273.1)));
 }
 
 //calculates surface area using constant rocket diam and a linear surface function.
