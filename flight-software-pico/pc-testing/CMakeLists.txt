@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(pc-testing)
 
 find_package(SDL3 CONFIG REQUIRED)
 
 
-add_executable(${CMAKE_PROJECT_NAME}
+add_executable(${PROJECT_NAME}
     src/main.cpp
     src/visualizer.cpp
 
@@ -27,15 +27,14 @@ add_executable(${CMAKE_PROJECT_NAME}
     lib/implot-0.16/implot.cpp
 )
 
-target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
-    /MP
+target_compile_options(${PROJECT_NAME} PRIVATE
+    /MP /fsanitize=address
 )
 
-target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
-
+target_link_options(${PROJECT_NAME} PRIVATE
 )
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+target_include_directories(${PROJECT_NAME} PRIVATE
     lib/
     lib/imgui-1.91.9b
     lib/imgui-1.91.9b/backends
@@ -47,6 +46,6 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ../src/Eigen
 )
 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE SDL3::SDL3)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3)
 
-set_property(TARGET ${CMAKE_PROJECT_NAME} PROPERTY CXX_STANDARD 23)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 23)
