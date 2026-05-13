@@ -141,6 +141,37 @@ void ShowVisualizer()
                     ImPlot::SetupAxisLimits(ImAxis_X1, 0, maxAltitude_m, ImPlotCond_Once);
                     ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1, ImPlotCond_Once);
                     ImPlot::PlotLine(e.label.c_str(), altitude_m.v_in_data.data(), e.v_data.data(), altitude_m.GetDataSeriesLength(), ImPlotLineFlags_None);
+
+                    // Show tooltip with value of graph at cursor location
+                    if (ImPlot::IsPlotHovered())
+                    {
+                        ImPlotPoint mouse = ImPlot::GetPlotMousePos();
+                        // x values are integers 0..maxAltitude_m, so mouse.x == index into v_data
+                        int idx = (int)mouse.x;
+                        if (idx >= 0 && idx < (int)e.v_data.size())
+                        {
+                            float xVal = (float)idx;
+                            float yVal = e.v_data[idx];
+
+                            // Convert the data-space intersection point to screen pixels
+                            ImVec2 dotPos = ImPlot::PlotToPixels(xVal, yVal);
+                            // Get the plot area bounds in screen pixels for drawing full-length crosshair lines
+                            ImVec2 plotTL = ImPlot::GetPlotPos();
+                            ImVec2 plotBR = ImVec2(plotTL.x + ImPlot::GetPlotSize().x, plotTL.y + ImPlot::GetPlotSize().y);
+
+                            // GetPlotDrawList() clips drawing to the plot area automatically
+                            ImDrawList *drawList = ImPlot::GetPlotDrawList();
+                            ImU32 lineColor = IM_COL32(255, 255, 255, 80);
+                            drawList->AddLine(ImVec2(dotPos.x, plotTL.y), ImVec2(dotPos.x, plotBR.y), lineColor); // vertical
+                            drawList->AddLine(ImVec2(plotTL.x, dotPos.y), ImVec2(plotBR.x, dotPos.y), lineColor); // horizontal
+                            drawList->AddCircleFilled(dotPos, 5.0f, IM_COL32(255, 255, 255, 220));
+
+                            ImGui::BeginTooltip();
+                            ImGui::Text("%s: %.2f\n%s: %g", altitude_m.in_data_label.c_str(), xVal, e.label.c_str(), yVal);
+                            ImGui::EndTooltip();
+                        }
+                    }
+
                     ImPlot::EndPlot();
                 }
             }
