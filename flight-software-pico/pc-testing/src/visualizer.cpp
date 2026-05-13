@@ -10,39 +10,95 @@
 #include <math.h>
 #include "MathFunctions.h"
 
-float azimuthElevation_rad;
-float velocity_mps;
+class OutDataEntry
+{
+public:
+    std::vector<float> v_data;
+    std::string label;
+    std::function<float(float)> data_source_func;
+};
 
-std::vector<float> v_altitude_m;
-std::vector<float> v_Cd;
+class SingleInMultiOutData
+{
+public:
+    std::string in_data_label;
+    std::vector<float> v_in_data;
+    std::vector<OutDataEntry> out_data_entries;
+
+    SingleInMultiOutData(std::string in_data_label)
+    {
+        this->in_data_label = in_data_label;
+    }
+
+    void AddOutDataSource(std::string label, std::function<float(float)> data_source_func)
+    {
+        OutDataEntry e = {
+            .v_data = std::vector<float>(),
+            .label = label,
+            .data_source_func = data_source_func,
+        };
+        out_data_entries.push_back(e);
+    }
+
+    void PushBackInDataPoint(float val)
+    {
+        this->v_in_data.push_back(val);
+    }
+
+    void ClearOutDataPoints()
+    {
+        for (auto &e : out_data_entries)
+        {
+            e.v_data.clear();
+        }
+    }
+
+    void GenerateOutDataPoints()
+    {
+        for (auto &e : out_data_entries)
+        {
+            for (float in_val : v_in_data)
+            {
+                e.v_data.push_back(e.data_source_func(in_val));
+            }
+        }
+    }
+
+    int NumEntries()
+    {
+        return v_in_data.size();
+    }
+};
+
+SingleInMultiOutData altitude_m("Altitude (m)");
 
 bool graphOutOfDate = true;
 const int maxAltitude_m = 9144; // 30000 ft
+
+float azimuthElevation_deg;
+float velocity_mps;
+
+float data_source_func_Cd(float altitude_m)
+{
+    return drag_coeff(azimuthElevation_deg, velocity_mps, altitude_m);
+}
 
 void SetupVisualizer()
 {
     ImPlot::CreateContext();
 
-    v_altitude_m.reserve(maxAltitude_m + 1);
-    v_Cd.reserve(maxAltitude_m + 1);
-
     for (int i = 0; i < maxAltitude_m + 1; i++)
     {
-        v_altitude_m.push_back(i);
+        altitude_m.PushBackInDataPoint(i);
     }
-}
 
+    altitude_m.AddOutDataSource("Drag coefficient (Cd)", data_source_func_Cd);
+}
 
 void RunFilter()
 {
-    v_Cd.clear();
-
-    for (int i = 0; i < v_altitude_m.size(); i++)
-    {
-        float altitude_m = v_altitude_m[i];
-        
-        v_Cd.push_back(drag_coeff(azimuthElevation_rad, velocity_mps, altitude_m));
-    }
+    altitude_m.ClearOutDataPoints();
+    altitude_m.GenerateOutDataPoints();
 }
 
 void ShowVisualizer()
@@ -53,24 +109,27 @@ void ShowVisualizer()
         RunFilter();
     }
 
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    size.y /= 1;
-    size.y -= ImGuiStyleVar_ItemSpacing;
-
     if (ImGui::Begin("Plots"))
     {
+        ImVec2 size = ImGui::GetContentRegionAvail();
+        size.y /= 1;
+        size.y -= ImGuiStyleVar_ItemSpacing;
+
         // static ImPlotRect lims(0, 100, 0, maxAltitude_m);
 
         if (ImPlot::BeginAlignedPlots("AlignedGroup"))
         {
-            if (ImPlot::BeginPlot("Cd vs. Altitude", size))
+            for (const auto &e : altitude_m.out_data_entries)
             {
-                ImPlot::SetupAxes("Altitude (m)", "Drag coefficient (Cd)");
-                // ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
-                ImPlot::SetupAxisLimits(ImAxis_X1, 0, maxAltitude_m, ImPlotCond_Once); 
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1, ImPlotCond_Once); 
-                ImPlot::PlotLine("Drag coefficient (Cd)", v_altitude_m.data(), v_Cd.data(), v_altitude_m.size(), ImPlotLineFlags_None);
-                ImPlot::EndPlot();
+                if (ImPlot::BeginPlot("Plot", size))
+                {
+                    ImPlot::SetupAxes(altitude_m.in_data_label.c_str(), e.label.c_str());
+                    // ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
+                    ImPlot::SetupAxisLimits(ImAxis_X1, 0, maxAltitude_m, ImPlotCond_Once);
+                    ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1, ImPlotCond_Once);
+                    ImPlot::PlotLine(e.label.c_str(), altitude_m.v_in_data.data(), e.v_data.data(), altitude_m.NumEntries(), ImPlotLineFlags_None);
+                    ImPlot::EndPlot();
+                }
             }
 
             ImPlot::EndAlignedPlots();
@@ -82,9 +141,8 @@ void ShowVisualizer()
     if (ImGui::Begin("Options"))
     {
         ImGui::Text("Drag options");
-        graphOutOfDate |= ImGui::SliderFloat("Azimuth elevation (rad)", &azimuthElevation_rad, 0, M_PI);
+        graphOutOfDate |= ImGui::SliderFloat("Azimuth elevation (deg)", &azimuthElevation_deg, 0, 90);
         graphOutOfDate |= ImGui::SliderFloat("Velocity (m/s)", &velocity_mps, 0, 1000);
-
         ImGui::End();
     }
 }
