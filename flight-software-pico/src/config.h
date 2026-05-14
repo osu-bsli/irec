@@ -10,8 +10,8 @@
 #endif
 
 // #define CONFIG_TEST_SENSORS
-#define CONFIG_TEST_FULL_STACK_WITH_PRERECORDED_DATA
-// #define CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE
+// #define CONFIG_TEST_FULL_STACK_WITH_PRERECORDED_DATA
+#define CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE
 
 /* CONFIG_TEST_ACTIVE is defined if any test configuration is enabled */
 #if defined(CONFIG_TEST_GPS) ||                              \

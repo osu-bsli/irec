@@ -20,6 +20,8 @@ target_include_directories(airbrakes PUBLIC
     ../src/Airbrakes/Filters
     ../src/Eigen
 
+    src/pico-stub/
+
     lib/
     lib/imgui-1.91.9b
     lib/imgui-1.91.9b/backends
