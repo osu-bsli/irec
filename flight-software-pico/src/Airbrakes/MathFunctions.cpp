@@ -1,13 +1,15 @@
 #include "MathFunctions.h"
 #include <utility.h>
 
-float gravity(float altitude) 
+#include "pico.h"
+
+float __not_in_flash_func(gravity)(float altitude) 
 {
     //ohio's average gravity at SL, plus adjustment for our altitude, about .28% diff at apogee
-    return(9.802-(altitude*3.086e-6));
+    return (9.802-(altitude*3.086e-6));
 }
 
-void snsr_Accel_Rotation(AB_Attitude_State& Attitude_State, AB_Snsrs& sensor, bool HG) 
+void __not_in_flash_func(snsr_Accel_Rotation)(AB_Attitude_State& Attitude_State, AB_Snsrs& sensor, bool HG) 
 {
     //rotates the accelertion data from the sensor to the world frame 
     //for the vertical & horizontal filters.
@@ -30,7 +32,7 @@ void snsr_Accel_Rotation(AB_Attitude_State& Attitude_State, AB_Snsrs& sensor, bo
 }
 
 //Velocity estimate from vertical(only used when gps is off to gate divergance)
-void Estimate_Horizontal_Velocity(AB_Attitude_State& AttState, AB_Vertical_State& VertState, AB_Horizontal_State& HorizState, float& est_north, float& est_east) 
+void __not_in_flash_func(Estimate_Horizontal_Velocity)(AB_Attitude_State& AttState, AB_Vertical_State& VertState, AB_Horizontal_State& HorizState, float& est_north, float& est_east) 
 {
     Quaternionf& q = AttState.Quaternion_Body_To_ENU;
     
@@ -53,7 +55,7 @@ void Estimate_Horizontal_Velocity(AB_Attitude_State& AttState, AB_Vertical_State
 
 //apporimates the vector from the rocket's true center of mass to the sensor stack; must calculate this using a seperate script
 // we will rotate rocket with fuel about com and calc data to calibrate, as well as without fuel. 
-void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r_arm) 
+void __not_in_flash_func(Lever_Arm)(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r_arm) 
 {
     Eigen::Vector3f a_C = gyro.cross(gyro.cross(r_arm));
     accel -= a_C;
@@ -65,7 +67,7 @@ void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r
  * Calculation based on simulation data from the aerodynamics team. 
  */
 //function that we will need to work on before test flight!
-float drag_coeff(float ab_deployment_pct, float velocity_mps, float altitude_m, float ground_level_temp_celcius)
+float __not_in_flash_func(drag_coeff)(float ab_deployment_pct, float velocity_mps, float altitude_m, float ground_level_temp_celcius)
 {
     float ground_level_temp_kelvin = ground_level_temp_celcius + 273.15;
     float T_kelvin = ground_level_temp_kelvin - 0.00649 * altitude_m; // temperature in Kelvin
@@ -84,7 +86,7 @@ float drag_coeff(float ab_deployment_pct, float velocity_mps, float altitude_m, 
 }
 
 //calculates air density from standard atmosphere table
-float rho_kg_per_m3(float altitude_m)
+float __not_in_flash_func(rho_kg_per_m3)(float altitude_m)
 {
     if (altitude_m < 0) 
     {
@@ -96,7 +98,7 @@ float rho_kg_per_m3(float altitude_m)
 }
 
 //calculates surface area using constant rocket diam and a linear surface function.
-float surfaceA(float angleOfDeployment)
+float __not_in_flash_func(surfaceA)(float angleOfDeployment)
 {
     //keep in mind angle is not really an angle, but a percentage.
     return 0.0189784246051 + angleOfDeployment * 0.0035;

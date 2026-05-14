@@ -3,17 +3,15 @@
 #include "MathFunctions.h"
 
 #define MASS 21 // kg
-#define M_PI 3.14159265358979323846
-void PredictDeploymentAngleInitialize();
 
-float PredictDeploymentAngle(struct apogeeIC *ic, float targetApogee);
+float PredictDeploymentPct(struct apogeeIC ic, float targetApogee, int *out_itersReqd);
 
 float PredictApogee(const struct apogeeIC ic);
 
 struct apogeeIC
 {
-    float positionZ;
-    float velocityZ;
-    float thetaZRad;
-    float deploymentAngle;
+    float altitude_m;
+    float velocityZ_mps;
+    float thetaZ_rad;
+    float airbrakeDeployment_pct;
 };

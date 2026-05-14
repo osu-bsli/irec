@@ -348,7 +348,6 @@
                 "ARDUINO_ARCH_RP2040",
                 "USBD_MAX_POWER_MA=250",
                 "PIO_FRAMEWORK_ARDUINO_ENABLE_FREERTOS",
-                "PICO_COPY_TO_ROM=1",
                 "__FREERTOS=1",
                 "CFG_TUSB_MCU=OPT_MCU_RP2040",
                 "CFG_TUSB_OS=OPT_OS_PICO",

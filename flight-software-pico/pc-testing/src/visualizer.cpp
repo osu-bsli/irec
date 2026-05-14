@@ -9,8 +9,10 @@
 
 #define _USE_MATH_DEFINES // needed on MSVC for math.h to include M_PI
 #include <math.h>
+
 #include "MathFunctions.h"
 #include "util.h"
+#include "AB_Deployment.h"
 
 class OutDataSeries
 {
@@ -199,6 +201,7 @@ void ShowVisualizer()
 
         if (outOfDate)
         {
+            outOfDate = false;
             rSquared = r_squared_of_drag_coeff_func_against_theoretical(groundLevelTempCelcius);
         }
 
@@ -206,6 +209,69 @@ void ShowVisualizer()
 
         ImGui::End();
     }
+
+    if (ImGui::Begin("Apogee prediction"))
+    {
+        static bool outOfDate = true;
+        static float apogeePrediction_m = 0;
+
+        static apogeeIC ic = {
+            .altitude_m = 0,
+            .velocityZ_mps = 0,
+            .thetaZ_rad = 0,
+            .airbrakeDeployment_pct = 0,
+        };
+
+        ImGui::Text("Initial conditions:");
+
+        outOfDate |= ImGui::SliderFloat("Altitude (m)", &ic.altitude_m, 0, 10000);
+        outOfDate |= ImGui::SliderFloat("Velocity (m/s)", &ic.velocityZ_mps, 0, 1000);
+        outOfDate |= ImGui::SliderFloat("Theta Z (rad)", &ic.thetaZ_rad, 0, 1.57);
+        outOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &ic.airbrakeDeployment_pct, 0, 100);
+
+        if (outOfDate)
+        {
+            outOfDate = false;
+            apogeePrediction_m = PredictApogee(ic);
+        }
+
+        ImGui::Text("Apogee prediction: %f meters", apogeePrediction_m);
+        ImGui::End();
+    }
+
+    if (ImGui::Begin("Calculated airbrake deployment angle"))
+    {
+        static bool outOfDate = true;
+        static float calculatedAirbrakeDeployment_pct = 0;
+        static int itersReqd = 0;
+        
+        static float targetApogee_m = 9144;
+        static apogeeIC ic = {
+            .altitude_m = 0,
+            .velocityZ_mps = 0,
+            .thetaZ_rad = 0,
+            .airbrakeDeployment_pct = 0,
+        };
+
+        ImGui::Text("Initial conditions:");
+        outOfDate |= ImGui::SliderFloat("Altitude (m)", &ic.altitude_m, 0, 10000);
+        outOfDate |= ImGui::SliderFloat("Velocity (m/s)", &ic.velocityZ_mps, 0, 1000);
+        outOfDate |= ImGui::SliderFloat("Theta Z (rad)", &ic.thetaZ_rad, 0, 1.57);
+        outOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &ic.airbrakeDeployment_pct, 0, 100);
+
+        ImGui::Text("Configuration:");
+        outOfDate |= ImGui::SliderFloat("Target apogee (m)", &targetApogee_m, 0, 10000);
+
+        if (outOfDate)
+        {
+            outOfDate = false;
+            calculatedAirbrakeDeployment_pct = PredictDeploymentPct(ic, targetApogee_m, &itersReqd);
+        }
+
+        ImGui::Text("Calculated airbrake deployment: %f percent", calculatedAirbrakeDeployment_pct);
+        ImGui::End();
+    }
+
 
     if (ImGui::Begin("Options"))
     {

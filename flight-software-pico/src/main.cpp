@@ -543,9 +543,9 @@ static void runtime(void *pvParameters)
                                M.HorizState.Velocity_East * M.HorizState.Velocity_East);
     const float zenith_deg = atan2(v_horiz, M.VertState.Velocity_Up) * RAD_TO_DEG;
 
-    ic.positionZ = M.VertState.Altitude;
-    ic.velocityZ = M.VertState.Velocity_Up;
-    ic.thetaZRad = zenith_deg;
+    ic.altitude_m = M.VertState.Altitude;
+    ic.velocityZ_mps = M.VertState.Velocity_Up;
+    ic.thetaZ_rad = zenith_deg;
 
     // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
     // log_file.flush();
@@ -561,6 +561,15 @@ static void runtime(void *pvParameters)
     
     // Serial.printf("dt: %u target: %u acquire: %u filter: %u motor time: %u motor deploy: %f\n\r", delta_time, interval_ms, acquire_time, gnc_time, motor_time, airbrake_pct);
   }
+}
+
+void PredictDeploymentAngle_print_params(const apogeeIC ic)
+{
+    Serial.printf("======== PredictDeploymentAngle parameters =========\n");
+    Serial.printf("                altitude_m: %f\n", ic.altitude_m);
+    Serial.printf("             velocityZ_mps: %f\n", ic.velocityZ_mps);
+    Serial.printf("                thetaZ_rad: %f\n", ic.thetaZ_rad);
+    Serial.printf("    airbrakeDeployment_pct: %f\n", ic.airbrakeDeployment_pct);
 }
 
 static void deploy(void *pvParameters)
@@ -586,17 +595,14 @@ static void deploy(void *pvParameters)
       Serial.printf("receive failure\n\r");
     }
 
-    const float airbrake_pct = PredictDeploymentAngle(&acquire_packet.ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS);
+    int itersReqd;
+    const float airbrake_pct = PredictDeploymentPct(acquire_packet.ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS, &itersReqd);
     const int servo_degrees = motor_map(airbrake_pct);
 
     AirBrakeServo.write(servo_degrees);
 
     // Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
-    Serial.printf("======== PredictDeploymentAngle parameters =========\n");
-    Serial.printf("          positionZ: %f\n", acquire_packet.ic.positionZ);
-    Serial.printf("          velocityZ: %f\n", acquire_packet.ic.velocityZ);
-    Serial.printf("             thetaZ: %f\n", acquire_packet.ic.thetaZRad);
-    Serial.printf("    deploymentAngle: %f\n", acquire_packet.ic.deploymentAngle);
+    PredictDeploymentAngle_print_params(acquire_packet.ic);
 
     xTaskDelayUntil(&time, deploy_interval_ms); // TODO log deployed angle
   }
@@ -727,10 +733,10 @@ void pressure_transducer_setup()
 void test_airbrakes_algo_performance_loop()
 {
   struct apogeeIC ic = {
-      .positionZ = 5000,
-      .velocityZ = 500, // around mach 1.5
-      .thetaZRad = 80 * (M_PI / 180.0),
-      .deploymentAngle = 0.1,
+      .altitude_m = 5000,
+      .velocityZ_mps = 500, // around mach 1.5
+      .thetaZ_rad = 80 * (M_PI / 180.0),
+      .airbrakeDeployment_pct = 0.1,
   };
 
   while (true)
@@ -741,23 +747,17 @@ void test_airbrakes_algo_performance_loop()
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
     // Run function to benchmark
-    const float airbrake_pct = PredictDeploymentAngle(&ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS);
+    int itersReqd;
+    const float airbrake_pct = PredictDeploymentPct(ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS, &itersReqd);
 
     // Take time
     int us_taken = DWT->CYCCNT / SYS_CLK_MHZ;
 
-    Serial.printf("======== PredictDeploymentAngle parameters =========\n");
-    Serial.printf("          positionZ: %f\n", ic.positionZ);
-    Serial.printf("          velocityZ: %f\n", ic.velocityZ);
-    Serial.printf("          thetaZRad: %f\n", ic.thetaZRad);
-    Serial.printf("    deploymentAngle: %f\n", ic.deploymentAngle);
-    // Serial.println();
+    PredictDeploymentAngle_print_params(ic);
     Serial.printf("       airbrake_pct: %f\n", airbrake_pct);
-    // Serial.println();
-
-    // convert cycles to microseconds assuming 150 MHz clock
 
     Serial.printf("       time taken: %d us\n", us_taken);
+    Serial.printf("       iters reqd: %d\n", itersReqd);
 
     delay(100);
   }
