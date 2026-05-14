@@ -55,6 +55,7 @@
 #include <WinbondW25N.h>
 
 #include <RP2350.h>
+#include "testing/testing.h"
 
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
@@ -338,6 +339,10 @@ uint8_t get_sensor_state()
 /// If an error is encountered reading the data it provides it, but otherwise processes the data
 FSError acquire_sensor_data(struct log_packet_v3 *log_p)
 {
+#ifdef CONFIG_TEST_FULL_STACK_WITH_PRERECORDED_DATA
+  return acquire_sensor_data_prerecorded(log_p);
+#endif
+
   struct fc_adxl375_data adxl375_data;
   const FSError adxl_status = fc_adxl375_process(&adxl375, &adxl375_data);
 
@@ -504,13 +509,10 @@ static void runtime(void *pvParameters)
     FSError sensor_acquire_status = acquire_sensor_data(&log_p); // Should just work, but it doesn't
     FSError gps_acquire_status = acquire_gps_data(&log_p);
 
-    // const uint16_t adc0 = pt_ads.readADC_SingleEnded(0);
-    // log_p.pt_volts = pt_ads.computeVolts(adc0);
-
-    // log_packet_make_header(&log_p); // This must be run last for CRC to be correct
+    log_packet_make_header(&log_p); // This must be run last for CRC to be correct
 
     // print_log_packet(log_p); // THIS FUNCTION FUCKING SUCKS
-    // Serial.printf("time: %u %u %u\n\r", xTaskGetTickCount(), time, log_p.time_boot_ms);
+    Serial.printf("time: %u %u %u\n\r", xTaskGetTickCount(), time, log_p.time_boot_ms);
     // Serial.printf("flags: %u\n\r", log_p.status_flags);
     // Serial.printf("%f %f %f", log_p.bmi323_accel_x, log_p.bmi323_accel_y, log_p.bmi323_accel_z);
     // Serial.printf(" %f %f %f\n\r", log_p.bmi323_gyro_x, log_p.bmi323_gyro_y, log_p.bmi323_gyro_z);
@@ -529,10 +531,9 @@ static void runtime(void *pvParameters)
     // Update sensor data in Master Struct
     M.Sensors.Accelerometer << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
     M.Sensors.AccelerometerHG << -log_p.adxl375_accel_x, -log_p.adxl375_accel_y, log_p.adxl375_accel_z;
-    M.Sensors.Gyroscope << 
-      log_p.bmi323_gyro_x * (M_PI / 180.0f),
-      log_p.bmi323_gyro_y * (M_PI / 180.0f),
-      log_p.bmi323_gyro_z * (M_PI / 180.0f);
+    M.Sensors.Gyroscope << log_p.bmi323_gyro_x * (M_PI / 180.0f),
+        log_p.bmi323_gyro_y * (M_PI / 180.0f),
+        log_p.bmi323_gyro_z * (M_PI / 180.0f);
     M.Sensors.Barometer = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100) + base_altitude;
     M.Sensors.GPS.setZero();
 
@@ -549,7 +550,7 @@ static void runtime(void *pvParameters)
     // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
     // log_file.flush();
 
-    struct AcquirePacket acquire_packet {.ic = ic};
+    struct AcquirePacket acquire_packet{.ic = ic};
 
     xQueueSendToFront(
         acquire_queue,
@@ -557,6 +558,7 @@ static void runtime(void *pvParameters)
         0);
 
     xTaskDelayUntil(&time, runtime_interval_ms);
+    
     // Serial.printf("dt: %u target: %u acquire: %u filter: %u motor time: %u motor deploy: %f\n\r", delta_time, interval_ms, acquire_time, gnc_time, motor_time, airbrake_pct);
   }
 }
@@ -679,7 +681,7 @@ void sensors_test_loop()
         .bm1422_magn_z = NAN,
     };
 
-    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+    FSError sensor_acquire_status = acquire_sensor_data(&log_p); // Should just work, but it doesn't
 
     Serial.printf(
         "======== Sensor data ========\n"
@@ -725,12 +727,12 @@ void pressure_transducer_setup()
 void test_airbrakes_algo_performance_loop()
 {
   struct apogeeIC ic = {
-    .positionZ = 5000,
-    .velocityZ = 500, // around mach 1.5
-    .thetaZRad = 80 * (M_PI / 180.0),
-    .deploymentAngle = 0.1,
+      .positionZ = 5000,
+      .velocityZ = 500, // around mach 1.5
+      .thetaZRad = 80 * (M_PI / 180.0),
+      .deploymentAngle = 0.1,
   };
-  
+
   while (true)
   {
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
@@ -743,7 +745,7 @@ void test_airbrakes_algo_performance_loop()
 
     // Take time
     int us_taken = DWT->CYCCNT / SYS_CLK_MHZ;
-    
+
     Serial.printf("======== PredictDeploymentAngle parameters =========\n");
     Serial.printf("          positionZ: %f\n", ic.positionZ);
     Serial.printf("          velocityZ: %f\n", ic.velocityZ);
@@ -767,11 +769,19 @@ void setup()
   gpio_config();
 
   Serial.begin(921600);
-  
+
   tone(PIN_BUZZER, 523, 100);
-  delay(5000);
+  delay(3000);
   tone(PIN_BUZZER, 523, 100);
 
+/* Make it very obvious, using a bunch of beeping, if a test option is enabled */
+#ifdef CONFIG_TEST_ACTIVE
+  for (int i = 0; i < 15; i++)
+  {
+    tone(PIN_BUZZER, 784, 100);
+    delay(100);
+  }
+#endif
 
 #ifdef CONFIG_TEST_GPS
   gps_test_loop();
@@ -779,10 +789,6 @@ void setup()
 
 #ifdef CONFIG_TEST_SENSORS
   sensors_test_loop();
-#endif
-
-#ifdef CONFIG_TEST_AIRBRAKES_WITH_PRERECORDED_DATA
-
 #endif
 
 #ifdef CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE
@@ -849,6 +855,7 @@ void setup()
   BaseType_t deploy_status;
   TaskHandle_t deploy_handle;
 
+  /*
   // deploy task
   deploy_status = xTaskCreate(deploy,
                               "Deploy",
@@ -864,6 +871,7 @@ void setup()
       Serial.printf("[Error] Could not create deploy task");
     }
   }
+  */
 
   // motor overcurrent task
 

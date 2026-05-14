@@ -7,12 +7,15 @@
 
 static const char EXPECTED_MAGIC[9] = { 'C','O','R','E','Y','M','A','Y','3' };
 
+static const int crop_start_ms = 689 * 1000;
+static const int crop_end_ms = 711 * 1000;
+
 int main(int argc, char **argv)
 {
     FILE *fp = NULL;
 
-    if (argc > 2) {
-        fprintf(stderr, "Usage: %s [input.bin]\n", argv[0]);
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <input.bin>\n", argv[0]);
         return 1;
     }
 
@@ -39,6 +42,8 @@ int main(int argc, char **argv)
     struct log_packet_v3 pkt;
     size_t nread;
     size_t packet_index = 0;
+    
+    FILE* fp_log_cropped = fopen("log_cropped.logv3", "w");
 
     while ((nread = fread(&pkt, 1, sizeof(pkt), fp)) == sizeof(pkt)) {
         packet_index++;
@@ -94,6 +99,11 @@ int main(int argc, char **argv)
         printf("%u", (unsigned)pkt.gps_num_sats);
 
         printf("\n");
+
+        if (pkt.time_boot_ms > crop_start_ms && pkt.time_boot_ms < crop_end_ms)
+        {
+            fwrite(&pkt, sizeof(pkt), 1, fp_log_cropped);
+        }
     }
 
     if (!feof(fp)) {
@@ -112,6 +122,8 @@ int main(int argc, char **argv)
     if (fp != stdin) {
         fclose(fp);
     }
+
+    fclose(fp_log_cropped);
 
     return 0;
 }

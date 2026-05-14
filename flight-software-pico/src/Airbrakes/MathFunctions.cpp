@@ -59,11 +59,17 @@ void Lever_Arm(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r
     accel -= a_C;
 }
 
+/*
+ * Calculates theoretical coefficient of drag (Cd) from airbrake deployment percentage, velocity, and altitude.
+ * 
+ * Calculation based on simulation data from the aerodynamics team. 
+ */
 //function that we will need to work on before test flight!
-float drag_coeff(float ab_deployment_pct, float velocity_mps, float altitude_m)
+float drag_coeff(float ab_deployment_pct, float velocity_mps, float altitude_m, float ground_level_temp_celcius)
 {
-    float T = 15.04 - 0.00649 * altitude_m;
-    float a = CHECK_NAN(sqrt(fabs(1.4*287.0529*T)));
+    float ground_level_temp_kelvin = ground_level_temp_celcius + 273.15;
+    float T_kelvin = ground_level_temp_kelvin - 0.00649 * altitude_m; // temperature in Kelvin
+    float a = CHECK_NAN(sqrt(fabs(1.4*287.0529*T_kelvin))); // speed of sound
 
     float Mach = CHECK_NAN(velocity_mps/a);
     float Cd  = 0.4792 + -0.3960 * Mach + 0.00091 * ab_deployment_pct + 0.2975 * Mach * Mach - 0.000002 * ab_deployment_pct * ab_deployment_pct - 0.000211 * Mach * ab_deployment_pct;
@@ -84,9 +90,9 @@ float rho_kg_per_m3(float altitude_m)
     {
         altitude_m = 0;
     }
-    float T = 15.04 - 0.00649 * altitude_m;
-    float p = 101.29 * pow((T + 273.1) / 288.08, 5.256);
-    return CHECK_NAN(p / (0.2869 * (T + 273.1)));
+    float T_celcius = 15.04 - 0.00649 * altitude_m;
+    float p = 101.29 * pow((T_celcius + 273.1) / 288.08, 5.256);
+    return CHECK_NAN(p / (0.2869 * (T_celcius + 273.1)));
 }
 
 //calculates surface area using constant rocket diam and a linear surface function.

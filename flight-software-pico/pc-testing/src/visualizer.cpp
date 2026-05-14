@@ -5,10 +5,12 @@
 #include <imgui_impl_sdl3.h>
 #include <ranges>
 #include <tuple>
+#include <string>
 
 #define _USE_MATH_DEFINES // needed on MSVC for math.h to include M_PI
 #include <math.h>
 #include "MathFunctions.h"
+#include "util.h"
 
 class OutDataSeries
 {
@@ -79,13 +81,14 @@ SingleInMultiOutData altitude_m("Altitude (m)");
 
 bool graphOutOfDate = true;
 const int maxAltitude_m = 9144; // 30000 ft
+const float GROUND_LEVEL_TEMP_CELCIUS = 25;
 
 float airbrakeDeployment_pct;
 float velocity_mps;
 
 float data_source_func_Cd(float altitude_m)
 {
-    return drag_coeff(airbrakeDeployment_pct, velocity_mps, altitude_m);
+    return drag_coeff(airbrakeDeployment_pct, velocity_mps, altitude_m, GROUND_LEVEL_TEMP_CELCIUS);
 }
 
 float data_source_func_air_density(float altitude_m)
@@ -182,11 +185,33 @@ void ShowVisualizer()
         ImGui::End();
     }
 
+    if (ImGui::Begin("Theoretical drag vs. CFD simulated (data from aero team)"))
+    {
+        const float machMin = 0;
+        const float machMax = 0.8;
+        const int numPoints = 500;
+        const float step = (machMax - machMin) / numPoints;
+
+        static float groundLevelTempCelcius = 25;
+        static bool outOfDate = true;
+        static float rSquared = 0;
+        outOfDate |= ImGui::SliderFloat("Ground level temperature (degC)", &groundLevelTempCelcius, 0, 50);
+
+        if (outOfDate)
+        {
+            rSquared = r_squared_of_drag_coeff_func_against_theoretical(groundLevelTempCelcius);
+        }
+
+        ImGui::Text("R^2: %f", rSquared);
+
+        ImGui::End();
+    }
+
     if (ImGui::Begin("Options"))
     {
         ImGui::Text("Drag options");
-        graphOutOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &airbrakeDeployment_pct, 0, 90);
-        graphOutOfDate |= ImGui::SliderFloat("Velocity (m/s)", &velocity_mps, 0, 1000);
+        graphOutOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &airbrakeDeployment_pct, 0, 100);
+        graphOutOfDate |= ImGui::SliderFloat("Velocity (m/s)", &velocity_mps, 0, 343);
         ImGui::End();
     }
 }

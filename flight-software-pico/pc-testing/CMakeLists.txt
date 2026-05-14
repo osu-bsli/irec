@@ -3,17 +3,36 @@ project(pc-testing)
 
 find_package(SDL3 CONFIG REQUIRED)
 
-
-add_executable(${PROJECT_NAME}
-    src/main.cpp
-    src/visualizer.cpp
-
+add_library(airbrakes
     ../src/Airbrakes/Filters/AB_Attitude_Filter.cpp
     ../src/Airbrakes/Filters/AB_Filter_Main.cpp
     ../src/Airbrakes/Filters/AB_Horizontal_Filter.cpp
     ../src/Airbrakes/Filters/AB_Vertical_Filter.cpp
     ../src/Airbrakes/AB_Deployment.cpp
     ../src/Airbrakes/MathFunctions.cpp
+
+    src/util.cpp
+)
+
+target_include_directories(airbrakes PUBLIC
+    ../src/
+    ../src/Airbrakes
+    ../src/Airbrakes/Filters
+    ../src/Eigen
+
+    lib/
+    lib/imgui-1.91.9b
+    lib/imgui-1.91.9b/backends
+    lib/implot-0.16
+)
+
+target_compile_options(airbrakes PUBLIC
+    /MP /fsanitize=address
+)
+
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+    src/visualizer.cpp
 
     lib/imgui-1.91.9b/imgui_demo.cpp
     lib/imgui-1.91.9b/imgui_draw.cpp
@@ -27,25 +46,13 @@ add_executable(${PROJECT_NAME}
     lib/implot-0.16/implot.cpp
 )
 
-target_compile_options(${PROJECT_NAME} PRIVATE
-    /MP /fsanitize=address
-)
-
 target_link_options(${PROJECT_NAME} PRIVATE
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE
-    lib/
-    lib/imgui-1.91.9b
-    lib/imgui-1.91.9b/backends
-    lib/implot-0.16
-
-    ../src/
-    ../src/Airbrakes
-    ../src/Airbrakes/Filters
-    ../src/Eigen
-)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3)
+target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3 airbrakes)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 23)
+
+add_executable(drag_coeff_matches_theoretical test/drag_coeff_matches_theoretical.cpp)
+add_test(NAME drag_coeff_matches_theoretical COMMAND drag_coeff_matches_theoretical)
+target_link_libraries(drag_coeff_matches_theoretical PUBLIC airbrakes)

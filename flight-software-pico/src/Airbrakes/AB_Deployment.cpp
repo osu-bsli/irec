@@ -1,5 +1,7 @@
 #include "AB_Deployment.h"
 
+const float GROUND_LEVEL_TEMP_CELCIUS = 25;
+
 //Just initializes the variables in the main function.
 void PredictDeploymentAngleInitialize()
 {
@@ -72,7 +74,7 @@ float PredictApogee(const struct apogeeIC ic)
             v_total1 = 0.001;
         } 
         float k1_rho = rho_kg_per_m3(positionZ);
-        float drag1 = (0.5 / MASS) * k1_rho * drag_coeff(deploymentAngle, v_total1, positionZ) * surfaceA(deploymentAngle) * pow(v_total1, 2);
+        float drag1 = (0.5 / MASS) * k1_rho * drag_coeff(deploymentAngle, v_total1, positionZ, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total1, 2);
         float k1_v = -1 * gravity(positionZ) - (drag1 * cos_theta);
         float k1_x = velocityZ; 
         float k1_theta = gravity(positionZ) * sin(thetaZ) / v_total1; //same here, can just use total velocity w/ gps
@@ -93,7 +95,7 @@ float PredictApogee(const struct apogeeIC ic)
             v_total2 = 0.001;
         } 
         float k2_rho = rho_kg_per_m3(posk1);
-        float drag2 = (0.5 / MASS) * k2_rho * drag_coeff(deploymentAngle, v_total2, posk1) * surfaceA(deploymentAngle) * pow(v_total2, 2);
+        float drag2 = (0.5 / MASS) * k2_rho * drag_coeff(deploymentAngle, v_total2, posk1, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total2, 2);
         float k2_v = -1 * gravity(positionZ) - (drag2 * cos_tk1);
         float k2_x = vk1; 
         float k2_theta = gravity(positionZ) * sin(thetaK1) / v_total2;
@@ -114,7 +116,7 @@ float PredictApogee(const struct apogeeIC ic)
             v_total3 = 0.001;
         } 
         float k3_rho = rho_kg_per_m3(posk2);
-        float drag3 = (0.5 / MASS) * k3_rho * drag_coeff(deploymentAngle, v_total3, posk2) * surfaceA(deploymentAngle) * pow(v_total3, 2);
+        float drag3 = (0.5 / MASS) * k3_rho * drag_coeff(deploymentAngle, v_total3, posk2, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total3, 2);
         float k3_v = -1 * gravity(positionZ) - (drag3 * cos_tk2);
         float k3_x = vk2; 
         float k3_theta = gravity(positionZ) * sin(thetaK2) / v_total3;
@@ -135,7 +137,7 @@ float PredictApogee(const struct apogeeIC ic)
             v_total4 = 0.001;
         } 
         float k4_rho = rho_kg_per_m3(posk3);
-        float drag4 = (0.5 / MASS) * k4_rho * drag_coeff(deploymentAngle, v_total4, posk3) * surfaceA(deploymentAngle) * pow(v_total4, 2);
+        float drag4 = (0.5 / MASS) * k4_rho * drag_coeff(deploymentAngle, v_total4, posk3, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total4, 2);
         float k4_v = -1 * gravity(positionZ) - (drag4 * cos_tk3);
         float k4_x = vk3; 
         float k4_theta = gravity(positionZ) * sin(thetaK3) / v_total4;
