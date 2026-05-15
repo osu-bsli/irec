@@ -5,7 +5,7 @@
 
 float gravity(float altitude);
 
-void snsr_Accel_Rotation(AB_Attitude_State& Attitude_State, AB_Snsrs& sensor, bool HG);
+Matrix<float, 3, 1> RotateAccelToWorldFrame(AB_Attitude_State& Attitude_State, AB_SensorData& sensor, bool HG);
 
 void Estimate_Horizontal_Velocity(AB_Attitude_State& AttState, AB_Vertical_State& VertState, AB_Horizontal_State& HorizState, float& est_north, float& est_east);
 

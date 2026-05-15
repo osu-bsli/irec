@@ -86,14 +86,14 @@ void AB_Attitude_State_Initialization (
 //computes the prediction step
 void AB_Attitude_State_Prediction (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Prediction& Variables
 ) 
 {
     Variables.dt = sensor.dt; //grabbing deltaT from the sensor struct.
-    Variables.GyroX = sensor.Gyroscope(0); //grabbing angular velocity about the x axis from sensor struct
-    Variables.GyroY = sensor.Gyroscope(1); //grabbing angular velocity about the y axis from sensor struct
-    Variables.GyroZ = sensor.Gyroscope(2); //grabbing angular velocity about the z axis from sensor struct
+    Variables.GyroX = sensor.Gyroscope_radps(0); //grabbing angular velocity about the x axis from sensor struct
+    Variables.GyroY = sensor.Gyroscope_radps(1); //grabbing angular velocity about the y axis from sensor struct
+    Variables.GyroZ = sensor.Gyroscope_radps(2); //grabbing angular velocity about the z axis from sensor struct
 
     Variables.angX = Variables.GyroX - sN.Gyro_Bias(0, 0); //true angular velocity about x axis
     Variables.angY = Variables.GyroY - sN.Gyro_Bias(1, 0); //true angular velocity about y axis
@@ -123,20 +123,20 @@ void AB_Attitude_State_Prediction (
 //the update step
 void AB_Attitude_State_Update_Accel (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Update_Accel& Variables,
     AB_Attitude_Prediction& UpVariables,
     const bool HG
 ) {
 
     if (HG == true) {
-        Variables.accelMeas = sensor.AccelerometerHG; //grabbing vector from sensor struct
+        Variables.accelMeas = sensor.AccelerometerHG_mps2; //grabbing vector from sensor struct
         Variables.R(0, 0) = 5.0f;
         Variables.R(1, 1) = 5.0f;
         Variables.R(2, 2) = 5.0f;
     }
     else {
-        Variables.accelMeas = sensor.Accelerometer; //grabbing vector from sensor struct
+        Variables.accelMeas = sensor.Accelerometer_mps2; //grabbing vector from sensor struct
         Variables.R(0, 0) = 0.05f;
         Variables.R(1, 1) = 0.05f;
         Variables.R(2, 2) = 0.05f;
@@ -185,7 +185,7 @@ void AB_Attitude_State_Update_Accel (
 //the update step
 void AB_Attitude_State_Update_GPS (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Update_GPS& Variables,
     AB_Attitude_Prediction& UpVariables
 ) 
@@ -231,7 +231,7 @@ void AB_Attitude_State_Update_GPS (
 //the update step
 void AB_Attitude_State_Update_Mag (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Update_Mag& Variables,
     AB_Attitude_Prediction& UpVariables
 ) 
@@ -277,7 +277,7 @@ void AB_Attitude_State_Update_Mag (
 //if we are running with gps and are traveling at a fast speed, we can trust the drag that the sensors measure, and velocity estimate and use them to help correct our orientation
 void AB_Attitude_Update_PseudoDrag(
     AB_Attitude_State& sN,
-    const AB_Snsrs& sensor,
+    const AB_SensorData& sensor,
     AB_Vertical_State& vState,
     AB_Horizontal_State& hState,
     AB_Attitude_Update_Drag& Variables,
@@ -306,7 +306,7 @@ void AB_Attitude_Update_PseudoDrag(
     Variables.d_pred_b.normalize();
 
     // drag from accelerometer
-    Variables.a_b = sensor.Accelerometer * gravity(vState.Altitude); 
+    Variables.a_b = sensor.Accelerometer_mps2 * gravity(vState.Altitude); 
 
     Variables.g_n << 0.0f, 0.0f, gravity(vState.Altitude); //enu gravity
     Variables.g_b = sN.Quaternion_Body_To_ENU.conjugate() * Variables.g_n;

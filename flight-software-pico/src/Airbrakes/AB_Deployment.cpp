@@ -61,7 +61,6 @@ float __not_in_flash_func(PredictApogee)(const struct apogeeIC ic)
     // Run until velocity gets below zero, or we hit max iterations.
     while (velocityZ > 0.0 && iter < 1000)
     {
-
         // k1
         float cos_theta = cos(thetaZ);
         // clamp to prevent dividing by zero

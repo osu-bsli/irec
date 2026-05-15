@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+#include "utility.h"
 #include <stdint.h>
 
 #define TELEMETRY_PACKET_MAX_LEN 255
@@ -33,7 +34,7 @@ enum StatusFlags {
 //     ROCKET_ERROR,
 // };
 
-struct __attribute__((packed)) telemetry_packet {
+PACKED_STRUCT telemetry_packet {
     char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
@@ -47,8 +48,9 @@ struct __attribute__((packed)) telemetry_packet {
     float accel_magnitude; // Magnitude of acceleration (unit: G)
     float ms5607_pressure_mbar; // Pressure (unit: mbar)
 };
+END_PACKED_STRUCT;
 
-struct __attribute__((packed)) log_packet_v3 {
+PACKED_STRUCT log_packet_v3 {
     char magic[9]; // 'COREYMAYS' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
@@ -77,6 +79,7 @@ struct __attribute__((packed)) log_packet_v3 {
     int32_t gps_course;
     uint8_t gps_num_sats;
 };
+END_PACKED_STRUCT;
 
 void telemetry_packet_make_header(struct telemetry_packet *p);
 void log_packet_make_header(struct log_packet_v3 *p);
