@@ -8,5 +8,13 @@
         "VCPKG_ROOT": "D:/vcpkg"
       }
     }
+    {
+      "name": "release",
+      "inherits": "vcpkg",
+      "environment": {
+        "VCPKG_ROOT": "D:/vcpkg",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
   ]
 }

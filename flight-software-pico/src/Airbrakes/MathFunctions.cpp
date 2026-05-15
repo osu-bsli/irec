@@ -9,25 +9,25 @@ float __not_in_flash_func(gravity)(float altitude)
     return (9.802-(altitude*3.086e-6));
 }
 
-Matrix<float, 3, 1> __not_in_flash_func(RotateAccelToWorldFrame)(const AB_Attitude_State& Attitude_State, const AB_Filter_Inputs& sensor, bool HG) 
+Matrix<float, 3, 1> __not_in_flash_func(RotateAccelToWorldFrame)(const AB_Attitude_State& Attitude_State, const AB_Filter_Inputs& sensor, bool highG) 
 {
     //rotates the accelertion data from the sensor to the world frame 
     //for the vertical & horizontal filters.
-    Vector3f Accel;
-    if (HG == true) 
+    Vector3f accel;
+    if (highG == true) 
     {
-        Accel = sensor.AccelerometerHG_mps2; //grabbing vector from sensor struct
+        accel = sensor.AccelerometerHG_mps2; //grabbing vector from sensor struct
     }
     else 
     {
-        Accel = sensor.Accelerometer_mps2; //grabbing vector from sensor struct
+        accel = sensor.Accelerometer_mps2; //grabbing vector from sensor struct
     }
-    Vector3f Accel_Unbiased;
+    Vector3f accelUnbiased;
     //subtract accel bias
-    Accel_Unbiased(0) = Accel(0) - Attitude_State.Accel_Bias(0);
-    Accel_Unbiased(1) = Accel(1) - Attitude_State.Accel_Bias(1);
-    Accel_Unbiased(2) = Accel(2) - Attitude_State.Accel_Bias(2);
-    Vector3f Accel_World = Attitude_State.Quaternion_Body_To_ENU * Accel_Unbiased;
+    accelUnbiased(0) = accel(0) - Attitude_State.Accel_Bias(0);
+    accelUnbiased(1) = accel(1) - Attitude_State.Accel_Bias(1);
+    accelUnbiased(2) = accel(2) - Attitude_State.Accel_Bias(2);
+    Vector3f Accel_World = Attitude_State.Quaternion_Body_To_ENU * accelUnbiased;
     
     return Accel_World;
 }

@@ -449,7 +449,7 @@ static void runtime(void *pvParameters)
   static TickType_t time = xTaskGetTickCount();
 
   struct apogeeIC ic = {0};
-  AB_Filter_Main_Variables M;
+  AB_Filter f;
 
   float pressures[5] = {0.0};
   fc_ms5607_data pressure_init_data;
@@ -461,7 +461,7 @@ static void runtime(void *pvParameters)
 
   static float base_altitude = pressures[0] + pressures[1] + pressures[2] + pressures[3] + pressures[4] / 5; // average of the first 5 values
 
-  AB_Filter_Initialize(M);
+  AB_Filter_Initialize(f);
 
   while (true)
   {
@@ -518,26 +518,22 @@ static void runtime(void *pvParameters)
     float dt = delta_time_float / 1000.0f; // ms to s
     if (dt <= 0.0f)
       dt = 0.001f;
-    M.Sensors.dt = dt;
 
-    // Update sensor data in Master Struct
-    M.Sensors.Accelerometer_mps2 << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
-    M.Sensors.AccelerometerHG_mps2 << -log_p.adxl375_accel_x, -log_p.adxl375_accel_y, log_p.adxl375_accel_z;
-    M.Sensors.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
-        log_p.bmi323_gyro_y * (M_PI / 180.0f),
-        log_p.bmi323_gyro_z * (M_PI / 180.0f);
-    M.Sensors.Barometer_m = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100) + base_altitude;
-    M.Sensors.GPS.setZero();
+    AB_Filter_Inputs inputs;
+
+    inputs.dt = dt;
+
+    // TODO: Update sensor data in Master Struct. Copy working code from the pc-testing visualizer
 
 		static AB_Settings s = AB_Default_Settings();
-    AB_Filter_Process(M, s);
+    AB_Filter_Process(f, inputs, s);
 
-    const float v_horiz = sqrt(M.HorizState.Velocity_North * M.HorizState.Velocity_North +
-                               M.HorizState.Velocity_East * M.HorizState.Velocity_East);
-    const float zenith_deg = atan2(v_horiz, M.VertState.Velocity_Up) * RAD_TO_DEG;
+    const float v_horiz = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
+                               f.HorizState.Velocity_East * f.HorizState.Velocity_East);
+    const float zenith_deg = atan2(v_horiz, f.VertState.Velocity_Up) * RAD_TO_DEG;
 
-    ic.altitude_m = M.VertState.Altitude;
-    ic.velocityZ_mps = M.VertState.Velocity_Up;
+    ic.altitude_m = f.VertState.Altitude;
+    ic.velocityZ_mps = f.VertState.Velocity_Up;
     ic.thetaZ_rad = zenith_deg;
 
     // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));

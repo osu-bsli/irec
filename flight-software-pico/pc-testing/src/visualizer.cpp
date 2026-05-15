@@ -331,7 +331,8 @@ void ShowVisualizer()
 			highGAccelZMeasured_mps2[log_len] = { 0 },
 			gyroXMeasured_degps[log_len] = { 0 },
 			gyroYMeasured_degps[log_len] = { 0 },
-			gyroZMeasured_degps[log_len] = { 0 };
+			gyroZMeasured_degps[log_len] = { 0 },
+			accelerationZWorld_mps2[log_len] = { 0 };
 
 		static float altitudeMax_m = FLT_MIN;
 		static float altitudeMin_m = FLT_MAX;
@@ -362,7 +363,7 @@ void ShowVisualizer()
 				log_packet_v3 log_p = ((log_packet_v3*)log_cropped_logv3)[i];
 
 				// Update sensor data in Master Struct
-				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
+				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y * G, log_p.bmi323_accel_x * G, log_p.bmi323_accel_z * G;
 				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x * G, -log_p.adxl375_accel_y * G, log_p.adxl375_accel_z * G;
 				inputs.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
 					log_p.bmi323_gyro_y * (M_PI / 180.0f),
@@ -373,11 +374,13 @@ void ShowVisualizer()
 				AB_Filter_Process(f, inputs, s);
 
 				altitudeMeasured_m[i] = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100);
-				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z;
-				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z;
+				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z * G;
+				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z * G;
 				gyroXMeasured_degps[i] = log_p.bmi323_gyro_x;
 				gyroYMeasured_degps[i] = log_p.bmi323_gyro_y;
 				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z;
+
+				accelerationZWorld_mps2[i] = f.AccelerationWorld.z();
 
 				time_s[i] = log_p.time_boot_ms / 1000.0;
 				velocityHoriz_mps[i] = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
@@ -411,9 +414,10 @@ void ShowVisualizer()
 		{
 			ImPlot::SetupAxes("Time (s)", "Acceleration Z (m/s^2)");
 			ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
-			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 15, ImPlotCond_Once);
+			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 15 * G, ImPlotCond_Once);
 			ImPlot::PlotLine("Acceleration Z (measured, low G sensor)", time_s, lowGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (measured, high G sensor)", time_s, highGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
+			ImPlot::PlotLine("Acceleration Z (filtered, world frame)", time_s, accelerationZWorld_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::EndPlot();
 		}
 

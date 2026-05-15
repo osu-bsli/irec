@@ -33,6 +33,7 @@ void AB_Vertical_State_Prediction(
 	}
 
 	float accelZ = accelerationWorld(2); //grabing accelerometer Z from sensor struct
+	printf("accelZ: %f\n", accelZ);
 	float accelUp = accelZ - gravity(sN.Altitude); //correcting Z acceleration for gravity
 	float oldVel = sN.Velocity_Up; //grabbing the old velocity
 	sN.Altitude += oldVel * inputs.dt + 0.5f * accelUp * inputs.dt * inputs.dt; //updating altitude, std kinematics

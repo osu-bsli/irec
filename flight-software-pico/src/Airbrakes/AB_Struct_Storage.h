@@ -55,14 +55,6 @@ struct AB_Attitude_Prediction
     Matrix<float, 9, 9> F;
     Matrix<float, 9, 9> C;
     Matrix<float, 9, 9> Q;
-    float dt;
-    float GyroX;
-    float GyroY;
-    float GyroZ;
-    float angX;
-    float angY;
-    float angZ;
-    Quaternionf quatDelt;
     Matrix3f W;
 };
 
@@ -226,6 +218,9 @@ struct AB_Filter
     Eigen::Vector3f AccelBias;
     Eigen::Vector3f R;
     Eigen::Vector3f mag_calibration_sum;
+
+    // debug variables
+    Matrix<float, 3, 1> AccelerationWorld;
 };
 
 struct AB_Settings
