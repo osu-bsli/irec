@@ -521,15 +521,16 @@ static void runtime(void *pvParameters)
     M.Sensors.dt = dt;
 
     // Update sensor data in Master Struct
-    M.Sensors.Accelerometer << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
-    M.Sensors.AccelerometerHG << -log_p.adxl375_accel_x, -log_p.adxl375_accel_y, log_p.adxl375_accel_z;
-    M.Sensors.Gyroscope << log_p.bmi323_gyro_x * (M_PI / 180.0f),
+    M.Sensors.Accelerometer_mps2 << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
+    M.Sensors.AccelerometerHG_mps2 << -log_p.adxl375_accel_x, -log_p.adxl375_accel_y, log_p.adxl375_accel_z;
+    M.Sensors.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
         log_p.bmi323_gyro_y * (M_PI / 180.0f),
         log_p.bmi323_gyro_z * (M_PI / 180.0f);
-    M.Sensors.Barometer = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100) + base_altitude;
+    M.Sensors.Barometer_m = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100) + base_altitude;
     M.Sensors.GPS.setZero();
 
-    AB_loop(M);
+		static AB_Settings s = AB_Default_Settings();
+    AB_Filter_Process(M, s);
 
     const float v_horiz = sqrt(M.HorizState.Velocity_North * M.HorizState.Velocity_North +
                                M.HorizState.Velocity_East * M.HorizState.Velocity_East);
