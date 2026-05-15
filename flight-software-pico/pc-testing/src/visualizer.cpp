@@ -205,9 +205,24 @@ bool MatrixEditor(const char* name, Eigen::Matrix<float, N, N>& matrix, const ch
 	return modified;
 }
 
+static ImVec2 Project3D(float x, float y, float z, ImVec2 center, float scale)
+{
+	// Isometric projection: E→lower-right, N→lower-left, U→up
+	float sx = (x - y) * 0.7071f;
+	float sy = (-x - y + 2.0f * z) * 0.4082f;
+	return ImVec2(center.x + sx * scale, center.y - sy * scale);
+}
+
 void ShowVisualizer()
 {
 	//enable_exception_on_NaN();
+
+	static int g_nav_hovered_idx = -1;
+	static float g_nav_hovered_time = 0.0f;
+	static float g_nav_quat_w[log_len] = { 0 };
+	static float g_nav_quat_x[log_len] = { 0 };
+	static float g_nav_quat_y[log_len] = { 0 };
+	static float g_nav_quat_z[log_len] = { 0 };
 
 	if (graphOutOfDate)
 	{
@@ -382,6 +397,11 @@ void ShowVisualizer()
 
 				accelerationZWorld_mps2[i] = f.AccelerationWorld.z();
 
+				g_nav_quat_w[i] = f.AttState.Quaternion_Body_To_ENU.w();
+				g_nav_quat_x[i] = f.AttState.Quaternion_Body_To_ENU.x();
+				g_nav_quat_y[i] = f.AttState.Quaternion_Body_To_ENU.y();
+				g_nav_quat_z[i] = f.AttState.Quaternion_Body_To_ENU.z();
+
 				time_s[i] = log_p.time_boot_ms / 1000.0;
 				velocityHoriz_mps[i] = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
 					f.HorizState.Velocity_East * f.HorizState.Velocity_East);
@@ -407,6 +427,21 @@ void ShowVisualizer()
 			ImPlot::SetupAxisLimits(ImAxis_Y1, altitudeMin_m, altitudeMax_m, ImPlotCond_Once);
 			ImPlot::PlotLine("Altitude (filtered)", time_s, altitude_m, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Altitude (measured, barometric)", time_s, altitudeMeasured_m, log_len, ImPlotLineFlags_None);
+			if (ImPlot::IsPlotHovered())
+			{
+				float t = (float)ImPlot::GetPlotMousePos().x;
+				g_nav_hovered_time = t;
+				int lo = 0, hi = log_len - 1;
+				while (lo < hi) { int mid = (lo + hi) / 2; if (time_s[mid] < t) lo = mid + 1; else hi = mid; }
+				g_nav_hovered_idx = lo;
+			}
+			if (g_nav_hovered_idx >= 0)
+			{
+				ImPlotRect limits = ImPlot::GetPlotLimits();
+				ImVec2 top = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Max);
+				ImVec2 bot = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Min);
+				ImPlot::GetPlotDrawList()->AddLine(top, bot, IM_COL32(255, 200, 0, 120), 1.5f);
+			}
 			ImPlot::EndPlot();
 		}
 
@@ -418,6 +453,21 @@ void ShowVisualizer()
 			ImPlot::PlotLine("Acceleration Z (measured, low G sensor)", time_s, lowGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (measured, high G sensor)", time_s, highGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (filtered, world frame)", time_s, accelerationZWorld_mps2, log_len, ImPlotLineFlags_None);
+			if (ImPlot::IsPlotHovered())
+			{
+				float t = (float)ImPlot::GetPlotMousePos().x;
+				g_nav_hovered_time = t;
+				int lo = 0, hi = log_len - 1;
+				while (lo < hi) { int mid = (lo + hi) / 2; if (time_s[mid] < t) lo = mid + 1; else hi = mid; }
+				g_nav_hovered_idx = lo;
+			}
+			if (g_nav_hovered_idx >= 0)
+			{
+				ImPlotRect limits = ImPlot::GetPlotLimits();
+				ImVec2 top = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Max);
+				ImVec2 bot = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Min);
+				ImPlot::GetPlotDrawList()->AddLine(top, bot, IM_COL32(255, 200, 0, 120), 1.5f);
+			}
 			ImPlot::EndPlot();
 		}
 
@@ -429,9 +479,102 @@ void ShowVisualizer()
 			ImPlot::PlotLine("Gyroscope X (measured)", time_s, gyroXMeasured_degps, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Gyroscope Y (measured)", time_s, gyroYMeasured_degps, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Gyroscope Z (measured)", time_s, gyroZMeasured_degps, log_len, ImPlotLineFlags_None);
+			if (ImPlot::IsPlotHovered())
+			{
+				float t = (float)ImPlot::GetPlotMousePos().x;
+				g_nav_hovered_time = t;
+				int lo = 0, hi = log_len - 1;
+				while (lo < hi) { int mid = (lo + hi) / 2; if (time_s[mid] < t) lo = mid + 1; else hi = mid; }
+				g_nav_hovered_idx = lo;
+			}
+			if (g_nav_hovered_idx >= 0)
+			{
+				ImPlotRect limits = ImPlot::GetPlotLimits();
+				ImVec2 top = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Max);
+				ImVec2 bot = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Min);
+				ImPlot::GetPlotDrawList()->AddLine(top, bot, IM_COL32(255, 200, 0, 120), 1.5f);
+			}
 			ImPlot::EndPlot();
 		}
 
+		ImGui::End();
+	}
+
+	if (ImGui::Begin("Attitude (Quaternion Body-to-ENU)"))
+	{
+		if (g_nav_hovered_idx < 0)
+		{
+			ImGui::TextDisabled("Hover over a graph in the Navigation filter window to see orientation.");
+		}
+		else
+		{
+			int idx = g_nav_hovered_idx;
+			float w  = g_nav_quat_w[idx], qx = g_nav_quat_x[idx],
+			      qy = g_nav_quat_y[idx], qz = g_nav_quat_z[idx];
+
+			ImGui::Text("t = %.3f s", g_nav_hovered_time);
+			ImGui::Text("q: w=%.3f  x=%.3f  y=%.3f  z=%.3f", w, qx, qy, qz);
+
+			Quaternionf q(w, qx, qy, qz);
+			q.normalize();
+			Matrix3f R = q.toRotationMatrix();
+
+			ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+			ImVec2 available = ImGui::GetContentRegionAvail();
+			float size = available.x < available.y ? available.x : available.y;
+			if (size < 50.0f) size = 200.0f;
+
+			ImGui::InvisibleButton("##att3d", ImVec2(size, size));
+			ImVec2 center = ImVec2(canvasPos.x + size * 0.5f, canvasPos.y + size * 0.5f);
+			float scale = size * 0.35f;
+
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+
+			dl->AddRectFilled(canvasPos, ImVec2(canvasPos.x + size, canvasPos.y + size),
+			                  IM_COL32(20, 20, 25, 255));
+			dl->AddRect(canvasPos, ImVec2(canvasPos.x + size, canvasPos.y + size),
+			            IM_COL32(80, 80, 80, 255));
+
+			// Reference sphere circles
+			const int segs = 48;
+			float r = 0.75f;
+			for (int i = 0; i < segs; i++)
+			{
+				float a0 = (float)i / segs * 2.0f * (float)M_PI;
+				float a1 = (float)(i + 1) / segs * 2.0f * (float)M_PI;
+				dl->AddLine(Project3D(r * cosf(a0), r * sinf(a0), 0, center, scale),
+				            Project3D(r * cosf(a1), r * sinf(a1), 0, center, scale),
+				            IM_COL32(50, 50, 60, 200));
+				dl->AddLine(Project3D(r * cosf(a0), 0, r * sinf(a0), center, scale),
+				            Project3D(r * cosf(a1), 0, r * sinf(a1), center, scale),
+				            IM_COL32(50, 50, 60, 200));
+			}
+
+			auto drawArrow = [&](float ax, float ay, float az, ImU32 color, const char* label)
+			{
+				ImVec2 origin = Project3D(0, 0, 0, center, scale);
+				ImVec2 tip    = Project3D(ax, ay, az, center, scale);
+				dl->AddLine(origin, tip, color, 2.0f);
+				dl->AddCircleFilled(tip, 4.5f, color);
+				dl->AddText(ImVec2(tip.x + 5, tip.y - 5), color, label);
+			};
+
+			// ENU reference axes (dim)
+			drawArrow(r, 0, 0, IM_COL32(120, 50, 50, 200), "E");
+			drawArrow(0, r, 0, IM_COL32(50, 120, 50, 200), "N");
+			drawArrow(0, 0, r, IM_COL32(50, 50, 120, 200), "U");
+
+			// Body frame axes expressed in ENU (bright)
+			drawArrow(R(0,0), R(1,0), R(2,0), IM_COL32(255, 80, 80, 255), "Bx");
+			drawArrow(R(0,1), R(1,1), R(2,1), IM_COL32(80, 255, 80, 255), "By");
+			drawArrow(R(0,2), R(1,2), R(2,2), IM_COL32(80, 80, 255, 255), "Bz");
+
+			dl->AddCircleFilled(Project3D(0, 0, 0, center, scale), 5.0f, IM_COL32(220, 220, 220, 255));
+
+			ImGui::Spacing();
+			ImGui::TextColored(ImVec4(0.47f, 0.20f, 0.20f, 1.0f), "dim  = ENU frame  (E / N / U)");
+			ImGui::TextColored(ImVec4(1.00f, 0.31f, 0.31f, 1.0f), "bright = Body frame (Bx / By / Bz)");
+		}
 		ImGui::End();
 	}
 
