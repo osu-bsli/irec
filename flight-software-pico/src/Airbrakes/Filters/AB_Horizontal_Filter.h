@@ -12,7 +12,7 @@ void AB_Horizontal_State_Initialization (
 //computes the prediction step
 void AB_Horizontal_State_Prediction (
     AB_Horizontal_State& sN, 
-    AB_SensorData sensor,
+    AB_Filter_Inputs sensor,
     const Vector<float, 3> accelerationWorld,
     const bool HG
 );
@@ -21,5 +21,5 @@ void AB_Horizontal_State_Prediction (
 //the update step
 void AB_Horizontal_State_Update_GPS (
     AB_Horizontal_State& sN, 
-    const AB_SensorData sensor
+    const AB_Filter_Inputs sensor
 );
