@@ -7,7 +7,7 @@
       "environment": {
         "VCPKG_ROOT": "D:/vcpkg"
       }
-    }
+    },
     {
       "name": "release",
       "inherits": "vcpkg",

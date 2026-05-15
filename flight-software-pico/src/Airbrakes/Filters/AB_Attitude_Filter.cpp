@@ -96,12 +96,22 @@ void AB_Attitude_State_Prediction(
     float angY = gyroY - sN.Gyro_Bias(1, 0); // true angular velocity about y axis
     float angZ = gyroZ - sN.Gyro_Bias(2, 0); // true angular velocity about z axis
 
-    // build deltaQuat
+    // build deltaQuat (exact rotation, not first-order approximation)
     Quaternionf quatDelt;
-    quatDelt.w() = 1.0f;
-    quatDelt.x() = 0.5 * angX * inputs.dt;
-    quatDelt.y() = 0.5 * angY * inputs.dt;
-    quatDelt.z() = 0.5 * angZ * inputs.dt;
+    float omegaNorm = sqrtf(angX*angX + angY*angY + angZ*angZ);
+    if (omegaNorm > 1e-6f) {
+        float halfAngle = 0.5f * omegaNorm * inputs.dt;
+        float s = sinf(halfAngle) / omegaNorm;
+        quatDelt.w() = cosf(halfAngle);
+        quatDelt.x() = s * angX;
+        quatDelt.y() = s * angY;
+        quatDelt.z() = s * angZ;
+    } else {
+        quatDelt.w() = 1.0f;
+        quatDelt.x() = 0.5f * angX * inputs.dt;
+        quatDelt.y() = 0.5f * angY * inputs.dt;
+        quatDelt.z() = 0.5f * angZ * inputs.dt;
+    }
 
     sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * quatDelt; // update quaternionBody->ENU
     sN.Quaternion_Body_To_ENU.normalize();                            // normalize after every integration
