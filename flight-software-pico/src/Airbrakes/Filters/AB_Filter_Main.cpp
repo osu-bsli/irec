@@ -159,7 +159,8 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 	}
 
 	// transform the acceleration vector to ENU frame and prepare it for vert and horizontal filter
-	auto accelerationWorld = RotateAccelToWorldFrame(filter.AttState, inputs, highG);
+	Matrix<float, 3, 1> accelerationWorld = RotateAccelToWorldFrame(filter.AttState, inputs, highG);
+	filter.AccelerationWorld = accelerationWorld;
 
 	// Next, process vertical filter
 	AB_Vertical_State_Prediction(filter.VertState, inputs, settings, accelerationWorld, highG);
