@@ -9,18 +9,18 @@ float __not_in_flash_func(gravity)(float altitude)
     return (9.802-(altitude*3.086e-6));
 }
 
-void __not_in_flash_func(snsr_Accel_Rotation)(AB_Attitude_State& Attitude_State, AB_Snsrs& sensor, bool HG) 
+Matrix<float, 3, 1> __not_in_flash_func(RotateAccelToWorldFrame)(AB_Attitude_State& Attitude_State, AB_SensorData& sensor, bool HG) 
 {
     //rotates the accelertion data from the sensor to the world frame 
     //for the vertical & horizontal filters.
     Vector3f Accel;
     if (HG == true) 
     {
-        Accel = sensor.AccelerometerHG; //grabbing vector from sensor struct
+        Accel = sensor.AccelerometerHG_mps2; //grabbing vector from sensor struct
     }
     else 
     {
-        Accel = sensor.Accelerometer; //grabbing vector from sensor struct
+        Accel = sensor.Accelerometer_mps2; //grabbing vector from sensor struct
     }
     Vector3f Accel_Unbiased;
     //subtract accel bias
@@ -28,7 +28,8 @@ void __not_in_flash_func(snsr_Accel_Rotation)(AB_Attitude_State& Attitude_State,
     Accel_Unbiased(1) = Accel(1) - Attitude_State.Accel_Bias(1);
     Accel_Unbiased(2) = Accel(2) - Attitude_State.Accel_Bias(2);
     Vector3f Accel_World = Attitude_State.Quaternion_Body_To_ENU * Accel_Unbiased;
-    sensor.AccelerometerWorld = Accel_World;
+    
+    return Accel_World;
 }
 
 //Velocity estimate from vertical(only used when gps is off to gate divergance)

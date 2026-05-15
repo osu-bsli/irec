@@ -2,52 +2,60 @@
 
 #include "Eigen/Dense"
 using namespace Eigen;
-//Input Variables come from struct. The purpose of this file is to remove all dynamic and on the fly initialized
-//variables from the code, so can properly keep track of the maximum allowed memory use.
+// Input Variables come from struct. The purpose of this file is to remove all dynamic and on the fly initialized
+// variables from the code, so can properly keep track of the maximum allowed memory use.
 
-struct AB_Snsrs { //Struct containing all sensor data
-    Matrix<float, 3, 1>Accelerometer; //Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1>AccelerometerHG; //Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1>AccelerometerWorld; //Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1> Gyroscope; //AngularV(rad/s) X, Y, Z
-    Matrix<float, 3, 1> Magnetometer; //Field(uT) X, Y, Z
-    Matrix<float, 6, 1> GPS; //position(m) X, Y, Z and velocity(m/s) X, Y, Z
-    float Barometer; //altitude(m) Z
-    float dt; //time between last sensor change, needs to be updated every time.
+struct AB_SensorData
+{                                           // Struct containing all sensor data
+    Matrix<float, 3, 1> Accelerometer_mps2;      // Accel(m/s^2) X, Y, Z
+    Matrix<float, 3, 1> AccelerometerHG_mps2;    // Accel(m/s^2) X, Y, Z
+    Matrix<float, 3, 1> Gyroscope_radps;          // AngularV(rad/s) X, Y, Z
+    Matrix<float, 3, 1> Magnetometer;       // Field(uT) X, Y, Z
+    Matrix<float, 6, 1> GPS;                // position(m) X, Y, Z and velocity(m/s) X, Y, Z
+    float Barometer_m;                        // altitude(m) Z
+    float dt;                               // time between last sensor change, needs to be updated every time.
     Vector3f Mag_Reference;
 };
 
-struct AB_Snsrs_prevData { //Struct containing all sensor data
-    Matrix<float, 6, 1> GPS; //position(m) X, Y, Z and velocity(m/s) X, Y, Z
+struct AB_Snsrs_prevData
+{                            // Struct containing all sensor data
+    Matrix<float, 6, 1> GPS; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
 };
 
-struct AB_Snsrs_booleans { //Struct containing all sensor data
-    bool GPS; //position(m) X, Y, Z and velocity(m/s) X, Y, Z
+struct AB_Snsrs_booleans
+{             // Struct containing all sensor data
+    bool GPS; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
 };
 
-struct AB_Attitude_State { //struct containing the state for the rocket's attitude
-    Quaternionf Quaternion_Body_To_ENU; //quaternion describing rotation from body frame to ENU
-    Matrix<float, 3, 1> Gyro_Bias; //bias of the gyroscope
-    Matrix<float, 3, 1> Accel_Bias; //bias of the accelerometer
+struct AB_Attitude_State
+{                                       // struct containing the state for the rocket's attitude
+    Quaternionf Quaternion_Body_To_ENU; // quaternion describing rotation from body frame to ENU
+    Matrix<float, 3, 1> Gyro_Bias;      // bias of the gyroscope
+    Matrix<float, 3, 1> Accel_Bias;     // bias of the accelerometer
 };
 
-struct AB_Vertical_State { //struct containing the state for the rocket's vertical motion
-    float Altitude; //current height of the rocket relative to starting height
-    float Velocity_Up; //current velocity of the rocket relative to starting velocity
-    float Baro_Bias; //barometer bias 
+struct AB_Vertical_State
+{                      // struct containing the state for the rocket's vertical motion
+    float Altitude;    // current height of the rocket relative to starting height
+    float Velocity_Up; // current velocity of the rocket relative to starting velocity
+    float Baro_Bias;   // barometer bias
+    Matrix<float, 3, 3> C;
 };
 
-struct AB_Horizontal_State { //struct containing the state for the rocket's horizontal motion
-    float Position_East; //position in East direction relative to starting position
-    float Position_North; //position in North direction relative to starting position
-    float Velocity_East; //Velocity in East direction relative to starting position
-    float Velocity_North; //Velocity in North direction relative to starting position
+struct AB_Horizontal_State
+{                         // struct containing the state for the rocket's horizontal motion
+    float Position_East;  // position in East direction relative to starting position
+    float Position_North; // position in North direction relative to starting position
+    float Velocity_East;  // Velocity in East direction relative to starting position
+    float Velocity_North; // Velocity in North direction relative to starting position
+    Matrix<float, 4, 4> C;
 };
 
-struct AB_Attitude_Prediction{//prediction variables(uses gyro XYZ)
+struct AB_Attitude_Prediction
+{ // prediction variables(uses gyro XYZ)
     Matrix<float, 9, 9> F;
     Matrix<float, 9, 9> C;
-    Matrix<float, 9, 9> Q; 
+    Matrix<float, 9, 9> Q;
     float dt;
     float GyroX;
     float GyroY;
@@ -59,13 +67,14 @@ struct AB_Attitude_Prediction{//prediction variables(uses gyro XYZ)
     Matrix3f W;
 };
 
-struct AB_Attitude_Update_Accel{//update using accel variables(uses accel XYZ)
+struct AB_Attitude_Update_Accel
+{ // update using accel variables(uses accel XYZ)
     Matrix<float, 3, 1> d;
     Matrix<float, 3, 1> y;
     Matrix<float, 3, 9> H;
     Matrix<float, 9, 3> K;
     Matrix<float, 3, 3> R;
-    Matrix<float, 9, 1> sE;  
+    Matrix<float, 9, 1> sE;
     Vector3f accelMeas;
     Matrix<float, 9, 9> I;
     Vector3f grav;
@@ -75,13 +84,14 @@ struct AB_Attitude_Update_Accel{//update using accel variables(uses accel XYZ)
     Quaternionf qCorrection;
 };
 
-struct AB_Attitude_Update_GPS{//update using gps variables(uses gps velocity XYZ)
+struct AB_Attitude_Update_GPS
+{ // update using gps variables(uses gps velocity XYZ)
     Matrix<float, 3, 1> d;
     Matrix<float, 3, 1> y;
     Matrix<float, 3, 9> H;
     Matrix<float, 9, 3> K;
     Matrix<float, 3, 3> R;
-    Matrix<float, 9, 1> sE;  
+    Matrix<float, 9, 1> sE;
     Matrix<float, 9, 9> I;
     Vector3f GPSMeas;
     Vector3f GPSPred;
@@ -91,27 +101,29 @@ struct AB_Attitude_Update_GPS{//update using gps variables(uses gps velocity XYZ
     Quaternionf qCorrection;
 };
 
-struct AB_Attitude_Update_Mag{//update using magnometer variables(uses magnometer XYZ)
+struct AB_Attitude_Update_Mag
+{ // update using magnometer variables(uses magnometer XYZ)
     Matrix<float, 3, 1> d;
     Matrix<float, 3, 1> y;
     Matrix<float, 3, 9> H;
     Matrix<float, 9, 3> K;
     Matrix<float, 3, 3> R;
-    Matrix<float, 9, 1> sE; 
+    Matrix<float, 9, 1> sE;
     Matrix<float, 9, 9> I;
     Vector3f MagMeas;
     Vector3f MagPred;
     Matrix3f a_skew;
     Vector3f thetaError;
     Quaternionf qCorrection;
-}; 
+};
 
-struct AB_Attitude_Update_Drag{//update using drag velocity
+struct AB_Attitude_Update_Drag
+{ // update using drag velocity
     Matrix<float, 3, 1> y;
     Matrix<float, 3, 9> H;
     Matrix<float, 9, 3> K;
     Matrix<float, 3, 3> R;
-    Matrix<float, 9, 1> sE;  
+    Matrix<float, 9, 1> sE;
     Matrix<float, 9, 9> I;
     Matrix<float, 3, 3> I33;
     float deg10;
@@ -138,39 +150,16 @@ struct AB_Attitude_Update_Drag{//update using drag velocity
     float Rv;
     Vector3f thetaError;
     Quaternionf qCorrection;
-}; 
-
-struct AB_Vertical_Prediction{//prediction variables(uses accel Z)
-    Matrix<float, 3, 3> F;
-    Matrix<float, 3, 3> C;
-    Matrix<float, 3, 3> Q;
-    float dt;
-    float AccelZ;
-    float AccelUp;
-    float oldVel;
 };
 
-struct AB_Vertical_Update_Baro{//update using baro struct(uses baro altitude)
+struct AB_Vertical_Update_Baro
+{ // update using baro struct(uses baro altitude)
     Matrix<float, 1, 1> d;
-    Matrix<float, 1, 1> y;
-    Matrix<float, 1, 3> H;
-    Matrix<float, 3, 1> K;
-    Matrix<float, 1, 1> R;
-    Matrix<float, 3, 1> sE;   
     Matrix<float, 3, 3> I;
-}; 
+};
 
-struct AB_Vertical_Update_GPS{//update using gps struct(uses gps altitude)
-    Matrix<float, 2, 1> d;
-    Matrix<float, 2, 1> y;
-    Matrix<float, 2, 3> H;
-    Matrix<float, 3, 2> K;
-    Matrix<float, 2, 2> R;
-    Matrix<float, 3, 1> sE;
-    Matrix<float, 3, 3> I;
-}; 
-
-struct AB_Horizontal_Prediction{//prediction variables(uses accel XYZ)
+struct AB_Horizontal_Prediction
+{ // prediction variables(uses accel XYZ)
     Matrix<float, 4, 4> F;
     Matrix<float, 4, 4> C;
     Matrix<float, 4, 4> Q;
@@ -181,7 +170,8 @@ struct AB_Horizontal_Prediction{//prediction variables(uses accel XYZ)
     float oldNVel;
 };
 
-struct AB_Horizontal_Update_GPS{//update using gps struct(uses gps position and velocity in N and E)
+struct AB_Horizontal_Update_GPS
+{ // update using gps struct(uses gps position and velocity in N and E)
     Matrix<float, 4, 1> d;
     Matrix<float, 4, 1> y;
     Matrix<float, 4, 4> H;
@@ -189,18 +179,20 @@ struct AB_Horizontal_Update_GPS{//update using gps struct(uses gps position and 
     Matrix<float, 4, 4> R;
     Matrix<float, 4, 1> sE;
     Matrix<float, 4, 4> I;
-}; 
+};
 
-enum AB_Filter_Flight_Stage {
+enum AB_Filter_Flight_Stage
+{
     AB_Filter_Flight_Stage_PAD,
     AB_Filter_Flight_Stage_BURNING,
     AB_Filter_Flight_Stage_BURNOUT,
     AB_Filter_Flight_Stage_APOGEE,
 };
 
-struct AB_Filter_Main_Variables{
+struct AB_Filter_Main_Variables
+{
     // structs for states and inputs
-    AB_Snsrs Sensors;
+    AB_SensorData Sensors;
     AB_Snsrs_prevData PrevSensors;
     AB_Snsrs_booleans Flags;
     AB_Vertical_State VertState;
@@ -213,14 +205,11 @@ struct AB_Filter_Main_Variables{
     AB_Attitude_Update_GPS AB_Att_UP_GPS;
     AB_Attitude_Update_Mag AB_Att_UP_Mag;
     AB_Attitude_Update_Drag AB_Att_UP_Drag;
-    AB_Vertical_Prediction AB_Vert_Pred;
     AB_Vertical_Update_Baro AB_Vert_UP_Baro;
-    AB_Vertical_Update_GPS AB_Vert_UP_GPS;
     AB_Horizontal_Prediction AB_Horiz_Pred;
     AB_Horizontal_Update_GPS AB_Horiz_UP_GPS;
 
     // variables for runtime
-    bool highG;
     float max_apogee;
     AB_Filter_Flight_Stage flight_stage;
     float time_since_launch;
@@ -239,4 +228,13 @@ struct AB_Filter_Main_Variables{
     Eigen::Vector3f AccelBias;
     Eigen::Vector3f R;
     Eigen::Vector3f mag_calibration_sum;
+};
+
+struct AB_Settings
+{
+    Matrix<float, 3, 3> VertHighGQ;
+    Matrix<float, 3, 3> VertLowGQ;
+
+    Matrix<float, 1, 1> VertBaroR;
+    Matrix<float, 2, 2> VertGpsR;
 };

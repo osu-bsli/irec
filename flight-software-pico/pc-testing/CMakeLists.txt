@@ -15,6 +15,7 @@ add_library(airbrakes
 )
 
 target_include_directories(airbrakes PUBLIC
+    ../include/
     ../src/
     ../src/Airbrakes
     ../src/Airbrakes/Filters
@@ -29,7 +30,7 @@ target_include_directories(airbrakes PUBLIC
 )
 
 target_compile_options(airbrakes PUBLIC
-    /MP /fsanitize=address
+    /MP /fsanitize=address /std:c++20
 )
 
 add_executable(${PROJECT_NAME}
@@ -46,9 +47,12 @@ add_executable(${PROJECT_NAME}
     lib/implot-0.16/implot_demo.cpp
     lib/implot-0.16/implot_items.cpp
     lib/implot-0.16/implot.cpp
+
+    ${CMAKE_SOURCE_DIR}/eigen.natvis
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE
+  
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3 airbrakes)
@@ -58,3 +62,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 23)
 add_executable(drag_coeff_matches_theoretical test/drag_coeff_matches_theoretical.cpp)
 add_test(NAME drag_coeff_matches_theoretical COMMAND drag_coeff_matches_theoretical)
 target_link_libraries(drag_coeff_matches_theoretical PUBLIC airbrakes)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)

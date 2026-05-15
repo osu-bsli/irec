@@ -16,7 +16,7 @@ void AB_Attitude_State_Initialization (
 //computes the prediction step
 void AB_Attitude_State_Prediction (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Prediction& Variables
 );
 
@@ -24,7 +24,7 @@ void AB_Attitude_State_Prediction (
 //the update step
 void AB_Attitude_State_Update_Accel (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Update_Accel& Variables,
     AB_Attitude_Prediction& UpVariables,
     const bool HG
@@ -34,7 +34,7 @@ void AB_Attitude_State_Update_Accel (
 //the update step
 void AB_Attitude_State_Update_GPS (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Update_GPS& Variables,
     AB_Attitude_Prediction& UpVariables
 );
@@ -43,7 +43,7 @@ void AB_Attitude_State_Update_GPS (
 //the update step
 void AB_Attitude_State_Update_Mag (
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Attitude_Update_Mag& Variables,
     AB_Attitude_Prediction& UpVariables
 );
@@ -51,7 +51,7 @@ void AB_Attitude_State_Update_Mag (
 //preforms an update depending on velocity & drag
 void AB_Attitude_Update_PseudoDrag(
     AB_Attitude_State& sN, 
-    const AB_Snsrs& sensor, 
+    const AB_SensorData& sensor, 
     AB_Vertical_State& vState,
     AB_Horizontal_State& hState,
     AB_Attitude_Update_Drag& Variables,

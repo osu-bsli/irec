@@ -69,7 +69,7 @@
 
 // FreeRTOS tick is 1ms when using Arduino like this
 // 20ms for 50hz, 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
-const static TickType_t runtime_interval_ms = 10; // 100 Hz
+const static TickType_t runtime_interval_ms = CONFIG_RUNTIME_INTERVAL_MS; // 100 Hz
 const static TickType_t moc_interval_ms = 10;     // 100 Hz
 const static TickType_t deploy_interval_ms = 20;  // 50 Hz
 // const static TickType_t error_interval_ms = 100; // 10 Hz
@@ -405,7 +405,7 @@ FSError acquire_sensor_data(struct log_packet_v3 *log_p)
   return SUCCESS;
 }
 
-void init_airbrakes()
+void airbrakes_setup()
 {
   // Allow current to the air brakes
   pinMode(PIN_ENABLE_AIRBRAKES, OUTPUT);
@@ -442,14 +442,6 @@ FSError servo_overcurrent()
   }
 
   return SUCCESS;
-}
-
-const float SEA_LEVEL_PRESSURE_PA = 101325.0f;
-float get_altitude_from_pressure(float pressure_pa)
-{
-  if (pressure_pa < 0.1f)
-    return 0.0f;
-  return 44330.0f * (1.0f - std::pow(pressure_pa / SEA_LEVEL_PRESSURE_PA, 1.0f / 5.255f));
 }
 
 static void runtime(void *pvParameters)
@@ -763,6 +755,26 @@ void test_airbrakes_algo_performance_loop()
   }
 }
 
+void test_airbrakes_extend_and_retract_loop()
+{
+  airbrakes_setup();
+
+  Serial.println("Entering airbrakes extend and retract test loop...");
+
+  while (true)
+  {
+    int servo_degrees = AIRBRAKE_DEPLOYED_ANGLE;
+    AirBrakeServo.write(servo_degrees);
+    Serial.printf("Extend: %d degrees\n", servo_degrees);
+    delay(2000);
+
+    servo_degrees = AIRBRAKE_STOWED_ANGLE;
+    AirBrakeServo.write(servo_degrees);
+    Serial.printf("Retract: %d degrees\n", servo_degrees);
+    delay(2000);
+  }
+}
+
 void setup()
 {
   // FLIGHT COMPUTER INITIALIZATION
@@ -795,6 +807,10 @@ void setup()
   test_airbrakes_algo_performance_loop();
 #endif
 
+#ifdef CONFIG_TEST_AIRBRAKES_EXTEND_AND_RETRACT
+  test_airbrakes_extend_and_retract_loop();
+#endif
+
   /* SD card and flash logging */
   Serial.println("Setting up SD card...");
   FSError log_status = sdcard_init(&log_file);
@@ -817,7 +833,7 @@ void setup()
   gps_setup();
 
   Serial.println("Setting up airbrakes...");
-  init_airbrakes();
+  airbrakes_setup();
 
   acquire_queue = xQueueCreateStatic(
       acquire_queue_len,
