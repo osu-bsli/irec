@@ -5,7 +5,7 @@ using namespace Eigen;
 // Input Variables come from struct. The purpose of this file is to remove all dynamic and on the fly initialized
 // variables from the code, so can properly keep track of the maximum allowed memory use.
 
-struct AB_SensorData
+struct AB_Filter_Inputs
 {                                           // Struct containing all sensor data
     Matrix<float, 3, 1> Accelerometer_mps2;      // Accel(m/s^2) X, Y, Z
     Matrix<float, 3, 1> AccelerometerHG_mps2;    // Accel(m/s^2) X, Y, Z
@@ -14,7 +14,6 @@ struct AB_SensorData
     Matrix<float, 6, 1> GPS;                // position(m) X, Y, Z and velocity(m/s) X, Y, Z
     float Barometer_m;                        // altitude(m) Z
     float dt;                               // time between last sensor change, needs to be updated every time.
-    Vector3f Mag_Reference;
 };
 
 struct AB_Snsrs_prevData
@@ -189,10 +188,9 @@ enum AB_Filter_Flight_Stage
     AB_Filter_Flight_Stage_APOGEE,
 };
 
-struct AB_Filter_Main_Variables
+struct AB_Filter
 {
     // structs for states and inputs
-    AB_SensorData Sensors;
     AB_Snsrs_prevData PrevSensors;
     AB_Snsrs_booleans Flags;
     AB_Vertical_State VertState;

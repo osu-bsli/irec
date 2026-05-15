@@ -2,7 +2,7 @@
 #include <iostream>
 using namespace std;
 
-void AB_Filter_Initialize(AB_Filter_Main_Variables& filter)
+void AB_Filter_Initialize(AB_Filter& filter)
 {
 	filter.flight_stage = AB_Filter_Flight_Stage_PAD;
 	filter.mag_calibrated = false;
@@ -14,8 +14,6 @@ void AB_Filter_Initialize(AB_Filter_Main_Variables& filter)
 	filter.Rdot << 0.0f, 0.0f, -1.90235f;
 	filter.R = filter.R0;
 	filter.AccelBias << 0.0f, 0.0f, 0.0f;
-	filter.Sensors.Mag_Reference << -2.3296f, 20.3722f, -47.1803f;
-	filter.Sensors.Mag_Reference.normalize();
 
 	filter.PrevSensors.GPS.setZero();
 	filter.Flags.GPS = false;
@@ -35,19 +33,19 @@ void AB_Filter_Initialize(AB_Filter_Main_Variables& filter)
 /*
  * (1) Compares norm of previous sensor data to current sensor data
  */
-void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings settings)
+void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const AB_Settings settings)
 {
 	// Then we see if new data has come in, and if it did, let the filter know.
 	/* Compare GPS previous and current coordinates to see if anything changed.
 	   This is useful because some crappy GPS receivers might report that they still have visible satellites
 	   despite not having a fix. */
-	if (filter.PrevSensors.GPS.norm() != filter.Sensors.GPS.norm())
+	if (filter.PrevSensors.GPS.norm() != inputs.GPS.norm())
 	{
 		filter.Flags.GPS = true;
 	}
 
 	bool highG;
-	if (filter.Sensors.Accelerometer_mps2.norm() > 1.2f * 9.81f)
+	if (inputs.Accelerometer_mps2.norm() > 1.2f * 9.81f)
 	{
 		highG = true;
 	}
@@ -59,12 +57,12 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 
 	if (highG)
 	{
-		filter.accel_z_current = filter.Sensors.AccelerometerHG_mps2.z();
+		filter.accel_z_current = inputs.AccelerometerHG_mps2.z();
 	}
 
 	else
 	{
-		filter.accel_z_current = filter.Sensors.Accelerometer_mps2.z();
+		filter.accel_z_current = inputs.Accelerometer_mps2.z();
 	}
 
 	switch (filter.flight_stage)
@@ -76,7 +74,7 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 		}
 		break;
 	case AB_Filter_Flight_Stage_BURNING:
-		filter.time_since_launch += filter.Sensors.dt;
+		filter.time_since_launch += inputs.dt;
 		// filter.R = filter.R0 + (filter.Rdot * filter.time_since_launch);
 
 		if (filter.accel_z_current < 1.0f)
@@ -93,39 +91,38 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 		break;
 	}
 
-	filter.Sensors.AccelerometerHG_mps2 -= filter.AccelBias;
-
-	Lever_Arm(filter.Sensors.Accelerometer_mps2, filter.Sensors.Gyroscope_radps, filter.R);
-	Lever_Arm(filter.Sensors.AccelerometerHG_mps2, filter.Sensors.Gyroscope_radps, filter.R);
+	// TODO: redo this but without magic side effects
+	// Lever_Arm(inputs.Accelerometer_mps2, inputs.Gyroscope_radps, filter.R);
+	// Lever_Arm(inputs.AccelerometerHG_mps2, inputs.Gyroscope_radps, filter.R);
 
 	// Main filter loop. Start with attitude filter
-	AB_Attitude_State_Prediction(filter.AttState, filter.Sensors, filter.AB_Att_Pred);
+	AB_Attitude_State_Prediction(filter.AttState, inputs, filter.AB_Att_Pred);
 
 	if (highG)
 	{
-		if (filter.Sensors.AccelerometerHG_mps2.norm() > 8.0f && filter.Sensors.AccelerometerHG_mps2.norm() < 11.0f && filter.Sensors.AccelerometerHG_mps2.z() < 2.1f * 9.802f)
+		if (inputs.AccelerometerHG_mps2.norm() > 8.0f && inputs.AccelerometerHG_mps2.norm() < 11.0f && inputs.AccelerometerHG_mps2.z() < 2.1f * 9.802f)
 		{
 			if (filter.VertState.Velocity_Up < 0.3f)
 			{
-				AB_Attitude_State_Update_Accel(filter.AttState, filter.Sensors, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+				AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 			}
 		}
 	}
 
 	else if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE && filter.VertState.Altitude < 400.0f)
 	{
-		AB_Attitude_State_Update_Accel(filter.AttState, filter.Sensors, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 	}
 
 	else
 	{
-		if (filter.Sensors.Accelerometer_mps2.norm() > 8.0f && filter.Sensors.Accelerometer_mps2.norm() < 11.0f && filter.Sensors.Accelerometer_mps2.z() < 1.01f * 9.802f)
+		if (inputs.Accelerometer_mps2.norm() > 8.0f && inputs.Accelerometer_mps2.norm() < 11.0f && inputs.Accelerometer_mps2.z() < 1.01f * 9.802f)
 		{
 			if (filter.VertState.Velocity_Up > 0.3f)
 			{
 				if (highG)
 				{
-					AB_Attitude_State_Update_Accel(filter.AttState, filter.Sensors, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+					AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 				}
 			}
 		}
@@ -134,23 +131,16 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 	if (filter.Flags.GPS == true)
 	{
 		/* Don't use GPS while we're sitting still */
-		if (filter.Sensors.GPS.block<3, 1>(3, 0).norm() > 20.0f)
+		if (inputs.GPS.block<3, 1>(3, 0).norm() > 20.0f)
 		{
-			AB_Attitude_State_Update_GPS(filter.AttState, filter.Sensors, filter.AB_Att_UP_GPS, filter.AB_Att_Pred);
+			AB_Attitude_State_Update_GPS(filter.AttState, inputs, filter.AB_Att_UP_GPS, filter.AB_Att_Pred);
 		}
 	}
 
 	if (filter.mag_calibrated == false)
 	{
-		filter.mag_calibration_sum += filter.Sensors.Magnetometer;
+		filter.mag_calibration_sum += inputs.Magnetometer;
 		filter.mag_calibration_count++;
-
-		if (filter.mag_calibration_count >= 10)
-		{
-			filter.Sensors.Mag_Reference = filter.mag_calibration_sum / filter.mag_calibration_count;
-			filter.Sensors.Mag_Reference.normalize();
-			filter.mag_calibrated = true;
-		}
 	}
 
 	else
@@ -169,11 +159,11 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 	}
 
 	// transform the acceleration vector to ENU frame and prepare it for vert and horizontal filter
-	auto accelerationWorld = RotateAccelToWorldFrame(filter.AttState, filter.Sensors, highG);
+	auto accelerationWorld = RotateAccelToWorldFrame(filter.AttState, inputs, highG);
 
 	// Next, process vertical filter
-	AB_Vertical_State_Prediction(filter.VertState, filter.Sensors, settings, accelerationWorld, highG);
-	AB_Vertical_State_Update_Baro(filter.VertState, filter.Sensors, settings);
+	AB_Vertical_State_Prediction(filter.VertState, inputs, settings, accelerationWorld, highG);
+	AB_Vertical_State_Update_Baro(filter.VertState, inputs, settings);
 
 	if (filter.Flags.GPS == true)
 	{
@@ -222,7 +212,7 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 	}
 
 	// finally the horizontal filter.
-	AB_Horizontal_State_Prediction(filter.HorizState, filter.Sensors, accelerationWorld, highG);
+	AB_Horizontal_State_Prediction(filter.HorizState, inputs, accelerationWorld, highG);
 
 	if (filter.Flags.GPS == true)
 	{
@@ -232,7 +222,7 @@ void AB_Filter_Process(AB_Filter_Main_Variables& filter, const AB_Settings setti
 	filter.Flags.GPS = false;
 
 	// Here we save old sensor data
-	filter.PrevSensors.GPS = filter.Sensors.GPS;
+	filter.PrevSensors.GPS = inputs.GPS;
 }
 
 const AB_Settings AB_Default_Settings()

@@ -311,10 +311,12 @@ void ShowVisualizer()
 
 		static AB_Settings s = AB_Default_Settings();
 
-		AB_Filter_Main_Variables m;
-		AB_Filter_Initialize(m);
+		AB_Filter f;
+		AB_Filter_Initialize(f);
 
-		m.Sensors.dt = CONFIG_RUNTIME_INTERVAL_MS / 1000.0;
+		AB_Filter_Inputs inputs;
+
+		inputs.dt = CONFIG_RUNTIME_INTERVAL_MS / 1000.0;
 		const float BASE_ALTITUDE = 0; // TODO figure out significance of this
 
 		static float
@@ -360,15 +362,15 @@ void ShowVisualizer()
 				log_packet_v3 log_p = ((log_packet_v3*)log_cropped_logv3)[i];
 
 				// Update sensor data in Master Struct
-				m.Sensors.Accelerometer_mps2 << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
-				m.Sensors.AccelerometerHG_mps2 << -log_p.adxl375_accel_x * G, -log_p.adxl375_accel_y * G, log_p.adxl375_accel_z * G;
-				m.Sensors.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
-					log_p.bmi323_gyro_y* (M_PI / 180.0f),
-					log_p.bmi323_gyro_z* (M_PI / 180.0f);
-				m.Sensors.Barometer_m = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100);
-				m.Sensors.GPS.setZero();
+				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y, log_p.bmi323_accel_x, -log_p.bmi323_accel_z;
+				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x * G, -log_p.adxl375_accel_y * G, log_p.adxl375_accel_z * G;
+				inputs.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
+					log_p.bmi323_gyro_y * (M_PI / 180.0f),
+					log_p.bmi323_gyro_z * (M_PI / 180.0f);
+				inputs.Barometer_m = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100);
+				inputs.GPS.setZero();
 
-				AB_Filter_Process(m, s);
+				AB_Filter_Process(f, inputs, s);
 
 				altitudeMeasured_m[i] = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100);
 				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z;
@@ -378,11 +380,11 @@ void ShowVisualizer()
 				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z;
 
 				time_s[i] = log_p.time_boot_ms / 1000.0;
-				velocityHoriz_mps[i] = sqrt(m.HorizState.Velocity_North * m.HorizState.Velocity_North +
-					m.HorizState.Velocity_East * m.HorizState.Velocity_East);
-				zenith_deg[i] = atan2(velocityHoriz_mps[i], m.VertState.Velocity_Up) * RAD_TO_DEG;
-				altitude_m[i] = m.VertState.Altitude;
-				velocityZ_mps[i] = m.VertState.Velocity_Up;
+				velocityHoriz_mps[i] = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
+					f.HorizState.Velocity_East * f.HorizState.Velocity_East);
+				zenith_deg[i] = atan2(velocityHoriz_mps[i], f.VertState.Velocity_Up) * RAD_TO_DEG;
+				altitude_m[i] = f.VertState.Altitude;
+				velocityZ_mps[i] = f.VertState.Velocity_Up;
 				thetaZ_rad[i] = zenith_deg[i];
 
 				if (altitude_m[i] > altitudeMax_m) altitudeMax_m = altitude_m[i];

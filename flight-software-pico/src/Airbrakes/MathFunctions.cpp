@@ -9,7 +9,7 @@ float __not_in_flash_func(gravity)(float altitude)
     return (9.802-(altitude*3.086e-6));
 }
 
-Matrix<float, 3, 1> __not_in_flash_func(RotateAccelToWorldFrame)(AB_Attitude_State& Attitude_State, AB_SensorData& sensor, bool HG) 
+Matrix<float, 3, 1> __not_in_flash_func(RotateAccelToWorldFrame)(const AB_Attitude_State& Attitude_State, const AB_Filter_Inputs& sensor, bool HG) 
 {
     //rotates the accelertion data from the sensor to the world frame 
     //for the vertical & horizontal filters.
@@ -56,10 +56,10 @@ void __not_in_flash_func(Estimate_Horizontal_Velocity)(AB_Attitude_State& AttSta
 
 //apporimates the vector from the rocket's true center of mass to the sensor stack; must calculate this using a seperate script
 // we will rotate rocket with fuel about com and calc data to calibrate, as well as without fuel. 
-void __not_in_flash_func(Lever_Arm)(Eigen::Vector3f& accel, Eigen::Vector3f& gyro, Eigen::Vector3f& r_arm) 
+Eigen::Vector3f __not_in_flash_func(Lever_Arm)(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, const Eigen::Vector3f& r_arm) 
 {
     Eigen::Vector3f a_C = gyro.cross(gyro.cross(r_arm));
-    accel -= a_C;
+    return accel - a_C;
 }
 
 /*

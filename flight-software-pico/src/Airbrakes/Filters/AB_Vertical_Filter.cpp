@@ -15,7 +15,7 @@ void AB_Vertical_State_Initialization(
 //computes the prediction step
 void AB_Vertical_State_Prediction(
 	AB_Vertical_State& sN,
-	const AB_SensorData sensor,
+	const AB_Filter_Inputs inputs,
 	const AB_Settings settings,
     const Matrix<float, 3, 1> accelerationWorld,
 	const bool highG
@@ -35,8 +35,8 @@ void AB_Vertical_State_Prediction(
 	float accelZ = accelerationWorld(2); //grabing accelerometer Z from sensor struct
 	float accelUp = accelZ - gravity(sN.Altitude); //correcting Z acceleration for gravity
 	float oldVel = sN.Velocity_Up; //grabbing the old velocity
-	sN.Altitude += oldVel * sensor.dt + 0.5f * accelUp * sensor.dt * sensor.dt; //updating altitude, std kinematics
-	sN.Velocity_Up += accelUp * sensor.dt; //updating velocity, std kinematics
+	sN.Altitude += oldVel * inputs.dt + 0.5f * accelUp * inputs.dt * inputs.dt; //updating altitude, std kinematics
+	sN.Velocity_Up += accelUp * inputs.dt; //updating velocity, std kinematics
 	//we dont change baro bias, as it is modeled as random walk
 	//Now we have to update covariance, starting with jacobian. 
 	// [    dalt/dalt,     dalt/dvel,     dalt/dbarbias]   
@@ -44,7 +44,7 @@ void AB_Vertical_State_Prediction(
 	// [dbarbias/dalt, dbarbias/dvel, dbarbias/dbarbias]
 	Matrix<float, 3, 3> F;
     F.setIdentity();
-	F(0, 1) = sensor.dt; //only weird one is the deivative of altitude wrt vel is dt.
+	F(0, 1) = inputs.dt; //only weird one is the deivative of altitude wrt vel is dt.
 	sN.C = F * sN.C * F.transpose() + *selectedQ; //updating covariance
 }
 
@@ -52,12 +52,12 @@ void AB_Vertical_State_Prediction(
 //the update step
 void AB_Vertical_State_Update_Baro(
 	AB_Vertical_State& sN,
-	AB_SensorData sensor,
+	const AB_Filter_Inputs inputs,
 	const AB_Settings settings
 )
 {
 	//difference between baro reading and altitude + bias of the barometer
-    float y = (sensor.Barometer_m - (sN.Altitude + sN.Baro_Bias));
+    float y = (inputs.Barometer_m - (sN.Altitude + sN.Baro_Bias));
 
 	//Now we find out H, or how the state affects the measurement
 	//[dbaro/dAlt, dBaro/dvel, dBaro/dBaroBias] depends on altitude and the bias!
@@ -85,7 +85,7 @@ void AB_Vertical_State_Update_Baro(
 //the update step
 void AB_Vertical_State_Update_GPS(
 	AB_Vertical_State& sN,
-	AB_SensorData sensor,
+	const AB_Filter_Inputs inputs,
 	const AB_Settings settings
 )
 {
@@ -106,7 +106,7 @@ void AB_Vertical_State_Update_GPS(
 	I.setIdentity();
 
 	//difference between GPS altitude and altitude in the state
-	y << (sensor.GPS(2) - sN.Altitude), (sensor.GPS(5) - sN.Velocity_Up);
+	y << (inputs.GPS(2) - sN.Altitude), (inputs.GPS(5) - sN.Velocity_Up);
 
 	//Now we find out H, or how the state effects the measurement
 	//[dGPS/dAlt, dGPS/dvel, dGPS/dBaroBias] depends on altitude only
