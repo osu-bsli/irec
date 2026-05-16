@@ -14,6 +14,7 @@ struct AB_Filter_Inputs
     Matrix<float, 6, 1> GPS;                // position(m) X, Y, Z and velocity(m/s) X, Y, Z
     float Barometer_m;                        // altitude(m) Z
     float dt;                               // time between last sensor change, needs to be updated every time.
+    bool IgnoreBaro;
 };
 
 struct AB_Snsrs_prevData

@@ -132,6 +132,18 @@ void RunFilter()
 	altitude_m.GenerateOutDataPoints();
 }
 
+void plotDrawVerticalLineAtDataX(float xVal, ImU32 lineColor)
+{
+	ImVec2 dotPos = ImPlot::PlotToPixels(xVal, 0);
+	// Get the plot area bounds in screen pixels for drawing full-length crosshair lines
+	ImVec2 plotTL = ImPlot::GetPlotPos();
+	ImVec2 plotBR = ImVec2(plotTL.x + ImPlot::GetPlotSize().x, plotTL.y + ImPlot::GetPlotSize().y);
+
+	// GetPlotDrawList() clips drawing to the plot area automatically
+	ImDrawList* drawList = ImPlot::GetPlotDrawList();
+	drawList->AddLine(ImVec2(dotPos.x, plotTL.y), ImVec2(dotPos.x, plotBR.y), lineColor); // vertical
+}
+
 void plotTooltip(const OutDataSeries& e)
 {
 	// Show tooltip with value of graph at cursor location
@@ -355,6 +367,8 @@ void ShowVisualizer()
 		static float altitudeMin_m = FLT_MAX;
 		static float timeMax_s = 0, timeMin_s = 0;
 
+		static float ignoreBaroStart_s = 695.3, ignoreBaroEnd_s = 697;
+
 		const char* qColumnLabels[] = {
 			"Altitude",
 			"Velocity",
@@ -369,6 +383,9 @@ void ShowVisualizer()
 		};
 
 		outOfDate |= MatrixEditor("R, Vertical Filter Barometer", s.VertBaroR, rBaroColumnLabels);
+
+		outOfDate |= ImGui::InputFloat("Ignore baro start (s)", &ignoreBaroStart_s);
+		outOfDate |= ImGui::InputFloat("Ignore baro end   (s)", &ignoreBaroEnd_s);
 
 		if (outOfDate)
 		{
@@ -518,6 +535,17 @@ void ShowVisualizer()
 					altitudeGPS_m[i] = 0.0f;
 				}
 
+				float timeCurrent_s = log_p.time_boot_ms / 1000.0;
+
+				if (timeCurrent_s > ignoreBaroStart_s && timeCurrent_s < ignoreBaroEnd_s)
+				{
+					inputs.IgnoreBaro = true;
+				}
+				else
+				{
+					inputs.IgnoreBaro = false;
+				}
+
 				AB_Filter_Process(f, inputs, s);
 
 				altitudeMeasured_m[i] = current_abs_alt - pad_altitude_m;
@@ -535,7 +563,7 @@ void ShowVisualizer()
 				g_nav_quat_y[i] = f.AttState.Quaternion_Body_To_ENU.y();
 				g_nav_quat_z[i] = f.AttState.Quaternion_Body_To_ENU.z();
 
-				time_s[i] = log_p.time_boot_ms / 1000.0;
+				time_s[i] = timeCurrent_s;
 				velocityHoriz_mps[i] = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
 					f.HorizState.Velocity_East * f.HorizState.Velocity_East);
 				zenith_deg[i] = atan2(velocityHoriz_mps[i], f.VertState.Velocity_Up) * RAD_TO_DEG;
@@ -561,6 +589,9 @@ void ShowVisualizer()
 			ImPlot::PlotLine("Altitude (filtered)", time_s, altitude_m, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Altitude (measured, barometric)", time_s, altitudeMeasured_m, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Altitude (measured, GPS)", time_s, altitudeGPS_m, log_len, ImPlotLineFlags_None);
+
+			plotDrawVerticalLineAtDataX(ignoreBaroStart_s, IM_COL32(255, 0, 0, 80));
+			plotDrawVerticalLineAtDataX(ignoreBaroEnd_s, IM_COL32(0, 255, 0, 80));
 
 			ImPlot::EndPlot();
 		}

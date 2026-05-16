@@ -15,6 +15,20 @@
         "VCPKG_ROOT": "D:/vcpkg",
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "clang-cl",
+      "inherits": "vcpkg-clang-cl",
+      "environment": {
+        "VCPKG_ROOT": "D:/vcpkg"
+      }
+    },
+    {
+      "name": "clang-cl-release",
+      "inherits": "vcpkg-clang-cl-release",
+      "environment": {
+        "VCPKG_ROOT": "D:/vcpkg"
+      }
     }
   ]
 }

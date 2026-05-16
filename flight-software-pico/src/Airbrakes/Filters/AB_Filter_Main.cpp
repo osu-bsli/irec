@@ -2,7 +2,7 @@
 #include <iostream>
 using namespace std;
 
-void AB_Filter_Initialize(AB_Filter& filter)
+void AB_Filter_Initialize(AB_Filter &filter)
 {
 	filter.c1 = 0;
 	filter.flight_stage = AB_Filter_Flight_Stage_PAD;
@@ -35,7 +35,7 @@ void AB_Filter_Initialize(AB_Filter& filter)
 /*
  * (1) Compares norm of previous sensor data to current sensor data
  */
-void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const AB_Settings settings)
+void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const AB_Settings settings)
 {
 	// Then we see if new data has come in, and if it did, let the filter know.
 	/* Compare GPS previous and current coordinates to see if anything changed.
@@ -247,7 +247,7 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 const AB_Settings AB_Default_Settings()
 {
 	AB_Settings s;
-	
+
 	s.VertHighGQ.setZero();
 	s.VertHighGQ(0, 0) = 5.0f * 0.001f;
 	s.VertHighGQ(1, 1) = 5.0f * 0.1f;
