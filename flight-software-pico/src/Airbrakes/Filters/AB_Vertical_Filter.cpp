@@ -6,8 +6,8 @@ void AB_Vertical_State_Initialization(
 )
 {
 	//everything starts at 0
-	sN.Altitude = 0.0f; //TODO - replace with initial gps reading
-	sN.Velocity_Up = 0.0f;
+	sN.Altitude_m = 0.0f; //TODO - replace with initial gps reading
+	sN.VelocityUp_mps = 0.0f;
 	sN.Baro_Bias = 0.0f;
 }
 
@@ -33,10 +33,10 @@ void AB_Vertical_State_Prediction(
 	}
 
 	float accelZ = accelerationWorld(2); //grabing accelerometer Z from sensor struct
-	float accelUp = accelZ - gravity(sN.Altitude); //correcting Z acceleration for gravity
-	float oldVel = sN.Velocity_Up; //grabbing the old velocity
-	sN.Altitude += oldVel * inputs.dt + 0.5f * accelUp * inputs.dt * inputs.dt; //updating altitude, std kinematics
-	sN.Velocity_Up += accelUp * inputs.dt; //updating velocity, std kinematics
+	float accelUp = accelZ - gravity(sN.Altitude_m); //correcting Z acceleration for gravity
+	float oldVel = sN.VelocityUp_mps; //grabbing the old velocity
+	sN.Altitude_m += oldVel * inputs.dt + 0.5f * accelUp * inputs.dt * inputs.dt; //updating altitude, std kinematics
+	sN.VelocityUp_mps += accelUp * inputs.dt; //updating velocity, std kinematics
 	//we dont change baro bias, as it is modeled as random walk
 	//Now we have to update covariance, starting with jacobian. 
 	// [    dalt/dalt,     dalt/dvel,     dalt/dbarbias]   
@@ -57,7 +57,7 @@ void AB_Vertical_State_Update_Baro(
 )
 {
 	//difference between baro reading and altitude + bias of the barometer
-    float y = (inputs.Barometer_m - (sN.Altitude + sN.Baro_Bias));
+    float y = (inputs.Barometer_m - (sN.Altitude_m + sN.Baro_Bias));
 
 	//Now we find out H, or how the state affects the measurement
 	//[dbaro/dAlt, dBaro/dvel, dBaro/dBaroBias] depends on altitude and the bias!
@@ -71,8 +71,8 @@ void AB_Vertical_State_Update_Baro(
     Matrix<float, 3, 1> sE = K * y;
 
 	//we add those corrections to the nominal state
-	sN.Altitude += sE(0, 0);
-	sN.Velocity_Up += sE(1, 0);
+	sN.Altitude_m += sE(0, 0);
+	sN.VelocityUp_mps += sE(1, 0);
 	sN.Baro_Bias += sE(2, 0);
 
 	//finally, we update the covariance
@@ -106,7 +106,7 @@ void AB_Vertical_State_Update_GPS(
 	I.setIdentity();
 
 	//difference between GPS altitude and altitude in the state
-	y << (inputs.GPS(2) - sN.Altitude), (inputs.GPS(5) - sN.Velocity_Up);
+	y << (inputs.GPS(2) - sN.Altitude_m), (inputs.GPS(5) - sN.VelocityUp_mps);
 
 	//Now we find out H, or how the state effects the measurement
 	//[dGPS/dAlt, dGPS/dvel, dGPS/dBaroBias] depends on altitude only
@@ -121,8 +121,8 @@ void AB_Vertical_State_Update_GPS(
 	sE = K * y;
 
 	//we add those corrections to the nominal state
-	sN.Altitude += sE(0, 0);
-	sN.Velocity_Up += sE(1, 0);
+	sN.Altitude_m += sE(0, 0);
+	sN.VelocityUp_mps += sE(1, 0);
 	sN.Baro_Bias += sE(2, 0);
 
 	//finally, we update the covariance

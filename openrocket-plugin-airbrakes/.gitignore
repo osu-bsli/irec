@@ -30,4 +30,7 @@ bin/
 .DS_Store
 
 .gradle
-build/
+build*/
+cmake-build*
+
+./gradle

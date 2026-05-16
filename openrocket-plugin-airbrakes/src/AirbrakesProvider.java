@@ -5,5 +5,6 @@ import info.openrocket.core.simulation.extension.AbstractSimulationExtensionProv
 public class AirbrakesProvider extends AbstractSimulationExtensionProvider {
     public AirbrakesProvider() {
         super(Airbrakes.class, "Active controls", "BSLI IREC Airbrakes");
+        System.loadLibrary("airbrakes");
     }
 }

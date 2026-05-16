@@ -285,14 +285,14 @@ void AB_Attitude_Update_PseudoDrag(
     AB_Attitude_Prediction &UpVariables)
 {
     // if the speed is high, we can trust more.
-    Variables.speed = fabs(vState.Velocity_Up);
+    Variables.speed = fabs(vState.VelocityUp_mps);
     if (Variables.speed < 15.0f)
     {
         return;
     }
 
     // predict drag from velocity
-    Variables.v_n << hState.Velocity_East, hState.Velocity_North, vState.Velocity_Up; // grabbing velocity
+    Variables.v_n << hState.VelocityEast_mps, hState.VelocityNorth_mps, vState.VelocityUp_mps; // grabbing velocity
     Variables.vnorm = Variables.v_n.norm();
     if (Variables.vnorm < 1.0f)
     {
@@ -306,14 +306,14 @@ void AB_Attitude_Update_PseudoDrag(
     Variables.d_pred_b.normalize();
 
     // drag from accelerometer
-    Variables.a_b = sensor.Accelerometer_mps2 * gravity(vState.Altitude);
+    Variables.a_b = sensor.Accelerometer_mps2 * gravity(vState.Altitude_m);
 
-    Variables.g_n << 0.0f, 0.0f, gravity(vState.Altitude); // enu gravity
+    Variables.g_n << 0.0f, 0.0f, gravity(vState.Altitude_m); // enu gravity
     Variables.g_b = sN.Quaternion_Body_To_ENU.conjugate() * Variables.g_n;
 
-    Variables.accel_bias_ms2 << sN.Accel_Bias(0) * gravity(vState.Altitude),
-        sN.Accel_Bias(1) * gravity(vState.Altitude),
-        sN.Accel_Bias(2) * gravity(vState.Altitude);
+    Variables.accel_bias_ms2 << sN.Accel_Bias(0) * gravity(vState.Altitude_m),
+        sN.Accel_Bias(1) * gravity(vState.Altitude_m),
+        sN.Accel_Bias(2) * gravity(vState.Altitude_m);
 
     // obtain drag force on body
     Variables.f_b = Variables.a_b - Variables.g_b - Variables.accel_bias_ms2;
