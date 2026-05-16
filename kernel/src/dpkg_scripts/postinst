@@ -1,5 +1,0 @@
-#!/bin/sh
-
-echo Forcefully overwriting existing kernel and config.txt...
-cp -ra usr/share/raspberrypi-linux-bsli/boot/* /boot
-cp -ra usr/share/raspberrypi-linux-bsli/lib/* /lib
