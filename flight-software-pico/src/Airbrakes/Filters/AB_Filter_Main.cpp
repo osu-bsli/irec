@@ -4,6 +4,7 @@ using namespace std;
 
 void AB_Filter_Initialize(AB_Filter& filter)
 {
+	filter.c1 = 0;
 	filter.flight_stage = AB_Filter_Flight_Stage_PAD;
 	filter.mag_calibrated = false;
 	filter.time_since_launch = 0.0f;
@@ -16,6 +17,7 @@ void AB_Filter_Initialize(AB_Filter& filter)
 	filter.AccelBias << 0.0f, 0.0f, 0.0f;
 
 	filter.PrevSensors.GPS.setZero();
+	filter.PrevSensors.Barometer = 0.0f;
 	filter.Flags.GPS = false;
 	AB_Attitude_State_Initialization(
 		filter.AttState,
@@ -104,14 +106,14 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 		{
 			if (filter.VertState.Velocity_Up < 0.3f)
 			{
-				// AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+				AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 			}
 		}
 	}
 
 	else if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE && filter.VertState.Altitude < 400.0f)
 	{
-		// AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 	}
 
 	else
@@ -122,7 +124,7 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 			{
 				if (highG)
 				{
-					// AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+					AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 				}
 			}
 		}
@@ -130,8 +132,8 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 
 	if (filter.Flags.GPS == true)
 	{
-		/* Don't use GPS while we're sitting still */
-		if (inputs.GPS.block<3, 1>(3, 0).norm() > 20.0f)
+		// Don't use GPS while we're sitting still 
+		if (inputs.GPS.block<3, 1>(3, 0).norm() > 10.0f)
 		{
 			AB_Attitude_State_Update_GPS(filter.AttState, inputs, filter.AB_Att_UP_GPS, filter.AB_Att_Pred);
 		}
@@ -152,10 +154,10 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 	}
 
 	// Inside AB_loop()
-	if (filter.flight_stage == AB_Filter_Flight_Stage_BURNOUT && filter.VertState.Velocity_Up > 15.0f)
+	if (filter.flight_stage == AB_Filter_Flight_Stage_BURNOUT && filter.VertState.Velocity_Up > 20.0f)
 	{
 		// Pass the state, sensors, vertical data, and prediction variables
-		// AB_Attitude_Update_PseudoDrag(filter.AttState, filter.Sensors, filter.VertState, filter.HorizState, filter.AB_Att_UP_Drag, filter.AB_Att_Pred);
+		//AB_Attitude_Update_PseudoDrag(filter.AttState, inputs, filter.VertState, filter.HorizState, filter.AB_Att_UP_Drag, filter.AB_Att_Pred);
 	}
 
 	// transform the acceleration vector to ENU frame and prepare it for vert and horizontal filter
@@ -164,11 +166,26 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 
 	// Next, process vertical filter
 	AB_Vertical_State_Prediction(filter.VertState, inputs, settings, accelerationWorld, highG);
-	AB_Vertical_State_Update_Baro(filter.VertState, inputs, settings);
+	if (abs(filter.PrevSensors.Barometer - inputs.Barometer_m) > 0.5)
+	{
+		//we constantly check if the barometer update is valid by ensuring the difference between 
+		// barometer readings is nominal for an altitude increase, ie < 0.1mb
+		filter.c1 = 0;
+	}
+	else
+	{
+		filter.c1 += 1;
+		if (filter.c1 > 4) {
+			AB_Vertical_State_Update_Baro(filter.VertState, inputs, settings);
+		}
+	}
 
 	if (filter.Flags.GPS == true)
 	{
-		// AB_Vertical_State_Update_GPS(filter.VertState, filter.Sensors, filter.AB_Vert_UP_GPS, filter.AB_Vert_Pred);
+		if (inputs.GPS[5] > 10.0f)
+		{
+			AB_Vertical_State_Update_GPS(filter.VertState, inputs, settings);
+		}
 	}
 
 	if (abs(filter.VertState.Velocity_Up) < 0.2)
@@ -217,13 +234,14 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 
 	if (filter.Flags.GPS == true)
 	{
-		// AB_Horizontal_State_Update_GPS(filter.HorizState, filter.Sensors, filter.AB_Horiz_UP_GPS, filter.AB_Horiz_Pred);
+		AB_Horizontal_State_Update_GPS(filter.HorizState, inputs);
 	}
 
 	filter.Flags.GPS = false;
 
 	// Here we save old sensor data
 	filter.PrevSensors.GPS = inputs.GPS;
+	filter.PrevSensors.Barometer = inputs.Barometer_m;
 }
 
 const AB_Settings AB_Default_Settings()
@@ -241,11 +259,11 @@ const AB_Settings AB_Default_Settings()
 	s.VertLowGQ(2, 2) = 0.0001f;
 
 	s.VertBaroR.setZero();
-	s.VertBaroR(0, 0) = 6.6049f;
+	s.VertBaroR(0, 0) = 5.0f;
 
 	s.VertGpsR.setIdentity();
 	s.VertGpsR(0, 0) = 5.0f;
-	s.VertGpsR(1, 1) = 0.5f;
+	s.VertGpsR(1, 1) = 5.0f;
 
 	return s;
 }
