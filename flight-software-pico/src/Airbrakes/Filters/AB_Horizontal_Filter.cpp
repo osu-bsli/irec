@@ -7,8 +7,8 @@ void AB_Horizontal_State_Initialization(
 {
 	sN.Position_East = 0.0f; //TODO - replace with initial gps reading
 	sN.Position_North = 0.0f; //TODO - replace with initial gps reading
-	sN.Velocity_East = 0.0f; //TODO - replace with initial gps reading
-	sN.Velocity_North = 0.0f; //TODO - replace with initial gps reading
+	sN.VelocityEast_mps = 0.0f; //TODO - replace with initial gps reading
+	sN.VelocityNorth_mps = 0.0f; //TODO - replace with initial gps reading
 }
 
 //Takes the calculation variables, current state, and new accelerometer data from the sensor struct and 
@@ -55,12 +55,12 @@ void AB_Horizontal_State_Prediction(
 	dt = sensor.dt; //grabbing deltaT from the sensor struct.
 	accelE = accelerationWorld(0); //grabbing accelerometer E from sensor struct
 	accelN = accelerationWorld(1); //grabbing accelerometer N from sensor struct
-	oldEVel = sN.Velocity_East; //grabbing the old velocity
-	oldNVel = sN.Velocity_North; //grabbing the old velocity
+	oldEVel = sN.VelocityEast_mps; //grabbing the old velocity
+	oldNVel = sN.VelocityNorth_mps; //grabbing the old velocity
 	sN.Position_East += oldEVel * sensor.dt + 0.5f * (accelE)*sensor.dt * sensor.dt; //updating position, std kinematics
 	sN.Position_North += oldNVel * sensor.dt + 0.5f * (accelN)*sensor.dt * sensor.dt; //updating position, std kinematics
-	sN.Velocity_East += (accelE)*sensor.dt; //updating velocity, std kinematics
-	sN.Velocity_North += (accelN)*sensor.dt; //updating velocity, std kinematics
+	sN.VelocityEast_mps += (accelE)*sensor.dt; //updating velocity, std kinematics
+	sN.VelocityNorth_mps += (accelN)*sensor.dt; //updating velocity, std kinematics
 	//Now we have to update covariance, starting with jacobian. 
 	// [dposE/dposE,     dposE/dposN,     dposE/dvelE    dposE/dvelN]  [1 0 dt 0]
 	// [dposN/dposE,     dposN/dposN,     dposN/dvelE    dposN/dvelN]  [0 1 dt 0]
@@ -103,8 +103,8 @@ void AB_Horizontal_State_Update_GPS(
 	//difference between position/velocity reading in NE and gps reading
 	y << (sensor.GPS(0) - (sN.Position_East)),
 		(sensor.GPS(1) - (sN.Position_North)),
-		(sensor.GPS(3) - (sN.Velocity_East)),
-		(sensor.GPS(4) - (sN.Velocity_North));
+		(sensor.GPS(3) - (sN.VelocityEast_mps)),
+		(sensor.GPS(4) - (sN.VelocityNorth_mps));
 
 	//Now we find out H, or how the state effects the measurement
 	//[dbaro/dAlt, dBaro/dvel, dBaro/dBaroBias] depends on altitude and the bias!
@@ -128,8 +128,8 @@ void AB_Horizontal_State_Update_GPS(
 	//we add those corrections to the nominal state
 	sN.Position_East += sE(0, 0);
 	sN.Position_North += sE(1, 0);
-	sN.Velocity_East += sE(2, 0);
-	sN.Velocity_North += sE(3, 0);
+	sN.VelocityEast_mps += sE(2, 0);
+	sN.VelocityNorth_mps += sE(3, 0);
 
 	//finally, we update the covariance
 	sN.C = (I - K * H) * sN.C;

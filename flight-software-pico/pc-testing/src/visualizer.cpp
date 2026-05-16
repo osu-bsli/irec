@@ -349,7 +349,7 @@ void ShowVisualizer()
 		static float
 			time_s[log_len] = { 0 },
 			velocityHoriz_mps[log_len] = { 0 },
-			zenith_deg[log_len] = { 0 },
+			zenith_rad[log_len] = { 0 },
 			altitude_m[log_len] = { 0 },
 			altitudeMeasured_m[log_len] = { 0 },
 			velocityZ_mps[log_len] = { 0 },
@@ -424,7 +424,7 @@ void ShowVisualizer()
 				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z;
 
 				accelerationZWorld_mps2[i] = f.AccelerationWorld.z();
-				velocityZWorld_mps[i] = f.VertState.Velocity_Up;
+				velocityZWorld_mps[i] = f.VertState.VelocityUp_mps;
 
 				g_nav_quat_w[i] = f.AttState.Quaternion_Body_To_ENU.w();
 				g_nav_quat_x[i] = f.AttState.Quaternion_Body_To_ENU.x();
@@ -432,12 +432,12 @@ void ShowVisualizer()
 				g_nav_quat_z[i] = f.AttState.Quaternion_Body_To_ENU.z();
 
 				time_s[i] = timeCurrent_s;
-				velocityHoriz_mps[i] = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
-					f.HorizState.Velocity_East * f.HorizState.Velocity_East);
-				zenith_deg[i] = atan2(velocityHoriz_mps[i], f.VertState.Velocity_Up) * RAD_TO_DEG;
-				altitude_m[i] = f.VertState.Altitude;
-				velocityZ_mps[i] = f.VertState.Velocity_Up;
-				thetaZ_rad[i] = zenith_deg[i];
+				velocityHoriz_mps[i] = sqrt(f.HorizState.VelocityNorth_mps * f.HorizState.VelocityNorth_mps +
+					f.HorizState.VelocityEast_mps * f.HorizState.VelocityEast_mps);
+				zenith_rad[i] = atan2(velocityHoriz_mps[i], f.VertState.VelocityUp_mps);
+				altitude_m[i] = f.VertState.Altitude_m;
+				velocityZ_mps[i] = f.VertState.VelocityUp_mps;
+				thetaZ_rad[i] = zenith_rad[i];
 
 				if (altitude_m[i] > altitudeMax_m) altitudeMax_m = altitude_m[i];
 				if (altitude_m[i] < altitudeMin_m) altitudeMin_m = altitude_m[i];

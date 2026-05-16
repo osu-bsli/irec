@@ -3,4 +3,7 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="17" />
   </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_STRING" value="-h D:\Git\irec\openrocket-plugin-airbrakes\src\main\jni\headers" />
+  </component>
 </project>

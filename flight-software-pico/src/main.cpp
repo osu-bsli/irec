@@ -70,8 +70,8 @@
 // FreeRTOS tick is 1ms when using Arduino like this
 // 20ms for 50hz, 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
 const static TickType_t runtime_interval_ms = CONFIG_RUNTIME_INTERVAL_MS; // 100 Hz
-const static TickType_t moc_interval_ms = 10;     // 100 Hz
-const static TickType_t deploy_interval_ms = 20;  // 50 Hz
+const static TickType_t moc_interval_ms = 10;                             // 100 Hz
+const static TickType_t deploy_interval_ms = 20;                          // 50 Hz
 // const static TickType_t error_interval_ms = 100; // 10 Hz
 
 FSError sdcard_init(fs::File *fileOut);
@@ -525,16 +525,16 @@ static void runtime(void *pvParameters)
 
     // TODO: Update sensor data in Master Struct. Copy working code from the pc-testing visualizer
 
-		static AB_Settings s = AB_Default_Settings();
+    static AB_Settings s = AB_Default_Settings();
     AB_Filter_Process(f, inputs, s);
 
-    const float v_horiz = sqrt(f.HorizState.Velocity_North * f.HorizState.Velocity_North +
-                               f.HorizState.Velocity_East * f.HorizState.Velocity_East);
-    const float zenith_deg = atan2(v_horiz, f.VertState.Velocity_Up) * RAD_TO_DEG;
+    const float v_horiz = sqrt(f.HorizState.VelocityNorth_mps * f.HorizState.VelocityNorth_mps +
+                               f.HorizState.VelocityEast_mps * f.HorizState.VelocityEast_mps);
+    const float zenith_rad = atan2(v_horiz, f.VertState.VelocityUp_mps);
 
-    ic.altitude_m = f.VertState.Altitude;
-    ic.velocityZ_mps = f.VertState.Velocity_Up;
-    ic.thetaZ_rad = zenith_deg;
+    ic.altitude_m = f.VertState.Altitude_m;
+    ic.velocityZ_mps = f.VertState.VelocityUp_mps;
+    ic.thetaZ_rad = zenith_rad;
 
     // log_file.write((uint8_t *) &log_p, sizeof(log_packet_v3));
     // log_file.flush();
@@ -547,18 +547,18 @@ static void runtime(void *pvParameters)
         0);
 
     xTaskDelayUntil(&time, runtime_interval_ms);
-    
+
     // Serial.printf("dt: %u target: %u acquire: %u filter: %u motor time: %u motor deploy: %f\n\r", delta_time, interval_ms, acquire_time, gnc_time, motor_time, airbrake_pct);
   }
 }
 
 void PredictDeploymentAngle_print_params(const apogeeIC ic)
 {
-    Serial.printf("======== PredictDeploymentAngle parameters =========\n");
-    Serial.printf("                altitude_m: %f\n", ic.altitude_m);
-    Serial.printf("             velocityZ_mps: %f\n", ic.velocityZ_mps);
-    Serial.printf("                thetaZ_rad: %f\n", ic.thetaZ_rad);
-    Serial.printf("    airbrakeDeployment_pct: %f\n", ic.airbrakeDeployment_pct);
+  Serial.printf("======== PredictDeploymentAngle parameters =========\n");
+  Serial.printf("                altitude_m: %f\n", ic.altitude_m);
+  Serial.printf("             velocityZ_mps: %f\n", ic.velocityZ_mps);
+  Serial.printf("                thetaZ_rad: %f\n", ic.thetaZ_rad);
+  Serial.printf("    airbrakeDeployment_pct: %f\n", ic.airbrakeDeployment_pct);
 }
 
 static void deploy(void *pvParameters)
@@ -772,6 +772,38 @@ void test_airbrakes_extend_and_retract_loop()
   }
 }
 
+void test_airbrakes_hitl_control_loop()
+{
+  airbrakes_setup();
+
+  char buf[64];
+  int buf_i = 0;
+  while (true)
+  {
+    int data = Serial.read();
+    if (data != -1)
+    {
+      if (buf_i < sizeof(buf) - 1)
+      {
+        buf[buf_i++] = data;
+      }
+
+      if (data == '\n')
+      {
+        buf[buf_i] = '\0';
+
+        int pct = atoi(buf);
+
+        Serial.println(pct);
+        int servo_degrees = map(pct, 0, 100, AIRBRAKE_STOWED_ANGLE, AIRBRAKE_DEPLOYED_ANGLE);
+        AirBrakeServo.write(servo_degrees);
+
+        buf_i = 0;
+      }
+    }
+  }
+}
+
 void setup()
 {
   // FLIGHT COMPUTER INITIALIZATION
@@ -806,6 +838,10 @@ void setup()
 
 #ifdef CONFIG_TEST_AIRBRAKES_EXTEND_AND_RETRACT
   test_airbrakes_extend_and_retract_loop();
+#endif
+
+#ifdef CONFIG_TEST_AIRBRAKES_HITL_CONTROL
+  test_airbrakes_hitl_control_loop();
 #endif
 
   /* SD card and flash logging */
