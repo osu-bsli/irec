@@ -6,18 +6,15 @@ import info.openrocket.core.simulation.extension.AbstractSimulationExtension;
 import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
 import info.openrocket.core.util.Coordinate;
 
-/**
- * Simulation extension that launches a rocket from a specific altitude.
- */
-public class AirStartExample extends AbstractSimulationExtension {
+public class Airbrakes extends AbstractSimulationExtension {
 
     public void initialize(SimulationConditions conditions) throws SimulationException {
-        conditions.getSimulationListenerList().add(new AirStartListener());
+        conditions.getSimulationListenerList().add(new AirbrakesListener());
     }
 
     @Override
     public String getName() {
-        return "Air-Start Example";
+        return "BSLI IREC Airbrakes";
     }
 
     @Override
@@ -25,7 +22,7 @@ public class AirStartExample extends AbstractSimulationExtension {
         return "Simple extension example for air-start";
     }
 
-    private class AirStartListener extends AbstractSimulationListener {
+    private class AirbrakesListener extends AbstractSimulationListener {
 
         @Override
         public void startSimulation(SimulationStatus status) throws SimulationException {
