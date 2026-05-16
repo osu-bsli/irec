@@ -30,7 +30,7 @@ target_include_directories(airbrakes PUBLIC
 )
 
 target_compile_options(airbrakes PUBLIC
-    /MP /fsanitize=address /std:c++20
+    /MP /std:c++20
     /RTCsu
 )
 
