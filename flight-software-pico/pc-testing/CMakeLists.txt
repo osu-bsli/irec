@@ -32,7 +32,7 @@ target_include_directories(airbrakes PUBLIC
 target_compile_options(airbrakes PUBLIC /std:c++20)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(airbrakes PUBLIC /RTCsu)
+    target_compile_options(airbrakes PUBLIC /MT /RTCsu)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # clang_rt.ubsan_standalone is built without debug iterators (IDL=0),
     # incompatible with Debug builds (IDL=2). Only enable for non-Debug configs.
@@ -74,4 +74,4 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
-add_compile_options(-DEIGEN_INITIALIZE_MATRICES_BY_ZERO);
+add_compile_options(-DEIGEN_INITIALIZE_MATRICES_BY_ZERO)
