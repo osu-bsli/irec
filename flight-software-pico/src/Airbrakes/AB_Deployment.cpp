@@ -6,7 +6,7 @@ const float GROUND_LEVEL_TEMP_CELCIUS = 25;
 
 // predict deployment angle, takes in the initial vertical position, vertical velocity, and zentih angle
 // uses a binary search to converge on an apogee, attempts to overshoot until it gets within 100m.
-float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, float targetApogee, int *out_itersReqd)
+float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float targetApogee, int *out_itersReqd)
 {
     *out_itersReqd = 0;
 
@@ -23,12 +23,16 @@ float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, float target
         currentTarget = targetApogee + (targetApogee - 100) / 20.0;
     }
 
+    // printf("\033[2J\033[H");
+
     // TODO: Do we really need 0.0001 precision?
     while ((high_pct - low_pct) > 0.01)
     {
         float mid = (low_pct + high_pct) / 2.0;
-        ic.altitude_m = mid;
+        ic.airbrakeDeployment_pct = mid;
         float predictedApogee = PredictApogee(ic);
+
+        // printf("Iter: %d pred: %f m\n", *out_itersReqd, predictedApogee);
 
         if (predictedApogee > currentTarget)
         {
