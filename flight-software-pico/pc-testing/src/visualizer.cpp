@@ -347,17 +347,17 @@ void ShowVisualizer()
 			gyroXMeasured_degps[log_len] = { 0 },
 			gyroYMeasured_degps[log_len] = { 0 },
 			gyroZMeasured_degps[log_len] = { 0 },
-			accelerationZWorld_mps2[log_len] = { 0 };
+			accelerationZWorld_mps2[log_len] = { 0 },
+			velocityZWorld_mps[log_len] = { 0 };
 
 		static float altitudeMax_m = FLT_MIN;
 		static float altitudeMin_m = FLT_MAX;
 		static float timeMax_s = 0, timeMin_s = 0;
 
-
 		const char* qColumnLabels[] = {
 			"Altitude",
 			"Velocity",
-			"Baro Bias"
+			"Barometer"
 		};
 
 		outOfDate |= MatrixEditor("Q, Vertical Filter High G Accel", s.VertHighGQ, qColumnLabels);
@@ -372,7 +372,7 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
-
+			
 			for (int i = 0; i < log_len; i++)
 			{
 				log_packet_v3 log_p = ((log_packet_v3*)log_cropped_logv3)[i];
@@ -396,6 +396,7 @@ void ShowVisualizer()
 				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z;
 
 				accelerationZWorld_mps2[i] = f.AccelerationWorld.z();
+				velocityZWorld_mps[i] = f.VertState.Velocity_Up;
 
 				g_nav_quat_w[i] = f.AttState.Quaternion_Body_To_ENU.w();
 				g_nav_quat_x[i] = f.AttState.Quaternion_Body_To_ENU.x();
@@ -420,32 +421,28 @@ void ShowVisualizer()
 
 		static ImPlotRect lims(timeMin_s, timeMax_s, 0, maxAltitude_m);
 
-		if (ImPlot::BeginPlot("Altitude"))
+		if (ImGui::CollapsingHeader("Altitude") && ImPlot::BeginPlot("##Altitude"))
 		{
 			ImPlot::SetupAxes("Time (s)", "Altitude (m)");
 			ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
 			ImPlot::SetupAxisLimits(ImAxis_Y1, altitudeMin_m, altitudeMax_m, ImPlotCond_Once);
 			ImPlot::PlotLine("Altitude (filtered)", time_s, altitude_m, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Altitude (measured, barometric)", time_s, altitudeMeasured_m, log_len, ImPlotLineFlags_None);
-			if (ImPlot::IsPlotHovered())
-			{
-				float t = (float)ImPlot::GetPlotMousePos().x;
-				g_nav_hovered_time = t;
-				int lo = 0, hi = log_len - 1;
-				while (lo < hi) { int mid = (lo + hi) / 2; if (time_s[mid] < t) lo = mid + 1; else hi = mid; }
-				g_nav_hovered_idx = lo;
-			}
-			if (g_nav_hovered_idx >= 0)
-			{
-				ImPlotRect limits = ImPlot::GetPlotLimits();
-				ImVec2 top = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Max);
-				ImVec2 bot = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Min);
-				ImPlot::GetPlotDrawList()->AddLine(top, bot, IM_COL32(255, 200, 0, 120), 1.5f);
-			}
+
 			ImPlot::EndPlot();
 		}
 
-		if (ImPlot::BeginPlot("Acceleration Z"))
+		if (ImGui::CollapsingHeader("Velocity Z") && ImPlot::BeginPlot("##Velocity Z"))
+		{
+			ImPlot::SetupAxes("Time (s)", "Velocity Z (m/s)");
+			ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
+			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 400, ImPlotCond_Once);
+			ImPlot::PlotLine("Velocity Z (filtered, world frame)", time_s, velocityZWorld_mps, log_len, ImPlotLineFlags_None);
+
+			ImPlot::EndPlot();
+		}
+
+		if (ImGui::CollapsingHeader("Acceleration Z") && ImPlot::BeginPlot("##Acceleration Z"))
 		{
 			ImPlot::SetupAxes("Time (s)", "Acceleration Z (m/s^2)");
 			ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
@@ -453,25 +450,11 @@ void ShowVisualizer()
 			ImPlot::PlotLine("Acceleration Z (measured, low G sensor)", time_s, lowGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (measured, high G sensor)", time_s, highGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (filtered, world frame)", time_s, accelerationZWorld_mps2, log_len, ImPlotLineFlags_None);
-			if (ImPlot::IsPlotHovered())
-			{
-				float t = (float)ImPlot::GetPlotMousePos().x;
-				g_nav_hovered_time = t;
-				int lo = 0, hi = log_len - 1;
-				while (lo < hi) { int mid = (lo + hi) / 2; if (time_s[mid] < t) lo = mid + 1; else hi = mid; }
-				g_nav_hovered_idx = lo;
-			}
-			if (g_nav_hovered_idx >= 0)
-			{
-				ImPlotRect limits = ImPlot::GetPlotLimits();
-				ImVec2 top = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Max);
-				ImVec2 bot = ImPlot::PlotToPixels(g_nav_hovered_time, limits.Y.Min);
-				ImPlot::GetPlotDrawList()->AddLine(top, bot, IM_COL32(255, 200, 0, 120), 1.5f);
-			}
+
 			ImPlot::EndPlot();
 		}
 
-		if (ImPlot::BeginPlot("Gyroscope"))
+		if (ImGui::CollapsingHeader("Gyroscope") && ImPlot::BeginPlot("##Gyroscope"))
 		{
 			ImPlot::SetupAxes("Time (s)", "Angular Vel (deg/s)");
 			ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
@@ -479,6 +462,7 @@ void ShowVisualizer()
 			ImPlot::PlotLine("Gyroscope X (measured)", time_s, gyroXMeasured_degps, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Gyroscope Y (measured)", time_s, gyroYMeasured_degps, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Gyroscope Z (measured)", time_s, gyroZMeasured_degps, log_len, ImPlotLineFlags_None);
+			
 			if (ImPlot::IsPlotHovered())
 			{
 				float t = (float)ImPlot::GetPlotMousePos().x;

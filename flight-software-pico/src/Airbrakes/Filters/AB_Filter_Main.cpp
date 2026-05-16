@@ -104,14 +104,14 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 		{
 			if (filter.VertState.Velocity_Up < 0.3f)
 			{
-				AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+				// AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 			}
 		}
 	}
 
 	else if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE && filter.VertState.Altitude < 400.0f)
 	{
-		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+		// AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 	}
 
 	else
@@ -122,7 +122,7 @@ void AB_Filter_Process(AB_Filter& filter, const AB_Filter_Inputs inputs, const A
 			{
 				if (highG)
 				{
-					AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+					// AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 				}
 			}
 		}
