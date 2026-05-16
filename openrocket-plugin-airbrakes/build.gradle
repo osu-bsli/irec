@@ -2,6 +2,12 @@ plugins {
     id 'java'
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 group 'org.example'
 version '1.0-SNAPSHOT'
 
@@ -15,6 +21,7 @@ sourceSets {
         }
     }
 }
+
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -24,4 +31,11 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+tasks.register('run', JavaExec) {
+    dependsOn jar
+    mainClass = 'info.openrocket.swing.startup.OpenRocket'
+    classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
+    systemProperty 'java.library.path', 'build/Debug'
 }
