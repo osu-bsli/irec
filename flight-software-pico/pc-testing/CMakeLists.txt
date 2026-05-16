@@ -73,3 +73,5 @@ target_link_libraries(drag_coeff_matches_theoretical PUBLIC airbrakes)
 set_target_properties(${PROJECT_NAME} PROPERTIES 
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+add_compile_options(-DEIGEN_INITIALIZE_MATRICES_BY_ZERO);
