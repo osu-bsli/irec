@@ -19,6 +19,7 @@ struct AB_Filter_Inputs
 struct AB_Snsrs_prevData
 {                            // Struct containing all sensor data
     Matrix<float, 6, 1> GPS; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
+    float Barometer;
 };
 
 struct AB_Snsrs_booleans
@@ -204,6 +205,7 @@ struct AB_Filter
     AB_Filter_Flight_Stage flight_stage;
     float time_since_launch;
     int mag_calibration_count;
+    int c1;
     bool mag_calibrated;
     float accel_z_current;
     float velN;
