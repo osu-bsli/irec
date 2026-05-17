@@ -37,8 +37,8 @@ struct AB_Attitude_State
 
 struct AB_Vertical_State
 {                      // struct containing the state for the rocket's vertical motion
-    float Altitude;    // current height of the rocket relative to starting height
-    float Velocity_Up; // current velocity of the rocket relative to starting velocity
+    float Altitude_m;    // current height of the rocket relative to starting height
+    float VelocityUp_mps; // current velocity of the rocket relative to starting velocity
     float Baro_Bias;   // barometer bias
     Matrix<float, 3, 3> C;
 };
@@ -47,8 +47,8 @@ struct AB_Horizontal_State
 {                         // struct containing the state for the rocket's horizontal motion
     float Position_East;  // position in East direction relative to starting position
     float Position_North; // position in North direction relative to starting position
-    float Velocity_East;  // Velocity in East direction relative to starting position
-    float Velocity_North; // Velocity in North direction relative to starting position
+    float VelocityEast_mps;  // Velocity in East direction relative to starting position
+    float VelocityNorth_mps; // Velocity in North direction relative to starting position
     Matrix<float, 4, 4> C;
 };
 

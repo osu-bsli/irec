@@ -4,7 +4,46 @@
 
 const float GROUND_LEVEL_TEMP_CELCIUS = 25;
 
-// predict deployment angle, takes in the initial vertical position, vertical velocity, and zentih angle
+struct rkDerivs { float dv, dx, dtheta; };
+
+static inline float clamp_cos(float c)
+{
+    return fabs(c) < 0.01f ? 0.01f : c;
+}
+
+static inline float clamp_speed(float v)
+{
+    return fabs(v) < 0.001f ? 0.001f : v;
+}
+
+float AB_drag_force(float deployment_pct, float vTotal_mps, float altitude_m)
+{
+    float rho = rho_kg_per_m3(altitude_m);
+    return 0.5f * rho * drag_coeff(deployment_pct, vTotal_mps, altitude_m, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deployment_pct) * (vTotal_mps * vTotal_mps);
+}
+
+float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m)
+{
+    return AB_drag_force(deployment_pct, vTotal_mps, altitude_m) / MASS;
+}
+
+static inline float adaptive_dt(float vel)
+{
+    if (vel > 343) return 0.1f;
+    if (vel < 50)  return 0.2f;
+    return 0.3f;
+}
+
+// g = gravity(positionZ) pre-computed once per RK4 step; original always uses start-of-step position for gravity.
+static inline struct rkDerivs compute_derivs(float g, float pos, float vel, float theta, float dep)
+{
+    float cos_t  = clamp_cos(cos(theta));
+    float v_total = clamp_speed(vel / cos_t);
+    float drag   = AB_drag_accel(dep, v_total, pos);
+    return { -g - drag * cos_t, vel, g * sin(theta) / v_total };
+}
+
+// predict deployment angle, takes in the initial vertical position, vertical velocity, and zenith angle
 // uses a binary search to converge on an apogee, attempts to overshoot until it gets within 100m.
 float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float targetApogee, int *out_itersReqd)
 {
@@ -23,26 +62,16 @@ float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float 
         currentTarget = targetApogee + (targetApogee - 100) / 20.0;
     }
 
-    // printf("\033[2J\033[H");
-
-    // TODO: Do we really need 0.0001 precision?
     while ((high_pct - low_pct) > 0.01)
     {
         float mid = (low_pct + high_pct) / 2.0;
         ic.airbrakeDeployment_pct = mid;
         float predictedApogee = PredictApogee(ic);
 
-        // printf("Iter: %d pred: %f m\n", *out_itersReqd, predictedApogee);
-
         if (predictedApogee > currentTarget)
-        {
-            low_pct = mid; // Need more drag, deploy more
-        }
-
+            low_pct = mid;  // Need more drag, deploy more
         else
-        {
             high_pct = mid; // Need less drag, retract
-        }
 
         (*out_itersReqd)++;
     }
@@ -50,121 +79,32 @@ float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float 
     return (low_pct + high_pct) / 2.0;
 }
 
-// gets called by predict deployment angle, uses last deployment angle and initial conditions.
-//  TODO: need to account for the slew rate of the airbrakes opening
+// gets called by PredictDeploymentPct; integrates trajectory forward using RK4 until apogee.
+// TODO: need to account for the slew rate of the airbrakes opening
 float __not_in_flash_func(PredictApogee)(const struct apogeeIC ic)
 {
-    // Unpack [0]=vertical position, [1]=vertical velocity, [2]= zenith angle, [3] deployment angle
     float positionZ = ic.altitude_m;
     float velocityZ = ic.velocityZ_mps;
-    float thetaZ = ic.thetaZ_rad;
-    float deploymentAngle = ic.airbrakeDeployment_pct;
-    float dt = 0.3;
-    int iter = 0;
+    float thetaZ    = ic.thetaZ_rad;
+    float dep       = ic.airbrakeDeployment_pct;
+    float dt        = 0.3f;
+    int   iter      = 0;
 
-    // Run until velocity gets below zero, or we hit max iterations.
-    while (velocityZ > 0.0 && iter < 1000)
+    while (velocityZ > 0.0f && iter < 1000)
     {
-        // k1
-        float cos_theta = cos(thetaZ);
-        // clamp to prevent dividing by zero
-        if (fabs(cos_theta) < 0.01)
-        {
-            cos_theta = 0.01;
-        }
-        float v_total1 = velocityZ / cos_theta;
-        // clamp to prevent velocity from being exactly 0 near apogee, since we divide by it
-        if (fabs(v_total1) < 0.001)
-        {
-            v_total1 = 0.001;
-        }
-        float k1_rho = rho_kg_per_m3(positionZ);
-        float drag1 = (0.5 / MASS) * k1_rho * drag_coeff(deploymentAngle, v_total1, positionZ, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total1, 2);
-        float k1_v = -1 * gravity(positionZ) - (drag1 * cos_theta);
-        float k1_x = velocityZ;
-        float k1_theta = gravity(positionZ) * sin(thetaZ) / v_total1; // same here, can just use total velocity w/ gps
+        float g = gravity(positionZ);
 
-        // k2
-        float vk1 = velocityZ + 0.5 * dt * k1_v;
-        float posk1 = positionZ + 0.5 * dt * k1_x;
-        float thetaK1 = thetaZ + 0.5 * dt * k1_theta;
+        struct rkDerivs k1 = compute_derivs(g, positionZ,                 velocityZ,                 thetaZ,                     dep);
+        struct rkDerivs k2 = compute_derivs(g, positionZ + 0.5f*dt*k1.dx, velocityZ + 0.5f*dt*k1.dv, thetaZ + 0.5f*dt*k1.dtheta, dep);
+        struct rkDerivs k3 = compute_derivs(g, positionZ + 0.5f*dt*k2.dx, velocityZ + 0.5f*dt*k2.dv, thetaZ + 0.5f*dt*k2.dtheta, dep);
+        struct rkDerivs k4 = compute_derivs(g, positionZ +      dt*k3.dx, velocityZ +      dt*k3.dv, thetaZ +      dt*k3.dtheta, dep);
 
-        float cos_tk1 = cos(thetaK1);
-        if (fabs(cos_tk1) < 0.01)
-        {
-            cos_tk1 = 0.01;
-        }
-        float v_total2 = vk1 / cos_tk1;
-        if (fabs(v_total2) < 0.001)
-        {
-            v_total2 = 0.001;
-        }
-        float k2_rho = rho_kg_per_m3(posk1);
-        float drag2 = (0.5 / MASS) * k2_rho * drag_coeff(deploymentAngle, v_total2, posk1, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total2, 2);
-        float k2_v = -1 * gravity(positionZ) - (drag2 * cos_tk1);
-        float k2_x = vk1;
-        float k2_theta = gravity(positionZ) * sin(thetaK1) / v_total2;
+        // these fixed timesteps keep accuracy high, but step size large; could improve with variable-step method
+        positionZ += (k1.dx     + 2*k2.dx     + 2*k3.dx     + k4.dx)     * dt / 6.0f;
+        velocityZ += (k1.dv     + 2*k2.dv     + 2*k3.dv     + k4.dv)     * dt / 6.0f;
+        thetaZ    += (k1.dtheta + 2*k2.dtheta + 2*k3.dtheta + k4.dtheta) * dt / 6.0f;
 
-        // k3
-        float vk2 = velocityZ + 0.5 * dt * k2_v;
-        float posk2 = positionZ + 0.5 * dt * k2_x;
-        float thetaK2 = thetaZ + 0.5 * dt * k2_theta;
-
-        float cos_tk2 = cos(thetaK2);
-        if (fabs(cos_tk2) < 0.01)
-        {
-            cos_tk2 = 0.01;
-        }
-        float v_total3 = vk2 / cos_tk2;
-        if (fabs(v_total3) < 0.001)
-        {
-            v_total3 = 0.001;
-        }
-        float k3_rho = rho_kg_per_m3(posk2);
-        float drag3 = (0.5 / MASS) * k3_rho * drag_coeff(deploymentAngle, v_total3, posk2, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total3, 2);
-        float k3_v = -1 * gravity(positionZ) - (drag3 * cos_tk2);
-        float k3_x = vk2;
-        float k3_theta = gravity(positionZ) * sin(thetaK2) / v_total3;
-
-        // k4
-        float vk3 = velocityZ + dt * k3_v;
-        float posk3 = positionZ + dt * k3_x;
-        float thetaK3 = thetaZ + dt * k3_theta;
-
-        float cos_tk3 = cos(thetaK3);
-        if (fabs(cos_tk3) < 0.01)
-        {
-            cos_tk3 = 0.01;
-        }
-        float v_total4 = vk3 / cos_tk3;
-        if (fabs(v_total4) < 0.001)
-        {
-            v_total4 = 0.001;
-        }
-        float k4_rho = rho_kg_per_m3(posk3);
-        float drag4 = (0.5 / MASS) * k4_rho * drag_coeff(deploymentAngle, v_total4, posk3, GROUND_LEVEL_TEMP_CELCIUS) * surfaceA(deploymentAngle) * pow(v_total4, 2);
-        float k4_v = -1 * gravity(positionZ) - (drag4 * cos_tk3);
-        float k4_x = vk3;
-        float k4_theta = gravity(positionZ) * sin(thetaK3) / v_total4;
-
-        // Update
-        positionZ += (k1_x + 2 * k2_x + 2 * k3_x + k4_x) * dt / 6.0;
-        velocityZ += (k1_v + 2 * k2_v + 2 * k3_v + k4_v) * dt / 6.0;
-        thetaZ += (k1_theta + 2 * k2_theta + 2 * k3_theta + k4_theta) * dt / 6.0;
-
-        // these fixed timesteps keep accuracy high, but step size large, possible can improve w/ variable ts method
-        if (velocityZ > 343)
-        {
-            dt = 0.1;
-        }
-        else if (velocityZ < 50)
-        {
-            dt = 0.2;
-        }
-        else
-        {
-            dt = 0.3;
-        }
+        dt = adaptive_dt(velocityZ);
         iter++;
     }
 

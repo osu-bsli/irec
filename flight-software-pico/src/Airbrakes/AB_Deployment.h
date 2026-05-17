@@ -8,6 +8,9 @@ float PredictDeploymentPct(struct apogeeIC ic, float targetApogee, int *out_iter
 
 float PredictApogee(const struct apogeeIC ic);
 
+float AB_drag_force(float deployment_pct, float vTotal_mps, float altitude_m);
+float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m);
+
 struct apogeeIC
 {
     float altitude_m;
