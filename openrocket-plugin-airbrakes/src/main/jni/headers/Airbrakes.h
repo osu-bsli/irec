@@ -9,6 +9,14 @@ extern "C" {
 #endif
 /*
  * Class:     Airbrakes
+ * Method:    SetRocketMass
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_Airbrakes_SetRocketMass
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     Airbrakes
  * Method:    DragForce
  * Signature: (FFF)F
  */

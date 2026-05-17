@@ -395,6 +395,8 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
+
+			/* Load GPS data */
 			static bool gpsLoaded = false;
 			static std::vector<float> gps_lat, gps_lon, gps_alt, gps_time; // NEW: Added gps_time
 			if (!gpsLoaded)

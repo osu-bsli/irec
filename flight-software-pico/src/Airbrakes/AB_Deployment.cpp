@@ -2,8 +2,8 @@
 
 #include <pico.h>
 
-const float DEPLOYMENT_RATE_PCT_PER_S = 100.0 / 1.7;
-const float GROUND_LEVEL_TEMP_CELCIUS = 25;
+const float DEPLOYMENT_RATE_PCT_PER_S = 100.0 / 1.28333333F;
+const float GROUND_LEVEL_TEMP_CELCIUS = 35;
 
 static float mass_kg = 30;
 

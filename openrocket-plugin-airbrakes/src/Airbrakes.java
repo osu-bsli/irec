@@ -42,6 +42,7 @@ public class Airbrakes extends AbstractSimulationExtension {
         conditions.getSimulationListenerList().add(new AirbrakesListener());
     }
 
+    public static native void SetRocketMass(float mass_kg);
     public static native float DragForce(float deployment_pct, float vTotal_mps, float altitude_m);
 
     public static native void InitController();
@@ -102,6 +103,12 @@ public class Airbrakes extends AbstractSimulationExtension {
             previousTime = status.getSimulationTime();
             startInstant = Instant.now();
             airbrake_control_interval_timer = 0f;
+            deploymentPctCalculated = 0;
+            deploymentPctCommanded = 0;
+            deploymentPctSimulatedDynamics = 0;
+
+
+            SetRocketMass(31.740f);
         }
 
         // We can't look at status.getFlightData() for anything except extension instead because it would
@@ -115,7 +122,7 @@ public class Airbrakes extends AbstractSimulationExtension {
 
         Random r = new Random();
 
-        final boolean HITL_AIRBRAKE_CONTROL = true;
+        final boolean HITL_AIRBRAKE_CONTROL = false;
 
         final float AIRBRAKE_CONTROL_INTERVAL_S = 0.1f; // 10 Hz, 100 ms period
         float airbrake_control_interval_timer = 0;
@@ -130,7 +137,7 @@ public class Airbrakes extends AbstractSimulationExtension {
 
             /* Simulate dynamics of airbrakes deployment */
 
-            final float MARGIN_PCT = 1;
+            final float MARGIN_PCT = (float) (dt * DEPLOYMENT_PCT_PER_SEC);
             final float ALTITUDE_DISTORTION_M = 0; // TODO
 
             // Simulate the fact that the airbrakes actually take time to move
@@ -143,6 +150,10 @@ public class Airbrakes extends AbstractSimulationExtension {
                 // Simulate piston compression effect of airbrakes inward motion on barometer
                 distortedAltitude -= ALTITUDE_DISTORTION_M;
             }
+
+            if (deploymentPctSimulatedDynamics < 0) deploymentPctSimulatedDynamics = 0;
+            if (deploymentPctSimulatedDynamics > 100) deploymentPctSimulatedDynamics = 100;
+
             // Suction/compression effect numbers sloppily empirically determined from Nomad 4/11/26 test flight
 
             /* End dynamics simulation */
@@ -185,25 +196,34 @@ public class Airbrakes extends AbstractSimulationExtension {
             status.getFlightDataBranch().setValue(fdtDeploymentPctCommanded, deploymentPctCommanded);
             status.getFlightDataBranch().setValue(fdtDistortedAltitude, distortedAltitude);
 
-            airbrake_control_interval_timer += dt;
-            if (airbrake_control_interval_timer >= AIRBRAKE_CONTROL_INTERVAL_S) {
-                airbrake_control_interval_timer -= AIRBRAKE_CONTROL_INTERVAL_S;
+            double velocityTotal_mps = status.getRocketVelocity().length();
+            double mach = velocityTotal_mps / MACH1_MPS;
+            final boolean DISABLE_AIRBRAKES = false;
 
-                deploymentPctCommanded = deploymentPctCalculated;
+            /* Only deploy the airbrakes if we're under Mach 0.8 */
+            if (!DISABLE_AIRBRAKES && mach < 0.8) {
+                airbrake_control_interval_timer += dt;
+                if (airbrake_control_interval_timer >= AIRBRAKE_CONTROL_INTERVAL_S) {
+                    airbrake_control_interval_timer -= AIRBRAKE_CONTROL_INTERVAL_S;
 
-                if (HITL_AIRBRAKE_CONTROL) {
-                    var arr = (Integer.toString((int) (float) deploymentPctCommanded) + "\n").getBytes();
-                    comPort.writeBytes(arr, arr.length);
+                    deploymentPctCommanded = deploymentPctCalculated;
 
-                    // sleep so the simulation runs in realtime instead of faster than realtime
-                    double timeSinceStart = Duration.between(startInstant, Instant.now()).get(ChronoUnit.SECONDS);
-                    double simulationTimeAhead = status.getSimulationTime() - timeSinceStart;
-                    if (simulationTimeAhead > 0) {
-                        try {
-                            Thread.sleep((int) (simulationTimeAhead * 1000));
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
+                    if (HITL_AIRBRAKE_CONTROL) {
+                        var arr = (Integer.toString((int) (float) deploymentPctCommanded) + "\n").getBytes();
+                        comPort.writeBytes(arr, arr.length);
+                    }
+                }
+            }
+
+            if (HITL_AIRBRAKE_CONTROL) {
+                // sleep so the simulation runs in realtime instead of faster than realtime
+                double timeSinceStart = Duration.between(startInstant, Instant.now()).get(ChronoUnit.SECONDS);
+                double simulationTimeAhead = status.getSimulationTime() - timeSinceStart;
+                if (simulationTimeAhead > 0) {
+                    try {
+                        Thread.sleep((int) (simulationTimeAhead * 1000));
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }
@@ -220,7 +240,7 @@ public class Airbrakes extends AbstractSimulationExtension {
         public AerodynamicForces postAerodynamicCalculation(SimulationStatus status, AerodynamicForces forces) throws SimulationException {
             if (forces.getComponent() != null) System.out.println(forces.getComponent().getComponentName());
 
-            double velocityTotal_mps = status.getRocketVelocity().length2();
+            double velocityTotal_mps = status.getRocketVelocity().length();
             double mach = velocityTotal_mps / MACH1_MPS;
 
             /* Only use the aerodynamics team's drag model if we're under Mach 0.8 */
