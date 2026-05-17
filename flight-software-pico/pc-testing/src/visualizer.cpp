@@ -325,7 +325,7 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
-			apogeePrediction_m = PredictApogee(ic);
+			apogeePrediction_m = PredictApogee(ic, ic.airbrakeDeployment_pct);
 		}
 
 		ImGui::Text("Apogee prediction: %f meters", apogeePrediction_m);
