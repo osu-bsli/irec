@@ -2,6 +2,12 @@ plugins {
     id 'java'
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 group 'org.example'
 version '1.0-SNAPSHOT'
 
@@ -15,13 +21,26 @@ sourceSets {
         }
     }
 }
+
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 
     implementation files('lib/OpenRocket-24.12.jar')
+    implementation 'com.fazecast:jSerialComm:[2.0.0,)'
 }
 
 test {
     useJUnitPlatform()
+}
+
+tasks.register('run', JavaExec) {
+    dependsOn jar
+    mainClass = 'info.openrocket.swing.startup.OpenRocket'
+    classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
+    systemProperty 'java.library.path', 'cmake-build-debug/Debug'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += ["-h", file("src/main/jni/headers")]
 }

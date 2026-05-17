@@ -43,14 +43,14 @@ void __not_in_flash_func(Estimate_Horizontal_Velocity)(AB_Attitude_State& AttSta
     float nose_up = 1.0f - 2.0f * (q.x() * q.x() + q.y() * q.y());
 
     // Take E and N components
-    float total_speed = VertState.Velocity_Up / nose_up;
+    float total_speed = VertState.VelocityUp_mps / nose_up;
     
     est_north = total_speed * nose_north;
     est_east = total_speed * nose_east;
     if (nose_up < 0.1) 
     {
-        est_north = HorizState.Velocity_North; 
-        est_east = HorizState.Velocity_East; 
+        est_north = HorizState.VelocityNorth_mps; 
+        est_east = HorizState.VelocityEast_mps; 
     }
 }
 

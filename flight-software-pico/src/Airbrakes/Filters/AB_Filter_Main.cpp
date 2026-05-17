@@ -85,10 +85,10 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		}
 		break;
 	case AB_Filter_Flight_Stage_BURNOUT:
-		if (filter.VertState.Velocity_Up < -1.0f)
+		if (filter.VertState.VelocityUp_mps < -1.0f)
 		{
 			filter.flight_stage = AB_Filter_Flight_Stage_APOGEE;
-			filter.max_apogee = filter.VertState.Altitude;
+			filter.max_apogee = filter.VertState.Altitude_m;
 		}
 		break;
 	}
@@ -104,14 +104,14 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	{
 		if (inputs.AccelerometerHG_mps2.norm() > 8.0f && inputs.AccelerometerHG_mps2.norm() < 11.0f && inputs.AccelerometerHG_mps2.z() < 2.1f * 9.802f)
 		{
-			if (filter.VertState.Velocity_Up < 0.3f)
+			if (filter.VertState.VelocityUp_mps < 0.3f)
 			{
 				AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 			}
 		}
 	}
 
-	else if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE && filter.VertState.Altitude < 400.0f)
+	else if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE && filter.VertState.Altitude_m < 400.0f)
 	{
 		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
 	}
@@ -120,7 +120,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	{
 		if (inputs.Accelerometer_mps2.norm() > 8.0f && inputs.Accelerometer_mps2.norm() < 11.0f && inputs.Accelerometer_mps2.z() < 1.01f * 9.802f)
 		{
-			if (filter.VertState.Velocity_Up > 0.3f)
+			if (filter.VertState.VelocityUp_mps > 0.3f)
 			{
 				if (highG)
 				{
@@ -154,7 +154,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	}
 
 	// Inside AB_loop()
-	if (filter.flight_stage == AB_Filter_Flight_Stage_BURNOUT && filter.VertState.Velocity_Up > 20.0f)
+	if (filter.flight_stage == AB_Filter_Flight_Stage_BURNOUT && filter.VertState.VelocityUp_mps > 15.0f)
 	{
 		// Pass the state, sensors, vertical data, and prediction variables
 		//AB_Attitude_Update_PseudoDrag(filter.AttState, inputs, filter.VertState, filter.HorizState, filter.AB_Att_UP_Drag, filter.AB_Att_Pred);
@@ -188,25 +188,25 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		}
 	}
 
-	if (abs(filter.VertState.Velocity_Up) < 0.2)
+	if (abs(filter.VertState.VelocityUp_mps) < 0.2)
 	{
-		filter.HorizState.Velocity_North = 0.0f;
-		filter.HorizState.Velocity_East = 0.0f;
+		filter.HorizState.VelocityNorth_mps = 0.0f;
+		filter.HorizState.VelocityEast_mps = 0.0f;
 	}
 
 	if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE)
 	{
-		if (filter.VertState.Altitude < 1.0f)
+		if (filter.VertState.Altitude_m < 1.0f)
 		{
-			filter.VertState.Velocity_Up = 0.0f;
+			filter.VertState.VelocityUp_mps = 0.0f;
 		}
 	}
 
-	if (filter.Flags.GPS == false && abs(filter.VertState.Velocity_Up) > 10.0f)
+	if (filter.Flags.GPS == false && abs(filter.VertState.VelocityUp_mps) > 10.0f)
 	{
 		Estimate_Horizontal_Velocity(filter.AttState, filter.VertState, filter.HorizState, filter.velN, filter.velE);
-		filter.residN = filter.HorizState.Velocity_North - filter.velN;
-		filter.residE = filter.HorizState.Velocity_East - filter.velE;
+		filter.residN = filter.HorizState.VelocityNorth_mps - filter.velN;
+		filter.residE = filter.HorizState.VelocityEast_mps - filter.velE;
 
 		if (filter.flight_stage != AB_Filter_Flight_Stage_APOGEE)
 		{
@@ -220,12 +220,12 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 
 		if (abs(filter.residN) > 5.0f)
 		{
-			filter.HorizState.Velocity_North = (1 - filter.alpha) * filter.HorizState.Velocity_North + filter.alpha * filter.velN;
+			filter.HorizState.VelocityNorth_mps = (1 - filter.alpha) * filter.HorizState.VelocityNorth_mps + filter.alpha * filter.velN;
 		}
 
 		if (abs(filter.residE) > 5.0f)
 		{
-			filter.HorizState.Velocity_East = (1 - filter.alpha) * filter.HorizState.Velocity_East + filter.alpha * filter.velE;
+			filter.HorizState.VelocityEast_mps = (1 - filter.alpha) * filter.HorizState.VelocityEast_mps + filter.alpha * filter.velE;
 		}
 	}
 
