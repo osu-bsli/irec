@@ -176,7 +176,10 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	{
 		filter.c1 += 1;
 		if (filter.c1 > 4) {
-			AB_Vertical_State_Update_Baro(filter.VertState, inputs, settings);
+			if (!inputs.IgnoreBaro)
+			{
+				AB_Vertical_State_Update_Baro(filter.VertState, inputs, settings);
+			}
 		}
 	}
 
