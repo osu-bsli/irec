@@ -233,4 +233,6 @@ struct AB_Settings
 
     Matrix<float, 1, 1> VertBaroR;
     Matrix<float, 2, 2> VertGpsR;
+
+    float Mass_kg;
 };

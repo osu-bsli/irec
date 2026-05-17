@@ -18,13 +18,14 @@ JNIEXPORT void JNICALL Java_Airbrakes_InitController
     AB_Filter_Initialize(filter);
 }
 
+const float targetApogee_m = 8500;
+
 JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerRawAndGetDeploymentPct
 (JNIEnv *env, jclass c,
  jfloat velocityX_mps,
  jfloat velocityY_mps,
  jfloat velocityZ_mps,
  jfloat altitude_m) {
-    const float targetApogee_m = 9144;
     float velocityHoriz_mps = sqrt(velocityX_mps * velocityX_mps + velocityY_mps * velocityY_mps);
     apogeeIC ic = {
         .altitude_m = altitude_m,
@@ -69,7 +70,6 @@ JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerAndGetDeploymentPct
 
     AB_Filter_Process(filter, inputs, settings);
 
-    const float targetApogee_m = 9144;
     float velocityHoriz_mps = sqrt(filter.HorizState.VelocityNorth_mps * filter.HorizState.VelocityNorth_mps +
                     filter.HorizState.VelocityEast_mps * filter.HorizState.VelocityEast_mps);
     apogeeIC ic = {

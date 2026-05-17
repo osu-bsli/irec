@@ -15,6 +15,7 @@ add_library(airbrakes SHARED
 )
 
 target_include_directories(airbrakes PUBLIC
+    ${FSW_DIR}/include
     ${FSW_DIR}/src
     ${FSW_DIR}/src/Airbrakes
     ${FSW_DIR}/src/Airbrakes/Filters

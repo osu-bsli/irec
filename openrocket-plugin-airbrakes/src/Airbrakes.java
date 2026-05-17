@@ -20,12 +20,6 @@ import java.util.Random;
 public class Airbrakes extends AbstractSimulationExtension {
 
     private boolean bypassFilter = false;
-    private static final FlightDataType fdtDeploymentPctCommanded = FlightDataType.getType("Airbrake deployment, commanded", "%",
-            UnitGroup.UNITS_NONE);
-    private static final FlightDataType fdtDeploymentPctSimulatedDynamics = FlightDataType.getType("Airbrake deployment, simulated dynamics", "%",
-            UnitGroup.UNITS_NONE);
-    private static final FlightDataType fdtDistortedAltitude = FlightDataType.getType("Altitude w/simulated baro errors", "m",
-            UnitGroup.UNITS_LENGTH);
 
     public SerialPort comPort;
 
@@ -84,6 +78,13 @@ public class Airbrakes extends AbstractSimulationExtension {
     }
 
     private class AirbrakesListener extends AbstractSimulationListener {
+        private static final FlightDataType fdtDeploymentPctCommanded = FlightDataType.getType("Airbrake deployment commanded", "%",
+                UnitGroup.UNITS_NONE);
+        private static final FlightDataType fdtDeploymentPctSimulatedDynamics = FlightDataType.getType("Airbrake deployment simulated dynamics", "%",
+                UnitGroup.UNITS_NONE);
+        private static final FlightDataType fdtDistortedAltitude = FlightDataType.getType("Altitude w/simulated baro errors", "m",
+                UnitGroup.UNITS_LENGTH);
+
         private FlightConditions flightConditions = null;
         private float deploymentPctCalculated = 0;
         private float deploymentPctCommanded = 0;
@@ -96,6 +97,7 @@ public class Airbrakes extends AbstractSimulationExtension {
 
         @Override
         public void startSimulation(SimulationStatus status) throws SimulationException {
+            InitController();
             previousVelocity = status.getRocketVelocity();
             previousTime = status.getSimulationTime();
             startInstant = Instant.now();
@@ -212,24 +214,31 @@ public class Airbrakes extends AbstractSimulationExtension {
             previousTime = currentTime;
         }
 
+        final double MACH1_MPS = 343;
+
         @Override
         public AerodynamicForces postAerodynamicCalculation(SimulationStatus status, AerodynamicForces forces) throws SimulationException {
             if (forces.getComponent() != null) System.out.println(forces.getComponent().getComponentName());
 
             double velocityTotal_mps = status.getRocketVelocity().length2();
-            double altitude_m = status.getRocketWorldPosition().getAltitude();
-            double density = flightConditions.getAtmosphericConditions().getDensity();
+            double mach = velocityTotal_mps / MACH1_MPS;
 
-            double dragForce = DragForce(deploymentPctSimulatedDynamics, (float) velocityTotal_mps, (float) altitude_m);
+            /* Only use the aerodynamics team's drag model if we're under Mach 0.8 */
+            if (mach < 0.8) {
+                double altitude_m = status.getRocketWorldPosition().getAltitude();
+                double density = flightConditions.getAtmosphericConditions().getDensity();
 
-            if (velocityTotal_mps > 0.1) {
-                double refArea = flightConditions.getRefArea();
-                double cDAxial = (2 * dragForce) / (density * (velocityTotal_mps * velocityTotal_mps) * refArea);
+                double dragForce = DragForce(deploymentPctSimulatedDynamics, (float) velocityTotal_mps, (float) altitude_m);
 
-                // Note: this calculation isn't actually CDAxial, but it's necessary to override CDAxial
-                // since OR uses CDAxial for its proceeding calculations. Experiments showed the diff between our
-                // "CDAxial" and actual CDAxial (which accounts for AOA) is insignificant so this is fine.
-                forces.setCDaxial(cDAxial);
+                if (velocityTotal_mps > 0.1) {
+                    double refArea = flightConditions.getRefArea();
+                    double cDAxial = (2 * dragForce) / (density * (velocityTotal_mps * velocityTotal_mps) * refArea);
+
+                    // Note: this calculation isn't actually CDAxial, but it's necessary to override CDAxial
+                    // since OR uses CDAxial for its proceeding calculations. Experiments showed the diff between our
+                    // "CDAxial" and actual CDAxial (which accounts for AOA) is insignificant so this is fine.
+                    forces.setCDaxial(cDAxial);
+                }
             }
 
             return forces;

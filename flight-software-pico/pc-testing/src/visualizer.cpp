@@ -24,7 +24,6 @@
 
 #define G 9.80665
 
-
 // check that length of log evenly divides by log packet size
 static_assert(log_cropped_logv3_len / sizeof(log_packet_v3) * sizeof(log_packet_v3) == log_cropped_logv3_len);
 const int log_len = log_cropped_logv3_len / sizeof(log_packet_v3);
@@ -66,7 +65,7 @@ public:
 
 	void ClearOutDataPoints()
 	{
-		for (auto& e : out_data_series)
+		for (auto &e : out_data_series)
 		{
 			e.v_data.clear();
 		}
@@ -74,7 +73,7 @@ public:
 
 	void GenerateOutDataPoints()
 	{
-		for (auto& e : out_data_series)
+		for (auto &e : out_data_series)
 		{
 			for (float in_val : v_in_data)
 			{
@@ -140,11 +139,11 @@ void plotDrawVerticalLineAtDataX(float xVal, ImU32 lineColor)
 	ImVec2 plotBR = ImVec2(plotTL.x + ImPlot::GetPlotSize().x, plotTL.y + ImPlot::GetPlotSize().y);
 
 	// GetPlotDrawList() clips drawing to the plot area automatically
-	ImDrawList* drawList = ImPlot::GetPlotDrawList();
+	ImDrawList *drawList = ImPlot::GetPlotDrawList();
 	drawList->AddLine(ImVec2(dotPos.x, plotTL.y), ImVec2(dotPos.x, plotBR.y), lineColor); // vertical
 }
 
-void plotTooltip(const OutDataSeries& e)
+void plotTooltip(const OutDataSeries &e)
 {
 	// Show tooltip with value of graph at cursor location
 	if (ImPlot::IsPlotHovered())
@@ -164,7 +163,7 @@ void plotTooltip(const OutDataSeries& e)
 			ImVec2 plotBR = ImVec2(plotTL.x + ImPlot::GetPlotSize().x, plotTL.y + ImPlot::GetPlotSize().y);
 
 			// GetPlotDrawList() clips drawing to the plot area automatically
-			ImDrawList* drawList = ImPlot::GetPlotDrawList();
+			ImDrawList *drawList = ImPlot::GetPlotDrawList();
 			ImU32 lineColor = IM_COL32(255, 255, 255, 80);
 			drawList->AddLine(ImVec2(dotPos.x, plotTL.y), ImVec2(dotPos.x, plotBR.y), lineColor); // vertical
 			drawList->AddLine(ImVec2(plotTL.x, dotPos.y), ImVec2(plotBR.x, dotPos.y), lineColor); // horizontal
@@ -184,15 +183,19 @@ void enable_exception_on_NaN()
 	_controlfp_s(nullptr, ~(_EM_INVALID | _EM_ZERODIVIDE | _EM_DENORMAL), _MCW_EM);
 }
 
-template<int N>
-bool MatrixEditor(const char* name, Eigen::Matrix<float, N, N>& matrix, const char** columnLabels) {
+template <int N>
+bool MatrixEditor(const char *name, Eigen::Matrix<float, N, N> &matrix, const char **columnLabels)
+{
 	bool modified = false;
 	ImGui::PushID(name);
 	ImGui::Text(name);
-	if (ImGui::BeginTable(name, N, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
-		for (int row = 0; row < N; row++) {
+	if (ImGui::BeginTable(name, N, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+	{
+		for (int row = 0; row < N; row++)
+		{
 			ImGui::TableNextRow();
-			for (int col = 0; col < N; col++) {
+			for (int col = 0; col < N; col++)
+			{
 				ImGui::TableSetColumnIndex(col);
 
 				if (row == 0)
@@ -227,14 +230,14 @@ static ImVec2 Project3D(float x, float y, float z, ImVec2 center, float scale)
 
 void ShowVisualizer()
 {
-	//enable_exception_on_NaN();
+	// enable_exception_on_NaN();
 
 	static int g_nav_hovered_idx = -1;
 	static float g_nav_hovered_time = 0.0f;
-	static float g_nav_quat_w[log_len] = { 0 };
-	static float g_nav_quat_x[log_len] = { 0 };
-	static float g_nav_quat_y[log_len] = { 0 };
-	static float g_nav_quat_z[log_len] = { 0 };
+	static float g_nav_quat_w[log_len] = {0};
+	static float g_nav_quat_x[log_len] = {0};
+	static float g_nav_quat_y[log_len] = {0};
+	static float g_nav_quat_z[log_len] = {0};
 
 	if (graphOutOfDate)
 	{
@@ -256,7 +259,7 @@ void ShowVisualizer()
 
 		if (ImPlot::BeginAlignedPlots("AlignedGroup"))
 		{
-			for (const auto& e : altitude_m.out_data_series)
+			for (const auto &e : altitude_m.out_data_series)
 			{
 				char plotName[128];
 				snprintf(plotName, sizeof(plotName), "%s vs. %s", altitude_m.in_data_label.c_str(), e.label.c_str());
@@ -314,6 +317,7 @@ void ShowVisualizer()
 			.thetaZ_rad = 0,
 			.airbrakeDeployment_pct = 0,
 		};
+		static float rocket_mass_kg = 30;
 
 		ImGui::Text("Initial conditions:");
 
@@ -321,10 +325,12 @@ void ShowVisualizer()
 		outOfDate |= ImGui::SliderFloat("Velocity (m/s)", &ic.velocityZ_mps, 0, 1000);
 		outOfDate |= ImGui::SliderFloat("Theta Z (rad)", &ic.thetaZ_rad, 0, 1.57);
 		outOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &ic.airbrakeDeployment_pct, 0, 100);
+		outOfDate |= ImGui::SliderFloat("Rocket mass (kg)", &rocket_mass_kg, 1, 50);
 
 		if (outOfDate)
 		{
 			outOfDate = false;
+			AB_set_rocket_mass(rocket_mass_kg);
 			apogeePrediction_m = PredictApogee(ic, ic.airbrakeDeployment_pct);
 		}
 
@@ -347,21 +353,21 @@ void ShowVisualizer()
 		const float BASE_ALTITUDE = 0; // TODO figure out significance of this
 
 		static float
-			time_s[log_len] = { 0 },
-			velocityHoriz_mps[log_len] = { 0 },
-			zenith_rad[log_len] = { 0 },
-			altitude_m[log_len] = { 0 },
-			altitudeMeasured_m[log_len] = { 0 },
-			altitudeGPS_m[log_len] = { 0 },
-			velocityZ_mps[log_len] = { 0 },
-			thetaZ_rad[log_len] = { 0 },
-			lowGAccelZMeasured_mps2[log_len] = { 0 },
-			highGAccelZMeasured_mps2[log_len] = { 0 },
-			gyroXMeasured_degps[log_len] = { 0 },
-			gyroYMeasured_degps[log_len] = { 0 },
-			gyroZMeasured_degps[log_len] = { 0 },
-			accelerationZWorld_mps2[log_len] = { 0 },
-			velocityZWorld_mps[log_len] = { 0 };
+			time_s[log_len] = {0},
+			velocityHoriz_mps[log_len] = {0},
+			zenith_rad[log_len] = {0},
+			altitude_m[log_len] = {0},
+			altitudeMeasured_m[log_len] = {0},
+			altitudeGPS_m[log_len] = {0},
+			velocityZ_mps[log_len] = {0},
+			thetaZ_rad[log_len] = {0},
+			lowGAccelZMeasured_mps2[log_len] = {0},
+			highGAccelZMeasured_mps2[log_len] = {0},
+			gyroXMeasured_degps[log_len] = {0},
+			gyroYMeasured_degps[log_len] = {0},
+			gyroZMeasured_degps[log_len] = {0},
+			accelerationZWorld_mps2[log_len] = {0},
+			velocityZWorld_mps[log_len] = {0};
 
 		static float altitudeMax_m = FLT_MIN;
 		static float altitudeMin_m = FLT_MAX;
@@ -369,16 +375,15 @@ void ShowVisualizer()
 
 		static float ignoreBaroStart_s = 695.3, ignoreBaroEnd_s = 697;
 
-		const char* qColumnLabels[] = {
+		const char *qColumnLabels[] = {
 			"Altitude",
 			"Velocity",
-			"Barometer"
-		};
+			"Barometer"};
 
 		outOfDate |= MatrixEditor("Q, Vertical Filter High G Accel", s.VertHighGQ, qColumnLabels);
 		outOfDate |= MatrixEditor("Q, Vertical Filter Low G Accel", s.VertLowGQ, qColumnLabels);
 
-		const char* rBaroColumnLabels[] = {
+		const char *rBaroColumnLabels[] = {
 			"Baro",
 		};
 
@@ -392,8 +397,10 @@ void ShowVisualizer()
 			outOfDate = false;
 			static bool gpsLoaded = false;
 			static std::vector<float> gps_lat, gps_lon, gps_alt, gps_time; // NEW: Added gps_time
-			if (!gpsLoaded) {
-				try {
+			if (!gpsLoaded)
+			{
+				try
+				{
 					rapidcsv::Document gps_csv("test/TeleGPS_GPS_data_nomad-4-11-2026.csv", rapidcsv::LabelParams(0, -1));
 
 					std::vector<float> raw_lat = gps_csv.GetColumn<float>("latitude");
@@ -403,15 +410,18 @@ void ShowVisualizer()
 					std::vector<int> raw_sec = gps_csv.GetColumn<int>("second");
 
 					// Filter out consecutive duplicate seconds
-					if (raw_sec.size() > 0) {
+					if (raw_sec.size() > 0)
+					{
 						gps_lat.push_back(raw_lat[0]);
 						gps_lon.push_back(raw_lon[0]);
 						gps_alt.push_back(raw_alt[0]);
 						gps_time.push_back(raw_time[0]); // Save time
 						int last_sec = raw_sec[0];
 
-						for (size_t i = 1; i < raw_sec.size(); i++) {
-							if (raw_sec[i] != last_sec) {
+						for (size_t i = 1; i < raw_sec.size(); i++)
+						{
+							if (raw_sec[i] != last_sec)
+							{
 								gps_lat.push_back(raw_lat[i]);
 								gps_lon.push_back(raw_lon[i]);
 								gps_alt.push_back(raw_alt[i]);
@@ -422,7 +432,8 @@ void ShowVisualizer()
 					}
 					gpsLoaded = true;
 				}
-				catch (const std::exception& e) {
+				catch (const std::exception &e)
+				{
 					printf("Failed to load GPS CSV!\n");
 				}
 			}
@@ -430,27 +441,30 @@ void ShowVisualizer()
 			float launch_time_s = -1.0f;
 			for (int i = 0; i < log_len; i++)
 			{
-				log_packet_v3 lp = ((log_packet_v3*)log_cropped_logv3)[i];
+				log_packet_v3 lp = ((log_packet_v3 *)log_cropped_logv3)[i];
 				// Detect liftoff using High-G sensor (e.g., > 25 m/s^2)
-				if (lp.adxl375_accel_z * G > 40.0f) {
+				if (lp.adxl375_accel_z * G > 40.0f)
+				{
 					launch_time_s = lp.time_boot_ms / 1000.0f;
 					break;
 				}
 			}
 
-			//get basseline altitude from barometer on pad
+			// get basseline altitude from barometer on pad
 			float pad_altitude_sum = 0.0f;
 			int pad_samples = 50;
-			if (pad_samples > log_len) pad_samples = log_len;
-			for (int i = 0; i < pad_samples; i++) {
-				log_packet_v3 p = ((log_packet_v3*)log_cropped_logv3)[i];
+			if (pad_samples > log_len)
+				pad_samples = log_len;
+			for (int i = 0; i < pad_samples; i++)
+			{
+				log_packet_v3 p = ((log_packet_v3 *)log_cropped_logv3)[i];
 				pad_altitude_sum += get_altitude_from_pressure(p.ms5607_pressure_mbar * 100.0f);
 			}
 			float pad_altitude_m = pad_altitude_sum / (float)pad_samples;
-			
+
 			for (int i = 0; i < log_len; i++)
 			{
-				log_packet_v3 log_p = ((log_packet_v3*)log_cropped_logv3)[i];
+				log_packet_v3 log_p = ((log_packet_v3 *)log_cropped_logv3)[i];
 				float current_time_s = log_p.time_boot_ms / 1000.0f;
 
 				// Update sensor data in Master Struct
@@ -461,12 +475,12 @@ void ShowVisualizer()
 					log_p.bmi323_gyro_z * (M_PI / 180.0f);
 				float current_abs_alt = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100.0f);
 				inputs.Barometer_m = current_abs_alt - pad_altitude_m;
-				
 
 				// Calculate which GPS index to use
 				int gps_idx = 0; // Default to pad data (index 0)
 				// Assign stitched GPS to filter inputs
-				if (gpsLoaded && launch_time_s > 0.0f && current_time_s >= launch_time_s) {
+				if (gpsLoaded && launch_time_s > 0.0f && current_time_s >= launch_time_s)
+				{
 					float time_since_launch = current_time_s - launch_time_s;
 
 					// 1. Calculate the exact target time on the GPS clock
@@ -475,20 +489,24 @@ void ShowVisualizer()
 
 					// 2. Find the bounding GPS indices based on true time
 					int base_idx = 1;
-					while (base_idx < gps_time.size() - 1 && gps_time[base_idx + 1] <= target_gps_time) {
+					while (base_idx < gps_time.size() - 1 && gps_time[base_idx + 1] <= target_gps_time)
+					{
 						base_idx++;
 					}
 					int next_idx = base_idx + 1;
 
 					// 3. Calculate fractional interpolation using the true timestamps
 					float frac = 0.0f;
-					if (next_idx < gps_time.size()) {
+					if (next_idx < gps_time.size())
+					{
 						float time_diff = gps_time[next_idx] - gps_time[base_idx];
-						if (time_diff > 0.001f) {
+						if (time_diff > 0.001f)
+						{
 							frac = (target_gps_time - gps_time[base_idx]) / time_diff;
 						}
 					}
-					else {
+					else
+					{
 						// Cap out at the end of the data
 						next_idx = gps_time.size() - 1;
 					}
@@ -520,7 +538,8 @@ void ShowVisualizer()
 
 					// 7. Calculate velocity (Delta distance / Delta true time)
 					float vel_e = 0.0f, vel_n = 0.0f, vel_u = f.VertState.VelocityUp_mps;
-					if (next_idx != base_idx) {
+					if (next_idx != base_idx)
+					{
 						float dt = gps_time[next_idx] - gps_time[base_idx];
 						vel_e = (next_e - base_e) / dt;
 						vel_n = (next_n - base_n) / dt;
@@ -530,7 +549,8 @@ void ShowVisualizer()
 					inputs.GPS << pos_e, pos_n, pos_u, vel_e, vel_n, vel_u;
 					altitudeGPS_m[i] = pos_u;
 				}
-				else {
+				else
+				{
 					inputs.GPS.setZero();
 					altitudeGPS_m[i] = 0.0f;
 				}
@@ -565,14 +585,16 @@ void ShowVisualizer()
 
 				time_s[i] = timeCurrent_s;
 				velocityHoriz_mps[i] = sqrt(f.HorizState.VelocityNorth_mps * f.HorizState.VelocityNorth_mps +
-					f.HorizState.VelocityEast_mps * f.HorizState.VelocityEast_mps);
+											f.HorizState.VelocityEast_mps * f.HorizState.VelocityEast_mps);
 				zenith_rad[i] = atan2(velocityHoriz_mps[i], f.VertState.VelocityUp_mps);
 				altitude_m[i] = f.VertState.Altitude_m;
 				velocityZ_mps[i] = f.VertState.VelocityUp_mps;
 				thetaZ_rad[i] = zenith_rad[i];
 
-				if (altitude_m[i] > altitudeMax_m) altitudeMax_m = altitude_m[i];
-				if (altitude_m[i] < altitudeMin_m) altitudeMin_m = altitude_m[i];
+				if (altitude_m[i] > altitudeMax_m)
+					altitudeMax_m = altitude_m[i];
+				if (altitude_m[i] < altitudeMin_m)
+					altitudeMin_m = altitude_m[i];
 			}
 
 			timeMax_s = time_s[log_len - 1];
@@ -626,13 +648,20 @@ void ShowVisualizer()
 			ImPlot::PlotLine("Gyroscope X (measured)", time_s, gyroXMeasured_degps, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Gyroscope Y (measured)", time_s, gyroYMeasured_degps, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Gyroscope Z (measured)", time_s, gyroZMeasured_degps, log_len, ImPlotLineFlags_None);
-			
+
 			if (ImPlot::IsPlotHovered())
 			{
 				float t = (float)ImPlot::GetPlotMousePos().x;
 				g_nav_hovered_time = t;
 				int lo = 0, hi = log_len - 1;
-				while (lo < hi) { int mid = (lo + hi) / 2; if (time_s[mid] < t) lo = mid + 1; else hi = mid; }
+				while (lo < hi)
+				{
+					int mid = (lo + hi) / 2;
+					if (time_s[mid] < t)
+						lo = mid + 1;
+					else
+						hi = mid;
+				}
 				g_nav_hovered_idx = lo;
 			}
 			if (g_nav_hovered_idx >= 0)
@@ -657,8 +686,8 @@ void ShowVisualizer()
 		else
 		{
 			int idx = g_nav_hovered_idx;
-			float w  = g_nav_quat_w[idx], qx = g_nav_quat_x[idx],
-			      qy = g_nav_quat_y[idx], qz = g_nav_quat_z[idx];
+			float w = g_nav_quat_w[idx], qx = g_nav_quat_x[idx],
+				  qy = g_nav_quat_y[idx], qz = g_nav_quat_z[idx];
 
 			ImGui::Text("t = %.3f s", g_nav_hovered_time);
 			ImGui::Text("q: w=%.3f  x=%.3f  y=%.3f  z=%.3f", w, qx, qy, qz);
@@ -670,18 +699,19 @@ void ShowVisualizer()
 			ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 			ImVec2 available = ImGui::GetContentRegionAvail();
 			float size = available.x < available.y ? available.x : available.y;
-			if (size < 50.0f) size = 200.0f;
+			if (size < 50.0f)
+				size = 200.0f;
 
 			ImGui::InvisibleButton("##att3d", ImVec2(size, size));
 			ImVec2 center = ImVec2(canvasPos.x + size * 0.5f, canvasPos.y + size * 0.5f);
 			float scale = size * 0.35f;
 
-			ImDrawList* dl = ImGui::GetWindowDrawList();
+			ImDrawList *dl = ImGui::GetWindowDrawList();
 
 			dl->AddRectFilled(canvasPos, ImVec2(canvasPos.x + size, canvasPos.y + size),
-			                  IM_COL32(20, 20, 25, 255));
+							  IM_COL32(20, 20, 25, 255));
 			dl->AddRect(canvasPos, ImVec2(canvasPos.x + size, canvasPos.y + size),
-			            IM_COL32(80, 80, 80, 255));
+						IM_COL32(80, 80, 80, 255));
 
 			// Reference sphere circles
 			const int segs = 48;
@@ -691,17 +721,17 @@ void ShowVisualizer()
 				float a0 = (float)i / segs * 2.0f * (float)M_PI;
 				float a1 = (float)(i + 1) / segs * 2.0f * (float)M_PI;
 				dl->AddLine(Project3D(r * cosf(a0), r * sinf(a0), 0, center, scale),
-				            Project3D(r * cosf(a1), r * sinf(a1), 0, center, scale),
-				            IM_COL32(50, 50, 60, 200));
+							Project3D(r * cosf(a1), r * sinf(a1), 0, center, scale),
+							IM_COL32(50, 50, 60, 200));
 				dl->AddLine(Project3D(r * cosf(a0), 0, r * sinf(a0), center, scale),
-				            Project3D(r * cosf(a1), 0, r * sinf(a1), center, scale),
-				            IM_COL32(50, 50, 60, 200));
+							Project3D(r * cosf(a1), 0, r * sinf(a1), center, scale),
+							IM_COL32(50, 50, 60, 200));
 			}
 
-			auto drawArrow = [&](float ax, float ay, float az, ImU32 color, const char* label)
+			auto drawArrow = [&](float ax, float ay, float az, ImU32 color, const char *label)
 			{
 				ImVec2 origin = Project3D(0, 0, 0, center, scale);
-				ImVec2 tip    = Project3D(ax, ay, az, center, scale);
+				ImVec2 tip = Project3D(ax, ay, az, center, scale);
 				dl->AddLine(origin, tip, color, 2.0f);
 				dl->AddCircleFilled(tip, 4.5f, color);
 				dl->AddText(ImVec2(tip.x + 5, tip.y - 5), color, label);
@@ -713,9 +743,9 @@ void ShowVisualizer()
 			drawArrow(0, 0, r, IM_COL32(50, 50, 120, 200), "U");
 
 			// Body frame axes expressed in ENU (bright)
-			drawArrow(R(0,0), R(1,0), R(2,0), IM_COL32(255, 80, 80, 255), "Bx");
-			drawArrow(R(0,1), R(1,1), R(2,1), IM_COL32(80, 255, 80, 255), "By");
-			drawArrow(R(0,2), R(1,2), R(2,2), IM_COL32(80, 80, 255, 255), "Bz");
+			drawArrow(R(0, 0), R(1, 0), R(2, 0), IM_COL32(255, 80, 80, 255), "Bx");
+			drawArrow(R(0, 1), R(1, 1), R(2, 1), IM_COL32(80, 255, 80, 255), "By");
+			drawArrow(R(0, 2), R(1, 2), R(2, 2), IM_COL32(80, 80, 255, 255), "Bz");
 
 			dl->AddCircleFilled(Project3D(0, 0, 0, center, scale), 5.0f, IM_COL32(220, 220, 220, 255));
 
@@ -740,11 +770,14 @@ void ShowVisualizer()
 			.airbrakeDeployment_pct = 0,
 		};
 
+		static float rocket_mass_kg = 30;
+
 		ImGui::Text("Initial conditions:");
 		outOfDate |= ImGui::SliderFloat("Altitude (m)", &ic.altitude_m, 0, 10000);
 		outOfDate |= ImGui::SliderFloat("Velocity (m/s)", &ic.velocityZ_mps, 0, 1000);
 		outOfDate |= ImGui::SliderFloat("Theta Z (rad)", &ic.thetaZ_rad, 0, 1.57);
 		outOfDate |= ImGui::SliderFloat("Airbrake deployment (%)", &ic.airbrakeDeployment_pct, 0, 100);
+		outOfDate |= ImGui::SliderFloat("Rocket mass (kg)", &rocket_mass_kg, 1, 50);
 
 		ImGui::Text("Configuration:");
 		outOfDate |= ImGui::SliderFloat("Target apogee (m)", &targetApogee_m, 0, 10000);
@@ -752,6 +785,7 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
+			AB_set_rocket_mass(rocket_mass_kg);
 			calculatedAirbrakeDeployment_pct = PredictDeploymentPct(ic, targetApogee_m, &itersReqd);
 		}
 

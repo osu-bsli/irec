@@ -51,7 +51,7 @@ PACKED_STRUCT telemetry_packet {
 END_PACKED_STRUCT;
 
 PACKED_STRUCT log_packet_v3 {
-    char magic[9]; // 'COREYMAYS' in ASCII with no null terminator
+    char magic[9]; // 'COREYMAY3' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
 

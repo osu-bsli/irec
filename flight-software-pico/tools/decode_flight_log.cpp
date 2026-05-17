@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     size_t nread;
     size_t packet_index = 0;
     
-    FILE* fp_log_cropped = fopen("log_cropped.logv3", "w");
+    // FILE* fp_log_cropped = fopen("log_cropped.logv3", "w");
 
     while ((nread = fread(&pkt, 1, sizeof(pkt), fp)) == sizeof(pkt)) {
         packet_index++;
@@ -100,10 +100,10 @@ int main(int argc, char **argv)
 
         printf("\n");
 
-        if (pkt.time_boot_ms > crop_start_ms && pkt.time_boot_ms < crop_end_ms)
-        {
-            fwrite(&pkt, sizeof(pkt), 1, fp_log_cropped);
-        }
+        // if (pkt.time_boot_ms > crop_start_ms && pkt.time_boot_ms < crop_end_ms)
+        // {
+        //     fwrite(&pkt, sizeof(pkt), 1, fp_log_cropped);
+        // }
     }
 
     if (!feof(fp)) {
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
         fclose(fp);
     }
 
-    fclose(fp_log_cropped);
+    // fclose(fp_log_cropped);
 
     return 0;
 }

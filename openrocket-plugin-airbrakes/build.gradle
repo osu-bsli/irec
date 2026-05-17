@@ -39,6 +39,7 @@ tasks.register('run', JavaExec) {
     mainClass = 'info.openrocket.swing.startup.OpenRocket'
     classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
     systemProperty 'java.library.path', 'cmake-build-debug/Debug'
+    args = ['IREC 4.22.26.ork']
 }
 
 tasks.withType(JavaCompile) {

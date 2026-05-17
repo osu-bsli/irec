@@ -5,6 +5,13 @@
 const float DEPLOYMENT_RATE_PCT_PER_S = 100.0 / 1.7;
 const float GROUND_LEVEL_TEMP_CELCIUS = 25;
 
+static float mass_kg = 30;
+
+void AB_set_rocket_mass(float val)
+{
+    mass_kg = val;
+}
+
 struct rkDerivs { float dv, dx, dtheta; };
 
 static inline float clamp_cos(float c)
@@ -25,7 +32,7 @@ float AB_drag_force(float deployment_pct, float vTotal_mps, float altitude_m)
 
 float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m)
 {
-    return AB_drag_force(deployment_pct, vTotal_mps, altitude_m) / MASS;
+    return AB_drag_force(deployment_pct, vTotal_mps, altitude_m) / mass_kg;
 }
 
 
