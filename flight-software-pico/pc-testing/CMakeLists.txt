@@ -29,16 +29,10 @@ target_include_directories(airbrakes PUBLIC
     lib/implot-0.16
 )
 
-target_compile_options(airbrakes PUBLIC /std:c++20)
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(airbrakes PUBLIC /MP /RTCsu)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    # clang_rt.ubsan_standalone is built without debug iterators (IDL=0),
-    # incompatible with Debug builds (IDL=2). Only enable for non-Debug configs.
-    target_compile_options(airbrakes PUBLIC $<$<NOT:$<CONFIG:Debug>>:-fsanitize=undefined>)
-    target_link_options(airbrakes PUBLIC $<$<NOT:$<CONFIG:Debug>>:-fsanitize=undefined>)
-endif()
+target_compile_options(airbrakes PUBLIC
+    /MP /std:c++20
+    /RTCsu
+)
 
 add_executable(${PROJECT_NAME}
     src/main.cpp

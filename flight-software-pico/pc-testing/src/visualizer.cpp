@@ -352,6 +352,7 @@ void ShowVisualizer()
 			zenith_rad[log_len] = { 0 },
 			altitude_m[log_len] = { 0 },
 			altitudeMeasured_m[log_len] = { 0 },
+			altitudeGPS_m[log_len] = { 0 },
 			velocityZ_mps[log_len] = { 0 },
 			thetaZ_rad[log_len] = { 0 },
 			lowGAccelZMeasured_mps2[log_len] = { 0 },
@@ -389,10 +390,68 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
+			static bool gpsLoaded = false;
+			static std::vector<float> gps_lat, gps_lon, gps_alt, gps_time; // NEW: Added gps_time
+			if (!gpsLoaded) {
+				try {
+					rapidcsv::Document gps_csv("test/TeleGPS_GPS_data_nomad-4-11-2026.csv", rapidcsv::LabelParams(0, -1));
+
+					std::vector<float> raw_lat = gps_csv.GetColumn<float>("latitude");
+					std::vector<float> raw_lon = gps_csv.GetColumn<float>("longitude");
+					std::vector<float> raw_alt = gps_csv.GetColumn<float>("altitude");
+					std::vector<float> raw_time = gps_csv.GetColumn<float>("time"); // NEW: Load continuous time
+					std::vector<int> raw_sec = gps_csv.GetColumn<int>("second");
+
+					// Filter out consecutive duplicate seconds
+					if (raw_sec.size() > 0) {
+						gps_lat.push_back(raw_lat[0]);
+						gps_lon.push_back(raw_lon[0]);
+						gps_alt.push_back(raw_alt[0]);
+						gps_time.push_back(raw_time[0]); // Save time
+						int last_sec = raw_sec[0];
+
+						for (size_t i = 1; i < raw_sec.size(); i++) {
+							if (raw_sec[i] != last_sec) {
+								gps_lat.push_back(raw_lat[i]);
+								gps_lon.push_back(raw_lon[i]);
+								gps_alt.push_back(raw_alt[i]);
+								gps_time.push_back(raw_time[i]); // Save time
+								last_sec = raw_sec[i];
+							}
+						}
+					}
+					gpsLoaded = true;
+				}
+				catch (const std::exception& e) {
+					printf("Failed to load GPS CSV!\n");
+				}
+			}
+
+			float launch_time_s = -1.0f;
+			for (int i = 0; i < log_len; i++)
+			{
+				log_packet_v3 lp = ((log_packet_v3*)log_cropped_logv3)[i];
+				// Detect liftoff using High-G sensor (e.g., > 25 m/s^2)
+				if (lp.adxl375_accel_z * G > 40.0f) {
+					launch_time_s = lp.time_boot_ms / 1000.0f;
+					break;
+				}
+			}
+
+			//get basseline altitude from barometer on pad
+			float pad_altitude_sum = 0.0f;
+			int pad_samples = 50;
+			if (pad_samples > log_len) pad_samples = log_len;
+			for (int i = 0; i < pad_samples; i++) {
+				log_packet_v3 p = ((log_packet_v3*)log_cropped_logv3)[i];
+				pad_altitude_sum += get_altitude_from_pressure(p.ms5607_pressure_mbar * 100.0f);
+			}
+			float pad_altitude_m = pad_altitude_sum / (float)pad_samples;
 			
 			for (int i = 0; i < log_len; i++)
 			{
 				log_packet_v3 log_p = ((log_packet_v3*)log_cropped_logv3)[i];
+				float current_time_s = log_p.time_boot_ms / 1000.0f;
 
 				// Update sensor data in Master Struct
 				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y * G, log_p.bmi323_accel_x * G, log_p.bmi323_accel_z * G;
@@ -400,8 +459,81 @@ void ShowVisualizer()
 				inputs.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
 					log_p.bmi323_gyro_y * (M_PI / 180.0f),
 					log_p.bmi323_gyro_z * (M_PI / 180.0f);
-				inputs.Barometer_m = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100);
-				inputs.GPS.setZero();
+				float current_abs_alt = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100.0f);
+				inputs.Barometer_m = current_abs_alt - pad_altitude_m;
+				
+
+				// Calculate which GPS index to use
+				int gps_idx = 0; // Default to pad data (index 0)
+				// Assign stitched GPS to filter inputs
+				if (gpsLoaded && launch_time_s > 0.0f && current_time_s >= launch_time_s) {
+					float time_since_launch = current_time_s - launch_time_s;
+
+					// 1. Calculate the exact target time on the GPS clock
+					// gps_time[1] is the GPS timestamp at launch
+					float target_gps_time = gps_time[1] + time_since_launch;
+
+					// 2. Find the bounding GPS indices based on true time
+					int base_idx = 1;
+					while (base_idx < gps_time.size() - 1 && gps_time[base_idx + 1] <= target_gps_time) {
+						base_idx++;
+					}
+					int next_idx = base_idx + 1;
+
+					// 3. Calculate fractional interpolation using the true timestamps
+					float frac = 0.0f;
+					if (next_idx < gps_time.size()) {
+						float time_diff = gps_time[next_idx] - gps_time[base_idx];
+						if (time_diff > 0.001f) {
+							frac = (target_gps_time - gps_time[base_idx]) / time_diff;
+						}
+					}
+					else {
+						// Cap out at the end of the data
+						next_idx = gps_time.size() - 1;
+					}
+
+					// 4. Convert Pad, Base, and Next Lat/Lon to Radians
+					const float R_EARTH = 6378137.0f;
+					float pad_lat_rad = gps_lat[0] * (M_PI / 180.0f);
+					float pad_lon_rad = gps_lon[0] * (M_PI / 180.0f);
+
+					float base_lat_rad = gps_lat[base_idx] * (M_PI / 180.0f);
+					float base_lon_rad = gps_lon[base_idx] * (M_PI / 180.0f);
+
+					float next_lat_rad = gps_lat[next_idx] * (M_PI / 180.0f);
+					float next_lon_rad = gps_lon[next_idx] * (M_PI / 180.0f);
+
+					// 5. Convert Base and Next to Cartesian Meters from Pad
+					float base_e = (base_lon_rad - pad_lon_rad) * R_EARTH * cos(pad_lat_rad);
+					float base_n = (base_lat_rad - pad_lat_rad) * R_EARTH;
+					float base_u = gps_alt[base_idx] - gps_alt[0];
+
+					float next_e = (next_lon_rad - pad_lon_rad) * R_EARTH * cos(pad_lat_rad);
+					float next_n = (next_lat_rad - pad_lat_rad) * R_EARTH;
+					float next_u = gps_alt[next_idx] - gps_alt[0];
+
+					// 6. Interpolate the position
+					float pos_e = base_e + frac * (next_e - base_e);
+					float pos_n = base_n + frac * (next_n - base_n);
+					float pos_u = base_u + frac * (next_u - base_u);
+
+					// 7. Calculate velocity (Delta distance / Delta true time)
+					float vel_e = 0.0f, vel_n = 0.0f, vel_u = f.VertState.VelocityUp_mps;
+					if (next_idx != base_idx) {
+						float dt = gps_time[next_idx] - gps_time[base_idx];
+						vel_e = (next_e - base_e) / dt;
+						vel_n = (next_n - base_n) / dt;
+					}
+
+					// Assign to filter inputs
+					inputs.GPS << pos_e, pos_n, pos_u, vel_e, vel_n, vel_u;
+					altitudeGPS_m[i] = pos_u;
+				}
+				else {
+					inputs.GPS.setZero();
+					altitudeGPS_m[i] = 0.0f;
+				}
 
 				float timeCurrent_s = log_p.time_boot_ms / 1000.0;
 
@@ -416,7 +548,7 @@ void ShowVisualizer()
 
 				AB_Filter_Process(f, inputs, s);
 
-				altitudeMeasured_m[i] = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100);
+				altitudeMeasured_m[i] = current_abs_alt - pad_altitude_m;
 				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z * G;
 				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z * G;
 				gyroXMeasured_degps[i] = log_p.bmi323_gyro_x;
@@ -456,6 +588,7 @@ void ShowVisualizer()
 			ImPlot::SetupAxisLimits(ImAxis_Y1, altitudeMin_m, altitudeMax_m, ImPlotCond_Once);
 			ImPlot::PlotLine("Altitude (filtered)", time_s, altitude_m, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Altitude (measured, barometric)", time_s, altitudeMeasured_m, log_len, ImPlotLineFlags_None);
+			ImPlot::PlotLine("Altitude (measured, GPS)", time_s, altitudeGPS_m, log_len, ImPlotLineFlags_None);
 
 			plotDrawVerticalLineAtDataX(ignoreBaroStart_s, IM_COL32(255, 0, 0, 80));
 			plotDrawVerticalLineAtDataX(ignoreBaroEnd_s, IM_COL32(0, 255, 0, 80));
