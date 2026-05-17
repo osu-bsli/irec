@@ -2,6 +2,7 @@
 
 #include <pico.h>
 
+const float DEPLOYMENT_RATE_PCT_PER_S = 100.0 / 1.7;
 const float GROUND_LEVEL_TEMP_CELCIUS = 25;
 
 struct rkDerivs { float dv, dx, dtheta; };
@@ -27,12 +28,6 @@ float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m)
     return AB_drag_force(deployment_pct, vTotal_mps, altitude_m) / MASS;
 }
 
-static inline float adaptive_dt(float vel)
-{
-    if (vel > 343) return 0.1f;
-    if (vel < 50)  return 0.2f;
-    return 0.3f;
-}
 
 // g = gravity(positionZ) pre-computed once per RK4 step; original always uses start-of-step position for gravity.
 static inline struct rkDerivs compute_derivs(float g, float pos, float vel, float theta, float dep)
@@ -45,7 +40,7 @@ static inline struct rkDerivs compute_derivs(float g, float pos, float vel, floa
 
 // predict deployment angle, takes in the initial vertical position, vertical velocity, and zenith angle
 // uses a binary search to converge on an apogee, attempts to overshoot until it gets within 100m.
-float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float targetApogee, int *out_itersReqd)
+float __not_in_flash_func(PredictDeploymentPct)(const struct apogeeIC ic, const float targetApogee, int *out_itersReqd)
 {
     *out_itersReqd = 0;
 
@@ -65,8 +60,7 @@ float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float 
     while ((high_pct - low_pct) > 0.01)
     {
         float mid = (low_pct + high_pct) / 2.0;
-        ic.airbrakeDeployment_pct = mid;
-        float predictedApogee = PredictApogee(ic);
+        float predictedApogee = PredictApogee(ic, mid);
 
         if (predictedApogee > currentTarget)
             low_pct = mid;  // Need more drag, deploy more
@@ -81,30 +75,63 @@ float __not_in_flash_func(PredictDeploymentPct)(struct apogeeIC ic, const float 
 
 // gets called by PredictDeploymentPct; integrates trajectory forward using RK4 until apogee.
 // TODO: need to account for the slew rate of the airbrakes opening
-float __not_in_flash_func(PredictApogee)(const struct apogeeIC ic)
+float __not_in_flash_func(PredictApogee)(const struct apogeeIC ic, const float targetAirbrakeDeployment_pct)
 {
-    float positionZ = ic.altitude_m;
-    float velocityZ = ic.velocityZ_mps;
-    float thetaZ    = ic.thetaZ_rad;
-    float dep       = ic.airbrakeDeployment_pct;
-    float dt        = 0.3f;
-    int   iter      = 0;
+    float positionZ  = ic.altitude_m;
+    float velocityZ  = ic.velocityZ_mps;
+    float thetaZ     = ic.thetaZ_rad;
+    float airbrakeDeployment_pct = ic.airbrakeDeployment_pct;
+    float dt         = 0.3f;
+    int   iter       = 0;
 
     while (velocityZ > 0.0f && iter < 1000)
     {
         float g = gravity(positionZ);
 
-        struct rkDerivs k1 = compute_derivs(g, positionZ,                 velocityZ,                 thetaZ,                     dep);
-        struct rkDerivs k2 = compute_derivs(g, positionZ + 0.5f*dt*k1.dx, velocityZ + 0.5f*dt*k1.dv, thetaZ + 0.5f*dt*k1.dtheta, dep);
-        struct rkDerivs k3 = compute_derivs(g, positionZ + 0.5f*dt*k2.dx, velocityZ + 0.5f*dt*k2.dv, thetaZ + 0.5f*dt*k2.dtheta, dep);
-        struct rkDerivs k4 = compute_derivs(g, positionZ +      dt*k3.dx, velocityZ +      dt*k3.dv, thetaZ +      dt*k3.dtheta, dep);
+        struct rkDerivs k1 = compute_derivs(g, positionZ,                 velocityZ,                 thetaZ,                     airbrakeDeployment_pct);
+        struct rkDerivs k2 = compute_derivs(g, positionZ + 0.5f*dt*k1.dx, velocityZ + 0.5f*dt*k1.dv, thetaZ + 0.5f*dt*k1.dtheta, airbrakeDeployment_pct);
+        struct rkDerivs k3 = compute_derivs(g, positionZ + 0.5f*dt*k2.dx, velocityZ + 0.5f*dt*k2.dv, thetaZ + 0.5f*dt*k2.dtheta, airbrakeDeployment_pct);
+        struct rkDerivs k4 = compute_derivs(g, positionZ +      dt*k3.dx, velocityZ +      dt*k3.dv, thetaZ +      dt*k3.dtheta, airbrakeDeployment_pct);
 
         // these fixed timesteps keep accuracy high, but step size large; could improve with variable-step method
         positionZ += (k1.dx     + 2*k2.dx     + 2*k3.dx     + k4.dx)     * dt / 6.0f;
         velocityZ += (k1.dv     + 2*k2.dv     + 2*k3.dv     + k4.dv)     * dt / 6.0f;
         thetaZ    += (k1.dtheta + 2*k2.dtheta + 2*k3.dtheta + k4.dtheta) * dt / 6.0f;
 
-        dt = adaptive_dt(velocityZ);
+        bool isDeploying = false;
+
+        if (fabs(airbrakeDeployment_pct - targetAirbrakeDeployment_pct) > 0.01f)
+        {
+            isDeploying = true;
+            float direction;
+            if (targetAirbrakeDeployment_pct > airbrakeDeployment_pct)
+            {
+                direction = 1.0f;
+            }
+            else
+            {
+                direction = -1.0f;
+            }
+            airbrakeDeployment_pct += direction * DEPLOYMENT_RATE_PCT_PER_S * dt;
+
+            if ((direction > 0.0f && airbrakeDeployment_pct > targetAirbrakeDeployment_pct) ||
+                (direction < 0.0f && airbrakeDeployment_pct < targetAirbrakeDeployment_pct))
+            {
+                airbrakeDeployment_pct = targetAirbrakeDeployment_pct;
+            }
+        }
+
+        if (isDeploying)
+        {
+            dt = 0.05f;
+        }
+        else
+        {
+            if (velocityZ > 343) dt = 0.1f;
+            if (velocityZ < 50)  dt = 0.2f;
+            else dt = 0.3f;
+        }
+
         iter++;
     }
 

@@ -394,7 +394,7 @@ void ShowVisualizer()
 			static std::vector<float> gps_lat, gps_lon, gps_alt, gps_time; // NEW: Added gps_time
 			if (!gpsLoaded) {
 				try {
-					rapidcsv::Document gps_csv("C:\\Users\\reill\\Downloads\\TeleGPS_GPS_data (1).csv", rapidcsv::LabelParams(0, -1));
+					rapidcsv::Document gps_csv("test/TeleGPS_GPS_data_nomad-4-11-2026.csv", rapidcsv::LabelParams(0, -1));
 
 					std::vector<float> raw_lat = gps_csv.GetColumn<float>("latitude");
 					std::vector<float> raw_lon = gps_csv.GetColumn<float>("longitude");
@@ -519,7 +519,7 @@ void ShowVisualizer()
 					float pos_u = base_u + frac * (next_u - base_u);
 
 					// 7. Calculate velocity (Delta distance / Delta true time)
-					float vel_e = 0.0f, vel_n = 0.0f, vel_u = f.VertState.Velocity_Up;
+					float vel_e = 0.0f, vel_n = 0.0f, vel_u = f.VertState.VelocityUp_mps;
 					if (next_idx != base_idx) {
 						float dt = gps_time[next_idx] - gps_time[base_idx];
 						vel_e = (next_e - base_e) / dt;
