@@ -12,6 +12,13 @@ group 'org.example'
 version '1.0-SNAPSHOT'
 
 repositories {
+    maven {
+        name = "Central Portal Snapshots"
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        content {
+            includeModule("info.openrocket", "core")
+        }
+    }
     mavenCentral()
 }
 sourceSets {
@@ -26,7 +33,7 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 
-    implementation files('lib/OpenRocket-24.12.jar')
+    implementation("info.openrocket:core:24.12")
     implementation 'com.fazecast:jSerialComm:[2.0.0,)'
 }
 
@@ -37,7 +44,7 @@ test {
 tasks.register('run', JavaExec) {
     dependsOn jar
     mainClass = 'info.openrocket.swing.startup.OpenRocket'
-    classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
+    classpath = sourceSets.main.runtimeClasspath
     workingDir = projectDir
     args = ['IREC 4.22.26.ork']
 }
@@ -45,7 +52,7 @@ tasks.register('run', JavaExec) {
 tasks.register('run-sim-suite', JavaExec) {
     dependsOn jar
     mainClass = 'RocketSimulationExample'
-    classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
+    classpath = sourceSets.main.runtimeClasspath
     workingDir = projectDir
 }
 
