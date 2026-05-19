@@ -2,13 +2,11 @@
 #include "AB_Struct_Storage.h"
 #include "MathFunctions.h"
 
-void AB_set_rocket_mass(float val);
+float PredictDeploymentPct(struct apogeeIC ic, int *out_itersReqd, const AB_Settings& settings);
+float PredictApogee(const struct apogeeIC ic, float targetAirbrakeDeployment_pct, const AB_Settings& settings);
 
-float PredictDeploymentPct(struct apogeeIC ic, float targetApogee, int *out_itersReqd);
-float PredictApogee(const struct apogeeIC ic, const float targetAirbrakeDeployment_pct);
-
-float AB_drag_force(float deployment_pct, float vTotal_mps, float altitude_m);
-float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m);
+float AB_drag_force(float deployment_pct, float vTotal_mps, float altitude_m, const AB_Settings& settings);
+float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m, const AB_Settings& settings);
 
 struct apogeeIC
 {
@@ -16,5 +14,4 @@ struct apogeeIC
     float velocityZ_mps;
     float thetaZ_rad;
     float airbrakeDeployment_pct;
-    float mass_kg;
 };

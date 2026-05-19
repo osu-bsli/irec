@@ -138,6 +138,8 @@ struct AcquirePacket
   struct apogeeIC ic;
 } AcquirePacket;
 
+static AB_Settings ab_settings = AB_Default_Settings();
+
 const uint32_t acquire_queue_len = 10;
 static StaticQueue_t acquire_queue_data;
 uint8_t acquire_queue_storage_buffer[acquire_queue_len * sizeof(AcquirePacket)];
@@ -525,8 +527,7 @@ static void runtime(void *pvParameters)
 
     // TODO: Update sensor data in Master Struct. Copy working code from the pc-testing visualizer
 
-    static AB_Settings s = AB_Default_Settings();
-    AB_Filter_Process(f, inputs, s);
+    AB_Filter_Process(f, inputs, ab_settings);
 
     const float v_horiz = sqrt(f.HorizState.VelocityNorth_mps * f.HorizState.VelocityNorth_mps +
                                f.HorizState.VelocityEast_mps * f.HorizState.VelocityEast_mps);
@@ -585,7 +586,7 @@ static void deploy(void *pvParameters)
     }
 
     int itersReqd;
-    const float airbrake_pct = PredictDeploymentPct(acquire_packet.ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS, &itersReqd);
+    const float airbrake_pct = PredictDeploymentPct(acquire_packet.ic, &itersReqd, ab_settings);
     const int servo_degrees = motor_map(airbrake_pct);
 
     AirBrakeServo.write(servo_degrees);
@@ -737,7 +738,7 @@ void test_airbrakes_algo_performance_loop()
 
     // Run function to benchmark
     int itersReqd;
-    const float airbrake_pct = PredictDeploymentPct(ic, CONFIG_AIRBRAKES_TARGET_APOGEE_METERS, &itersReqd);
+    const float airbrake_pct = PredictDeploymentPct(ic, &itersReqd, ab_settings);
 
     // Take time
     int us_taken = DWT->CYCCNT / SYS_CLK_MHZ;

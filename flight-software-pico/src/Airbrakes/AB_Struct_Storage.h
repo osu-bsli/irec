@@ -107,4 +107,7 @@ struct AB_Settings
     Matrix<float, 2, 2> VertGpsR;
 
     float Mass_kg;
+    float GroundTemp_C;
+    float DeploymentRate_pctPerS;
+    float TargetApogee_m;
 };

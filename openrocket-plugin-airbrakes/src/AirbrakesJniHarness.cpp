@@ -5,25 +5,24 @@
 #include "AB_Deployment.h"
 #include "AB_Filter_Main.h"
 
+static AB_Settings settings = AB_Default_Settings();
+
 JNIEXPORT void JNICALL Java_Airbrakes_SetRocketMass
   (JNIEnv *env, jclass c, float mass_kg) {
-    AB_set_rocket_mass(mass_kg);
+    settings.Mass_kg = mass_kg;
 }
-
-static float targetApogee_m = 8000;
 
 JNIEXPORT void JNICALL Java_Airbrakes_SetTargetApogee
   (JNIEnv *env, jclass c, float meters) {
-    targetApogee_m = meters;
+    settings.TargetApogee_m = meters;
 }
 
 
 JNIEXPORT jfloat JNICALL Java_Airbrakes_DragForce
 (JNIEnv *env, jclass c, float deployment_pct, float vTotal_mps, float altitude_m) {
-    return AB_drag_force(deployment_pct, vTotal_mps, altitude_m);
+    return AB_drag_force(deployment_pct, vTotal_mps, altitude_m, settings);
 }
 
-static AB_Settings settings = AB_Default_Settings();
 static AB_Filter filter;
 
 JNIEXPORT void JNICALL Java_Airbrakes_InitController
@@ -47,7 +46,7 @@ JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerRawAndGetDeploymentPct
     };
 
     int itersReqd = 0;
-    return PredictDeploymentPct(ic, targetApogee_m, &itersReqd);
+    return PredictDeploymentPct(ic, &itersReqd, settings);
 }
 
 JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerAndGetDeploymentPct
@@ -92,5 +91,5 @@ JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerAndGetDeploymentPct
     };
 
     int itersReqd = 0;
-    return PredictDeploymentPct(ic, targetApogee_m, &itersReqd);
+    return PredictDeploymentPct(ic, &itersReqd, settings);
 }

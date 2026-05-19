@@ -330,8 +330,9 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
-			AB_set_rocket_mass(rocket_mass_kg);
-			apogeePrediction_m = PredictApogee(ic, ic.airbrakeDeployment_pct);
+			AB_Settings s = AB_Default_Settings();
+			s.Mass_kg = rocket_mass_kg;
+			apogeePrediction_m = PredictApogee(ic, ic.airbrakeDeployment_pct, s);
 		}
 
 		ImGui::Text("Apogee prediction: %f meters", apogeePrediction_m);
@@ -787,8 +788,10 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
-			AB_set_rocket_mass(rocket_mass_kg);
-			calculatedAirbrakeDeployment_pct = PredictDeploymentPct(ic, targetApogee_m, &itersReqd);
+			AB_Settings s = AB_Default_Settings();
+			s.Mass_kg = rocket_mass_kg;
+			s.TargetApogee_m = targetApogee_m;
+			calculatedAirbrakeDeployment_pct = PredictDeploymentPct(ic, &itersReqd, s);
 		}
 
 		ImGui::Text("Calculated airbrake deployment: %f percent", calculatedAirbrakeDeployment_pct);

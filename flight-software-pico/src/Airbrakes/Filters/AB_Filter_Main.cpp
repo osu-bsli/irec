@@ -1,4 +1,5 @@
 #include "AB_Filter_Main.h"
+#include "../../config.h"
 #include <iostream>
 using namespace std;
 
@@ -266,6 +267,11 @@ const AB_Settings AB_Default_Settings()
 	s.VertGpsR.setIdentity();
 	s.VertGpsR(0, 0) = 5.0f;
 	s.VertGpsR(1, 1) = 5.0f;
+
+	s.Mass_kg = 30.0f;
+	s.GroundTemp_C = 35.0f;
+	s.DeploymentRate_pctPerS = 100.0f / 1.28333333f;
+	s.TargetApogee_m = CONFIG_AIRBRAKES_TARGET_APOGEE_METERS;
 
 	return s;
 }
