@@ -38,8 +38,15 @@ tasks.register('run', JavaExec) {
     dependsOn jar
     mainClass = 'info.openrocket.swing.startup.OpenRocket'
     classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
-    systemProperty 'java.library.path', 'cmake-build-debug/Debug'
+    workingDir = projectDir
     args = ['IREC 4.22.26.ork']
+}
+
+tasks.register('run-sim-suite', JavaExec) {
+    dependsOn jar
+    mainClass = 'RocketSimulationExample'
+    classpath = files('./lib/OpenRocket-24.12.jar', tasks.jar) + sourceSets.main.runtimeClasspath
+    workingDir = projectDir
 }
 
 tasks.withType(JavaCompile) {

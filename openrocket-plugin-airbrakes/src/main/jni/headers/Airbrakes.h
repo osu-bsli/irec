@@ -17,6 +17,14 @@ JNIEXPORT void JNICALL Java_Airbrakes_SetRocketMass
 
 /*
  * Class:     Airbrakes
+ * Method:    SetTargetApogee
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_Airbrakes_SetTargetApogee
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     Airbrakes
  * Method:    DragForce
  * Signature: (FFF)F
  */

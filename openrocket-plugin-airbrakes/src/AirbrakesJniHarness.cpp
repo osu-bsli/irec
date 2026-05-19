@@ -10,6 +10,14 @@ JNIEXPORT void JNICALL Java_Airbrakes_SetRocketMass
     AB_set_rocket_mass(mass_kg);
 }
 
+static float targetApogee_m = 8000;
+
+JNIEXPORT void JNICALL Java_Airbrakes_SetTargetApogee
+  (JNIEnv *env, jclass c, float meters) {
+    targetApogee_m = meters;
+}
+
+
 JNIEXPORT jfloat JNICALL Java_Airbrakes_DragForce
 (JNIEnv *env, jclass c, float deployment_pct, float vTotal_mps, float altitude_m) {
     return AB_drag_force(deployment_pct, vTotal_mps, altitude_m);
@@ -23,7 +31,6 @@ JNIEXPORT void JNICALL Java_Airbrakes_InitController
     AB_Filter_Initialize(filter);
 }
 
-const float targetApogee_m = 8000;
 
 JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerRawAndGetDeploymentPct
 (JNIEnv *env, jclass c,

@@ -43,6 +43,7 @@ public class Airbrakes extends AbstractSimulationExtension {
     }
 
     public static native void SetRocketMass(float mass_kg);
+    public static native void SetTargetApogee(float meters);
     public static native float DragForce(float deployment_pct, float vTotal_mps, float altitude_m);
 
     public static native void InitController();
@@ -124,7 +125,7 @@ public class Airbrakes extends AbstractSimulationExtension {
 
         final boolean HITL_AIRBRAKE_CONTROL = false;
 
-        final float AIRBRAKE_CONTROL_INTERVAL_S = 0.1f; // 10 Hz, 100 ms period
+        final float AIRBRAKE_CONTROL_INTERVAL_S = 2f; // 10 Hz, 100 ms period
         float airbrake_control_interval_timer = 0;
 
         @Override
