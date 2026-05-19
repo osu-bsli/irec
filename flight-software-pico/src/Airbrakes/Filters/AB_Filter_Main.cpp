@@ -21,11 +21,7 @@ void AB_Filter_Initialize(AB_Filter &filter)
 	filter.Flags.GPS = false;
 	AB_Attitude_State_Initialization(
 		filter.AttState,
-		filter.AB_Att_Pred,
-		filter.AB_Att_UP_Accel,
-		filter.AB_Att_UP_GPS,
-		filter.AB_Att_UP_Mag,
-		filter.AB_Att_UP_Drag);
+		filter.AB_Att_Pred);
 	AB_Vertical_State_Initialization(
 		filter.VertState);
 	AB_Horizontal_State_Initialization(
@@ -57,20 +53,21 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		highG = false;
 	}
 
+	float accel_z_current;
 	if (highG)
 	{
-		filter.accel_z_current = inputs.AccelerometerHG_mps2.z();
+		accel_z_current = inputs.AccelerometerHG_mps2.z();
 	}
 
 	else
 	{
-		filter.accel_z_current = inputs.Accelerometer_mps2.z();
+		accel_z_current = inputs.Accelerometer_mps2.z();
 	}
 
 	switch (filter.flight_stage)
 	{
 	case AB_Filter_Flight_Stage_PAD:
-		if (filter.accel_z_current > 2.0 * 9.802f)
+		if (accel_z_current > 2.0 * 9.802f)
 		{
 			filter.flight_stage = AB_Filter_Flight_Stage_BURNING;
 		}
@@ -79,7 +76,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		filter.time_since_launch += inputs.dt;
 		// filter.R = filter.R0 + (filter.Rdot * filter.time_since_launch);
 
-		if (filter.accel_z_current < 1.0f)
+		if (accel_z_current < 1.0f)
 		{
 			filter.flight_stage = AB_Filter_Flight_Stage_BURNOUT;
 		}
@@ -106,14 +103,14 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		{
 			if (filter.VertState.VelocityUp_mps < 0.3f)
 			{
-				AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+				AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_Pred, highG);
 			}
 		}
 	}
 
 	else if (filter.flight_stage == AB_Filter_Flight_Stage_APOGEE && filter.VertState.Altitude_m < 400.0f)
 	{
-		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_Pred, highG);
 	}
 
 	else
@@ -124,7 +121,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 			{
 				if (highG)
 				{
-					AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_UP_Accel, filter.AB_Att_Pred, highG);
+					AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_Pred, highG);
 				}
 			}
 		}
@@ -135,7 +132,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		// Don't use GPS while we're sitting still 
 		if (inputs.GPS.block<3, 1>(3, 0).norm() > 10.0f)
 		{
-			AB_Attitude_State_Update_GPS(filter.AttState, inputs, filter.AB_Att_UP_GPS, filter.AB_Att_Pred);
+			AB_Attitude_State_Update_GPS(filter.AttState, inputs, filter.AB_Att_Pred);
 		}
 	}
 
@@ -149,7 +146,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	{
 		if (filter.flight_stage != AB_Filter_Flight_Stage_BURNING)
 		{
-			// AB_Attitude_State_Update_Mag(filter.AttState, filter.Sensors, filter.AB_Att_UP_Mag, filter.AB_Att_Pred);
+			// AB_Attitude_State_Update_Mag(filter.AttState, inputs, filter.AB_Att_Pred);
 		}
 	}
 
@@ -157,7 +154,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	if (filter.flight_stage == AB_Filter_Flight_Stage_BURNOUT && filter.VertState.VelocityUp_mps > 15.0f)
 	{
 		// Pass the state, sensors, vertical data, and prediction variables
-		//AB_Attitude_Update_PseudoDrag(filter.AttState, inputs, filter.VertState, filter.HorizState, filter.AB_Att_UP_Drag, filter.AB_Att_Pred);
+		//AB_Attitude_Update_PseudoDrag(filter.AttState, inputs, filter.VertState, filter.HorizState, filter.AB_Att_Pred);
 	}
 
 	// transform the acceleration vector to ENU frame and prepare it for vert and horizontal filter
@@ -207,28 +204,30 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 
 	if (filter.Flags.GPS == false && abs(filter.VertState.VelocityUp_mps) > 10.0f)
 	{
-		Estimate_Horizontal_Velocity(filter.AttState, filter.VertState, filter.HorizState, filter.velN, filter.velE);
-		filter.residN = filter.HorizState.VelocityNorth_mps - filter.velN;
-		filter.residE = filter.HorizState.VelocityEast_mps - filter.velE;
+		float velN, velE;
+		Estimate_Horizontal_Velocity(filter.AttState, filter.VertState, filter.HorizState, velN, velE);
+		float residN = filter.HorizState.VelocityNorth_mps - velN;
+		float residE = filter.HorizState.VelocityEast_mps - velE;
 
+		float alpha;
 		if (filter.flight_stage != AB_Filter_Flight_Stage_APOGEE)
 		{
-			filter.alpha = 0.0008f;
+			alpha = 0.0008f;
 		}
 
 		else
 		{
-			filter.alpha = 0.002f;
+			alpha = 0.002f;
 		}
 
-		if (abs(filter.residN) > 5.0f)
+		if (abs(residN) > 5.0f)
 		{
-			filter.HorizState.VelocityNorth_mps = (1 - filter.alpha) * filter.HorizState.VelocityNorth_mps + filter.alpha * filter.velN;
+			filter.HorizState.VelocityNorth_mps = (1 - alpha) * filter.HorizState.VelocityNorth_mps + alpha * velN;
 		}
 
-		if (abs(filter.residE) > 5.0f)
+		if (abs(residE) > 5.0f)
 		{
-			filter.HorizState.VelocityEast_mps = (1 - filter.alpha) * filter.HorizState.VelocityEast_mps + filter.alpha * filter.velE;
+			filter.HorizState.VelocityEast_mps = (1 - alpha) * filter.HorizState.VelocityEast_mps + alpha * velE;
 		}
 	}
 

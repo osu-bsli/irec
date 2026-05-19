@@ -3,11 +3,7 @@
 // Initializes and fills in the attitude state and neccessary variables for future calculations
 void AB_Attitude_State_Initialization(
     AB_Attitude_State &sN,
-    AB_Attitude_Prediction &PredVars,
-    AB_Attitude_Update_Accel &AccelVars,
-    AB_Attitude_Update_GPS &GPSVars,
-    AB_Attitude_Update_Mag &MagVars,
-    AB_Attitude_Update_Drag &DragVars)
+    AB_Attitude_Prediction &PredVars)
 {
     sN.Quaternion_Body_To_ENU.setIdentity(); // TODO - replace with mag reading
     sN.Gyro_Bias(0, 0) = 0.0f;
@@ -18,7 +14,6 @@ void AB_Attitude_State_Initialization(
     sN.Accel_Bias(2, 0) = 0.0f;
 
     // Fairly confident in integration for position, biases are really low
-    PredVars.F.setIdentity();
     PredVars.C.setIdentity();
     PredVars.Q.setZero();
     PredVars.Q(0, 0) = 5e-4f;
@@ -30,55 +25,6 @@ void AB_Attitude_State_Initialization(
     PredVars.Q(6, 6) = 0.0f;
     PredVars.Q(7, 7) = 0.0f;
     PredVars.Q(8, 8) = 0.0f;
-
-    // Everthing to zero except for the accel, which we trust heavily
-    AccelVars.d.setZero();
-    AccelVars.y.setZero();
-    AccelVars.H.setZero();
-    AccelVars.K.setZero();
-    AccelVars.R.setIdentity();
-    AccelVars.R(0, 0) = .05f;
-    AccelVars.R(1, 1) = .05f;
-    AccelVars.R(2, 2) = .05f;
-    AccelVars.sE.setZero();
-    AccelVars.I.setIdentity();
-    AccelVars.grav << 0.0f, 0.0f, 1.0f;
-
-    // Everthing to zero except for the gps, for velocity we trust a lot
-    GPSVars.d.setZero();
-    GPSVars.y.setZero();
-    GPSVars.H.setZero();
-    GPSVars.K.setZero();
-    GPSVars.R.setIdentity();
-    GPSVars.R(0, 0) = 0.5f;
-    GPSVars.R(1, 1) = 0.5f;
-    GPSVars.R(2, 2) = 0.5f;
-    GPSVars.sE.setZero();
-    GPSVars.I.setIdentity();
-    GPSVars.noseVec << 0.0f, 0.0f, 1.0f;
-
-    // Everthing to zero except for the mag, which we dont trust too much
-    MagVars.d.setZero();
-    MagVars.y.setZero();
-    MagVars.H.setZero();
-    MagVars.K.setZero();
-    MagVars.R.setIdentity();
-    MagVars.R(0, 0) = 0.01108809f;
-    MagVars.R(1, 1) = 0.01435204f;
-    MagVars.R(2, 2) = 0.01468944f;
-    MagVars.sE.setZero();
-    MagVars.I.setIdentity();
-
-    DragVars.y.setZero();
-    DragVars.H.setZero();
-    DragVars.K.setZero();
-    DragVars.R.setIdentity();
-    DragVars.sE.setZero();
-    DragVars.I.setIdentity();
-    DragVars.deg10 = 10.0f * (3.14159265358979323846f / 180.0f);
-    DragVars.R_lo = 1.0f;
-    DragVars.R_hi = 5.0f;
-    DragVars.I33.setIdentity();
 }
 
 // Takes the calculation variables, current state, and new gyroscope data from the sensor struct and
@@ -116,15 +62,17 @@ void AB_Attitude_State_Prediction(
     sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * quatDelt; // update quaternionBody->ENU
     sN.Quaternion_Body_To_ENU.normalize();                            // normalize after every integration
 
-    Variables.W << 0.0f, -angZ, angY, angZ, 0.0f, -angX, -angY, angX, 0.0f;
+    Matrix3f W;
+    W << 0.0f, -angZ, angY, angZ, 0.0f, -angX, -angY, angX, 0.0f;
 
     // jacobian is identity, except middle top 3x3 block is -1*dt
-    Variables.F.setIdentity();
-    Variables.F.block<3, 3>(0, 0) -= Variables.W * inputs.dt;
-    Variables.F(0, 3) = -1.0f * inputs.dt;
-    Variables.F(1, 4) = -1.0f * inputs.dt;
-    Variables.F(2, 5) = -1.0f * inputs.dt;
-    Variables.C = Variables.F * Variables.C * Variables.F.transpose() + Variables.Q; // updating covariance
+    Matrix<float, 9, 9> F;
+    F.setIdentity();
+    F.block<3, 3>(0, 0) -= W * inputs.dt;
+    F(0, 3) = -1.0f * inputs.dt;
+    F(1, 4) = -1.0f * inputs.dt;
+    F(2, 5) = -1.0f * inputs.dt;
+    Variables.C = F * Variables.C * F.transpose() + Variables.Q; // updating covariance
 }
 
 // Takes the calculation variables, current state, and new accelerometer data from the sensor struct and computes
@@ -132,63 +80,72 @@ void AB_Attitude_State_Prediction(
 void AB_Attitude_State_Update_Accel(
     AB_Attitude_State &sN,
     const AB_Filter_Inputs &sensor,
-    AB_Attitude_Update_Accel &Variables,
     AB_Attitude_Prediction &UpVariables,
     const bool HG)
 {
+    Vector3f accelMeas;
+    Matrix<float, 3, 3> R;
+    R.setIdentity();
 
     if (HG == true)
     {
-        Variables.accelMeas = sensor.AccelerometerHG_mps2; // grabbing vector from sensor struct
-        Variables.R(0, 0) = 5.0f;
-        Variables.R(1, 1) = 5.0f;
-        Variables.R(2, 2) = 5.0f;
+        accelMeas = sensor.AccelerometerHG_mps2; // grabbing vector from sensor struct
+        R(0, 0) = 5.0f;
+        R(1, 1) = 5.0f;
+        R(2, 2) = 5.0f;
     }
     else
     {
-        Variables.accelMeas = sensor.Accelerometer_mps2; // grabbing vector from sensor struct
-        Variables.R(0, 0) = 0.05f;
-        Variables.R(1, 1) = 0.05f;
-        Variables.R(2, 2) = 0.05f;
+        accelMeas = sensor.Accelerometer_mps2; // grabbing vector from sensor struct
+        R(0, 0) = 0.05f;
+        R(1, 1) = 0.05f;
+        R(2, 2) = 0.05f;
     }
-    Variables.accelMeas.normalize();                                              // normalize it for saftey
-    Variables.accelPred = sN.Quaternion_Body_To_ENU.conjugate() * Variables.grav; // rotate gravity vector to body
-    Variables.y = Variables.accelMeas - Variables.accelPred;                      // residual
-    Variables.a_skew << 0.0f, -1.0f * Variables.accelPred.z(), Variables.accelPred.y(),
-        Variables.accelPred.z(), 0.0f, -1.0f * Variables.accelPred.x(),
-        -1.0f * Variables.accelPred.y(), Variables.accelPred.x(), 0.0f;
+    const Vector3f grav(0.0f, 0.0f, 1.0f);
+    accelMeas.normalize();                                        // normalize it for saftey
+    Vector3f accelPred = sN.Quaternion_Body_To_ENU.conjugate() * grav; // rotate gravity vector to body
+    Vector3f y = accelMeas - accelPred;                           // residual
+    Matrix3f a_skew;
+    a_skew << 0.0f, -1.0f * accelPred.z(), accelPred.y(),
+        accelPred.z(), 0.0f, -1.0f * accelPred.x(),
+        -1.0f * accelPred.y(), accelPred.x(), 0.0f;
 
     // measurement jacobian is pretty simple, top left block is that DCM, and botom right(accel bias) is identity
-    Variables.H.setZero();
-    Variables.H.block<3, 3>(0, 0) = Variables.a_skew;
-    Variables.H.block<3, 3>(0, 6).setIdentity();
+    Matrix<float, 3, 9> H;
+    H.setZero();
+    H.block<3, 3>(0, 0) = a_skew;
+    H.block<3, 3>(0, 6).setIdentity();
 
     // Now we find the kalman gain, K
-    Variables.K = UpVariables.C * Variables.H.transpose() * (Variables.H * UpVariables.C * Variables.H.transpose() + Variables.R).inverse();
+    Matrix<float, 9, 3> K = UpVariables.C * H.transpose() * (H * UpVariables.C * H.transpose() + R).inverse();
 
     // We also find the error state
-    Variables.sE = Variables.K * Variables.y;
+    Matrix<float, 9, 1> sE = K * y;
 
     // we add those corrections to the nominal state
-    sN.Gyro_Bias(0) += Variables.sE(3);
-    sN.Gyro_Bias(1) += Variables.sE(4);
-    sN.Gyro_Bias(2) += Variables.sE(5);
-    sN.Accel_Bias(0) += Variables.sE(6);
-    sN.Accel_Bias(1) += Variables.sE(7);
-    sN.Accel_Bias(2) += Variables.sE(8);
+    sN.Gyro_Bias(0) += sE(3);
+    sN.Gyro_Bias(1) += sE(4);
+    sN.Gyro_Bias(2) += sE(5);
+    sN.Accel_Bias(0) += sE(6);
+    sN.Accel_Bias(1) += sE(7);
+    sN.Accel_Bias(2) += sE(8);
 
     // here we are updating the state quaternion using the error state
-    Variables.thetaError << Variables.sE(0), Variables.sE(1), Variables.sE(2); // error in angle
-    Variables.qCorrection.w() = 1.0f;
-    Variables.qCorrection.x() = 0.5f * Variables.thetaError.x();
-    Variables.qCorrection.y() = 0.5f * Variables.thetaError.y();
-    Variables.qCorrection.z() = 0.5f * Variables.thetaError.z();                   // correction using that angle
-    Variables.qCorrection.normalize();                                             // normalize for saftey
-    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * Variables.qCorrection; // update using multiplication
-    sN.Quaternion_Body_To_ENU.normalize();                                         // another saftey normalization
+    Vector3f thetaError;
+    thetaError << sE(0), sE(1), sE(2); // error in angle
+    Quaternionf qCorrection;
+    qCorrection.w() = 1.0f;
+    qCorrection.x() = 0.5f * thetaError.x();
+    qCorrection.y() = 0.5f * thetaError.y();
+    qCorrection.z() = 0.5f * thetaError.z();                    // correction using that angle
+    qCorrection.normalize();                                     // normalize for saftey
+    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * qCorrection; // update using multiplication
+    sN.Quaternion_Body_To_ENU.normalize();                       // another saftey normalization
 
     // finally, we update the covariance
-    UpVariables.C = (Variables.I - Variables.K * Variables.H) * UpVariables.C;
+    Matrix<float, 9, 9> I;
+    I.setIdentity();
+    UpVariables.C = (I - K * H) * UpVariables.C;
 }
 
 // Takes the calculation variables, current state, and new gps data from the sensor struct and computes
@@ -196,44 +153,56 @@ void AB_Attitude_State_Update_Accel(
 void AB_Attitude_State_Update_GPS(
     AB_Attitude_State &sN,
     const AB_Filter_Inputs &sensor,
-    AB_Attitude_Update_GPS &Variables,
     AB_Attitude_Prediction &UpVariables)
 {
-    Variables.GPSMeas = sensor.GPS.block<3, 1>(3, 0);                              // grabbing vector from sensor struct
-    Variables.GPSMeas.normalize();                                                 // normalize it for saftey
-    Variables.GPSPred = sN.Quaternion_Body_To_ENU.conjugate() * Variables.GPSMeas; // rotate velocity vector to body
-    Variables.y = Variables.noseVec - Variables.GPSPred;                           // residual
-    Variables.a_skew << 0.0f, -1.0f * Variables.GPSPred.z(), Variables.GPSPred.y(),
-        Variables.GPSPred.z(), 0.0f, -1.0f * Variables.GPSPred.x(),
-        -1.0f * Variables.GPSPred.y(), Variables.GPSPred.x(), 0.0f;
+    const Vector3f noseVec(0.0f, 0.0f, 1.0f);
+    Matrix<float, 3, 3> R;
+    R.setIdentity();
+    R(0, 0) = 0.5f;
+    R(1, 1) = 0.5f;
+    R(2, 2) = 0.5f;
+
+    Vector3f GPSMeas = sensor.GPS.block<3, 1>(3, 0);        // grabbing vector from sensor struct
+    GPSMeas.normalize();                                     // normalize it for saftey
+    Vector3f GPSPred = sN.Quaternion_Body_To_ENU.conjugate() * GPSMeas; // rotate velocity vector to body
+    Vector3f y = noseVec - GPSPred;                          // residual
+    Matrix3f a_skew;
+    a_skew << 0.0f, -1.0f * GPSPred.z(), GPSPred.y(),
+        GPSPred.z(), 0.0f, -1.0f * GPSPred.x(),
+        -1.0f * GPSPred.y(), GPSPred.x(), 0.0f;
 
     // measurement jacobian is pretty simple, top left block is that DCM, and botom right(accel bias) is identity
-    Variables.H.setZero();
-    Variables.H.block<3, 3>(0, 0) = Variables.a_skew;
+    Matrix<float, 3, 9> H;
+    H.setZero();
+    H.block<3, 3>(0, 0) = a_skew;
 
     // Now we find the kalman gain, K
-    Variables.K = UpVariables.C * Variables.H.transpose() * (Variables.H * UpVariables.C * Variables.H.transpose() + Variables.R).inverse();
+    Matrix<float, 9, 3> K = UpVariables.C * H.transpose() * (H * UpVariables.C * H.transpose() + R).inverse();
 
     // We also find the error state
-    Variables.sE = Variables.K * Variables.y;
+    Matrix<float, 9, 1> sE = K * y;
 
     // we add those corrections to the nominal state
-    sN.Gyro_Bias(0) += Variables.sE(3);
-    sN.Gyro_Bias(1) += Variables.sE(4);
-    sN.Gyro_Bias(2) += Variables.sE(5);
+    sN.Gyro_Bias(0) += sE(3);
+    sN.Gyro_Bias(1) += sE(4);
+    sN.Gyro_Bias(2) += sE(5);
 
     // here we are updating the state quaternion using the error state
-    Variables.thetaError << Variables.sE(0), Variables.sE(1), Variables.sE(2); // error in angle
-    Variables.qCorrection.w() = 1.0f;
-    Variables.qCorrection.x() = 0.5f * Variables.thetaError.x();
-    Variables.qCorrection.y() = 0.5f * Variables.thetaError.y();
-    Variables.qCorrection.z() = 0.5f * Variables.thetaError.z();                   // correction using that angle
-    Variables.qCorrection.normalize();                                             // normalize for saftey
-    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * Variables.qCorrection; // update using multiplication
-    sN.Quaternion_Body_To_ENU.normalize();                                         // another saftey normalization
+    Vector3f thetaError;
+    thetaError << sE(0), sE(1), sE(2); // error in angle
+    Quaternionf qCorrection;
+    qCorrection.w() = 1.0f;
+    qCorrection.x() = 0.5f * thetaError.x();
+    qCorrection.y() = 0.5f * thetaError.y();
+    qCorrection.z() = 0.5f * thetaError.z();                    // correction using that angle
+    qCorrection.normalize();                                     // normalize for saftey
+    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * qCorrection; // update using multiplication
+    sN.Quaternion_Body_To_ENU.normalize();                       // another saftey normalization
 
     // finally, we update the covariance
-    UpVariables.C = (Variables.I - Variables.K * Variables.H) * UpVariables.C;
+    Matrix<float, 9, 9> I;
+    I.setIdentity();
+    UpVariables.C = (I - K * H) * UpVariables.C;
 }
 
 // Takes the calculation variables, current state, and new magnometer data from the sensor struct and computes
@@ -241,38 +210,52 @@ void AB_Attitude_State_Update_GPS(
 void AB_Attitude_State_Update_Mag(
     AB_Attitude_State &sN,
     const AB_Filter_Inputs &sensor,
-    AB_Attitude_Update_Mag &Variables,
     AB_Attitude_Prediction &UpVariables)
 {
     // TODO: i deleted some stuff to make it compile, what did this break?
+    Matrix<float, 3, 3> R;
+    R.setIdentity();
+    R(0, 0) = 0.01108809f;
+    R(1, 1) = 0.01435204f;
+    R(2, 2) = 0.01468944f;
+
+    Matrix3f a_skew;
+    a_skew.setZero();
+    Vector3f y;
+    y.setZero();
 
     // measurement jacobian is pretty simple, top left block is that DCM, and botom right(accel bias) is identity
-    Variables.H.setZero();
-    Variables.H.block<3, 3>(0, 0) = Variables.a_skew;
+    Matrix<float, 3, 9> H;
+    H.setZero();
+    H.block<3, 3>(0, 0) = a_skew;
 
     // Now we find the kalman gain, K
-    Variables.K = UpVariables.C * Variables.H.transpose() * (Variables.H * UpVariables.C * Variables.H.transpose() + Variables.R).inverse();
+    Matrix<float, 9, 3> K = UpVariables.C * H.transpose() * (H * UpVariables.C * H.transpose() + R).inverse();
 
     // We also find the error state
-    Variables.sE = Variables.K * Variables.y;
+    Matrix<float, 9, 1> sE = K * y;
 
     // we add those corrections to the nominal state
-    sN.Gyro_Bias(0) += Variables.sE(3);
-    sN.Gyro_Bias(1) += Variables.sE(4);
-    sN.Gyro_Bias(2) += Variables.sE(5);
+    sN.Gyro_Bias(0) += sE(3);
+    sN.Gyro_Bias(1) += sE(4);
+    sN.Gyro_Bias(2) += sE(5);
 
     // here we are updating the state quaternion using the error state
-    Variables.thetaError << Variables.sE(0), Variables.sE(1), Variables.sE(2); // error in angle
-    Variables.qCorrection.w() = 1.0f;
-    Variables.qCorrection.x() = 0.5f * Variables.thetaError.x();
-    Variables.qCorrection.y() = 0.5f * Variables.thetaError.y();
-    Variables.qCorrection.z() = 0.5f * Variables.thetaError.z();                   // correction using that angle
-    Variables.qCorrection.normalize();                                             // normalize for saftey
-    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * Variables.qCorrection; // update using multiplication
-    sN.Quaternion_Body_To_ENU.normalize();                                         // another saftey normalization
+    Vector3f thetaError;
+    thetaError << sE(0), sE(1), sE(2); // error in angle
+    Quaternionf qCorrection;
+    qCorrection.w() = 1.0f;
+    qCorrection.x() = 0.5f * thetaError.x();
+    qCorrection.y() = 0.5f * thetaError.y();
+    qCorrection.z() = 0.5f * thetaError.z();                    // correction using that angle
+    qCorrection.normalize();                                     // normalize for saftey
+    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * qCorrection; // update using multiplication
+    sN.Quaternion_Body_To_ENU.normalize();                       // another saftey normalization
 
     // finally, we update the covariance
-    UpVariables.C = (Variables.I - Variables.K * Variables.H) * UpVariables.C;
+    Matrix<float, 9, 9> I;
+    I.setIdentity();
+    UpVariables.C = (I - K * H) * UpVariables.C;
 }
 
 // if we are running with gps and are traveling at a fast speed, we can trust the drag that the sensors measure, and velocity estimate and use them to help correct our orientation
@@ -281,97 +264,113 @@ void AB_Attitude_Update_PseudoDrag(
     const AB_Filter_Inputs &sensor,
     AB_Vertical_State &vState,
     AB_Horizontal_State &hState,
-    AB_Attitude_Update_Drag &Variables,
     AB_Attitude_Prediction &UpVariables)
 {
+    const float deg10 = 10.0f * (3.14159265358979323846f / 180.0f);
+    const float R_lo = 1.0f;
+    const float R_hi = 5.0f;
+
     // if the speed is high, we can trust more.
-    Variables.speed = fabs(vState.VelocityUp_mps);
-    if (Variables.speed < 15.0f)
+    float speed = fabs(vState.VelocityUp_mps);
+    if (speed < 15.0f)
     {
         return;
     }
 
     // predict drag from velocity
-    Variables.v_n << hState.VelocityEast_mps, hState.VelocityNorth_mps, vState.VelocityUp_mps; // grabbing velocity
-    Variables.vnorm = Variables.v_n.norm();
-    if (Variables.vnorm < 1.0f)
+    Vector3f v_n;
+    v_n << hState.VelocityEast_mps, hState.VelocityNorth_mps, vState.VelocityUp_mps; // grabbing velocity
+    float vnorm = v_n.norm();
+    if (vnorm < 1.0f)
     {
         return;
     }
-    Variables.v_n_hat = Variables.v_n / Variables.vnorm;
-    Variables.d_n_hat = -1 * Variables.v_n_hat; // drag points opposite direction of velocity
+    Vector3f v_n_hat = v_n / vnorm;
+    Vector3f d_n_hat = -1 * v_n_hat; // drag points opposite direction of velocity
 
     // Rotating to body frame
-    Variables.d_pred_b = sN.Quaternion_Body_To_ENU.conjugate() * Variables.d_n_hat;
-    Variables.d_pred_b.normalize();
+    Vector3f d_pred_b = sN.Quaternion_Body_To_ENU.conjugate() * d_n_hat;
+    d_pred_b.normalize();
 
     // drag from accelerometer
-    Variables.a_b = sensor.Accelerometer_mps2 * gravity(vState.Altitude_m);
+    Vector3f a_b = sensor.Accelerometer_mps2 * gravity(vState.Altitude_m);
 
-    Variables.g_n << 0.0f, 0.0f, gravity(vState.Altitude_m); // enu gravity
-    Variables.g_b = sN.Quaternion_Body_To_ENU.conjugate() * Variables.g_n;
+    Vector3f g_n;
+    g_n << 0.0f, 0.0f, gravity(vState.Altitude_m); // enu gravity
+    Vector3f g_b = sN.Quaternion_Body_To_ENU.conjugate() * g_n;
 
-    Variables.accel_bias_ms2 << sN.Accel_Bias(0) * gravity(vState.Altitude_m),
+    Vector3f accel_bias_ms2;
+    accel_bias_ms2 << sN.Accel_Bias(0) * gravity(vState.Altitude_m),
         sN.Accel_Bias(1) * gravity(vState.Altitude_m),
         sN.Accel_Bias(2) * gravity(vState.Altitude_m);
 
     // obtain drag force on body
-    Variables.f_b = Variables.a_b - Variables.g_b - Variables.accel_bias_ms2;
-    Variables.fnorm = Variables.f_b.norm();
+    Vector3f f_b = a_b - g_b - accel_bias_ms2;
+    float fnorm = f_b.norm();
 
     // if drag is too small, don't use it(.2g rn)
-    if (Variables.fnorm < 2.0f)
+    if (fnorm < 2.0f)
     {
         return;
     }
-    Variables.d_meas_b = Variables.f_b / Variables.fnorm;
+    Vector3f d_meas_b = f_b / fnorm;
 
     // only update if the disagreement btw the state and drag is > 10degrees
-    Variables.c = Variables.d_meas_b.dot(Variables.d_pred_b);
-    Variables.c = std::max(-1.0f, std::min(1.0f, Variables.c));
-    Variables.angle = std::acos(Variables.c);
+    float c = d_meas_b.dot(d_pred_b);
+    c = std::max(-1.0f, std::min(1.0f, c));
+    float angle = std::acos(c);
 
-    if (Variables.angle < Variables.deg10)
+    if (angle < deg10)
     {
         return;
     }
 
-    Variables.y = Variables.d_meas_b - Variables.d_pred_b;
+    Vector3f y = d_meas_b - d_pred_b;
 
     // H assumes no other influences
-    Variables.d_skew << 0.0f, -Variables.d_pred_b.z(), Variables.d_pred_b.y(),
-        Variables.d_pred_b.z(), 0.0f, -Variables.d_pred_b.x(),
-        -Variables.d_pred_b.y(), Variables.d_pred_b.x(), 0.0f;
+    Matrix3f I33;
+    I33.setIdentity();
+    Matrix3f d_skew;
+    d_skew << 0.0f, -d_pred_b.z(), d_pred_b.y(),
+        d_pred_b.z(), 0.0f, -d_pred_b.x(),
+        -d_pred_b.y(), d_pred_b.x(), 0.0f;
 
-    Variables.H.setZero();
-    Variables.H.block<3, 3>(0, 0) = Variables.d_skew;
-    Variables.H.block<3, 3>(0, 6) = -Variables.I33;
+    Matrix<float, 3, 9> H;
+    H.setZero();
+    H.block<3, 3>(0, 0) = d_skew;
+    H.block<3, 3>(0, 6) = -I33;
 
     // higher R value if the value disagrees heavily.
-    Variables.angle_over = std::max(0.0f, Variables.angle - Variables.deg10);
-    Variables.strength = std::min(1.0f, Variables.angle_over / (20.0f * 3.14159265f / 180.0f)); // linear ramp
-    Variables.Rv = (1.0f - Variables.strength) * Variables.R_hi + Variables.strength * Variables.R_lo;
+    float angle_over = std::max(0.0f, angle - deg10);
+    float strength = std::min(1.0f, angle_over / (20.0f * 3.14159265f / 180.0f)); // linear ramp
+    float Rv = (1.0f - strength) * R_hi + strength * R_lo;
 
-    Variables.R *= Variables.Rv;
-    Variables.K = UpVariables.C * Variables.H.transpose() * (Variables.H * UpVariables.C * Variables.H.transpose() + Variables.R).inverse();
-    Variables.sE = Variables.K * Variables.y;
-    sN.Gyro_Bias(0) += Variables.sE(3);
-    sN.Gyro_Bias(1) += Variables.sE(4);
-    sN.Gyro_Bias(2) += Variables.sE(5);
-    sN.Accel_Bias(0) += Variables.sE(6);
-    sN.Accel_Bias(1) += Variables.sE(7);
-    sN.Accel_Bias(2) += Variables.sE(8);
+    Matrix<float, 3, 3> R;
+    R.setIdentity();
+    R *= Rv;
+    Matrix<float, 9, 3> K = UpVariables.C * H.transpose() * (H * UpVariables.C * H.transpose() + R).inverse();
+    Matrix<float, 9, 1> sE = K * y;
+    sN.Gyro_Bias(0) += sE(3);
+    sN.Gyro_Bias(1) += sE(4);
+    sN.Gyro_Bias(2) += sE(5);
+    sN.Accel_Bias(0) += sE(6);
+    sN.Accel_Bias(1) += sE(7);
+    sN.Accel_Bias(2) += sE(8);
 
     // Quaternion correction
-    Variables.thetaError << Variables.sE(0), Variables.sE(1), Variables.sE(2); // error in angle
-    Variables.qCorrection.w() = 1.0f;
-    Variables.qCorrection.x() = 0.5f * Variables.thetaError.x();
-    Variables.qCorrection.y() = 0.5f * Variables.thetaError.y();
-    Variables.qCorrection.z() = 0.5f * Variables.thetaError.z();                   // correction using that angle
-    Variables.qCorrection.normalize();                                             // normalize for saftey
-    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * Variables.qCorrection; // update using multiplication
-    sN.Quaternion_Body_To_ENU.normalize();                                         // another saftey normalization
+    Vector3f thetaError;
+    thetaError << sE(0), sE(1), sE(2); // error in angle
+    Quaternionf qCorrection;
+    qCorrection.w() = 1.0f;
+    qCorrection.x() = 0.5f * thetaError.x();
+    qCorrection.y() = 0.5f * thetaError.y();
+    qCorrection.z() = 0.5f * thetaError.z();                    // correction using that angle
+    qCorrection.normalize();                                     // normalize for saftey
+    sN.Quaternion_Body_To_ENU = sN.Quaternion_Body_To_ENU * qCorrection; // update using multiplication
+    sN.Quaternion_Body_To_ENU.normalize();                       // another saftey normalization
 
     // update covariance
-    UpVariables.C = (Variables.I - Variables.K * Variables.H) * UpVariables.C;
+    Matrix<float, 9, 9> I;
+    I.setIdentity();
+    UpVariables.C = (I - K * H) * UpVariables.C;
 }
