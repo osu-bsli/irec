@@ -284,18 +284,18 @@ FSError acquire_gps_data(log_packet_v3 *log_p)
 
   if (gps.location.isValid())
   {
-    log_p->gps_lat = gps.location.lat();
-    log_p->gps_lng = gps.location.lng();
+    log_p->gps_lat_deg = gps.location.lat();
+    log_p->gps_lng_deg = gps.location.lng();
   }
 
   if (gps.altitude.isValid())
   {
-    log_p->gps_alt = gps.altitude.meters();
+    log_p->gps_alt_m = gps.altitude.meters();
   }
 
   if (gps.speed.isValid())
   {
-    log_p->gps_speed = gps.speed.value();
+    log_p->gps_speed_mps = gps.speed.value();
   }
 
   if (gps.course.isValid())
@@ -356,9 +356,9 @@ FSError acquire_sensor_data(struct log_packet_v3 *log_p)
   }
   else
   {
-    log_p->adxl375_accel_x = adxl375_data.accel_x;
-    log_p->adxl375_accel_y = adxl375_data.accel_y;
-    log_p->adxl375_accel_z = adxl375_data.accel_z;
+    log_p->adxl375_accel_x_G = adxl375_data.accel_x;
+    log_p->adxl375_accel_y_G = adxl375_data.accel_y;
+    log_p->adxl375_accel_z_G = adxl375_data.accel_z;
   }
 
   // struct fc_bm1422_data bm1422_data;
@@ -381,12 +381,12 @@ FSError acquire_sensor_data(struct log_packet_v3 *log_p)
   }
   else
   {
-    log_p->bmi323_accel_x = bmi323_data.accel_x;
-    log_p->bmi323_accel_y = bmi323_data.accel_y;
-    log_p->bmi323_accel_z = bmi323_data.accel_z;
-    log_p->bmi323_gyro_x = bmi323_data.gyro_x;
-    log_p->bmi323_gyro_y = bmi323_data.gyro_y;
-    log_p->bmi323_gyro_z = bmi323_data.gyro_z;
+    log_p->bmi323_accel_x_G = bmi323_data.accel_x;
+    log_p->bmi323_accel_y_G = bmi323_data.accel_y;
+    log_p->bmi323_accel_z_G = bmi323_data.accel_z;
+    log_p->bmi323_gyro_x_degps = bmi323_data.gyro_x;
+    log_p->bmi323_gyro_y_degps = bmi323_data.gyro_y;
+    log_p->bmi323_gyro_z_degps = bmi323_data.gyro_z;
   }
 
   struct fc_ms5607_data ms5607_data;
@@ -477,22 +477,22 @@ static void runtime(void *pvParameters)
         .time_boot_ms = time,
         .ms5607_pressure_mbar = NAN,
         .ms5607_temperature_c = NAN,
-        .bmi323_accel_x = NAN, // LOW G
-        .bmi323_accel_y = NAN,
-        .bmi323_accel_z = NAN,
-        .bmi323_gyro_x = NAN,
-        .bmi323_gyro_y = NAN,
-        .bmi323_gyro_z = NAN,
-        .adxl375_accel_x = NAN, // HIGH G
-        .adxl375_accel_y = NAN,
-        .adxl375_accel_z = NAN,
+        .bmi323_accel_x_G = NAN, // LOW G
+        .bmi323_accel_y_G = NAN,
+        .bmi323_accel_z_G = NAN,
+        .bmi323_gyro_x_degps = NAN,
+        .bmi323_gyro_y_degps = NAN,
+        .bmi323_gyro_z_degps = NAN,
+        .adxl375_accel_x_G = NAN, // HIGH G
+        .adxl375_accel_y_G = NAN,
+        .adxl375_accel_z_G = NAN,
         .bm1422_magn_x = NAN,
         .bm1422_magn_y = NAN,
         .bm1422_magn_z = NAN,
-        .gps_lat = NAN,
-        .gps_lng = NAN,
-        .gps_alt = NAN,
-        .gps_speed = NAN,
+        .gps_lat_deg = NAN,
+        .gps_lng_deg = NAN,
+        .gps_alt_m = NAN,
+        .gps_speed_mps = NAN,
         .pt_volts = NAN,
         .gps_course = -0x7FFFFFFF,
         .gps_num_sats = 0xFF,
@@ -636,10 +636,10 @@ void gps_test_loop()
         "       gps_speed: %f\n"
         "      gps_course: %d\n"
         "    gps_num_sats: %d\n",
-        log_p.gps_lat,
-        log_p.gps_lng,
-        log_p.gps_alt,
-        log_p.gps_speed,
+        log_p.gps_lat_deg,
+        log_p.gps_lng_deg,
+        log_p.gps_alt_m,
+        log_p.gps_speed_mps,
         log_p.gps_course,
         log_p.gps_num_sats);
 
@@ -663,15 +663,15 @@ void sensors_test_loop()
     log_packet_v3 log_p = {
         .ms5607_pressure_mbar = NAN,
         .ms5607_temperature_c = NAN,
-        .bmi323_accel_x = NAN, // LOW G
-        .bmi323_accel_y = NAN,
-        .bmi323_accel_z = NAN,
-        .bmi323_gyro_x = NAN,
-        .bmi323_gyro_y = NAN,
-        .bmi323_gyro_z = NAN,
-        .adxl375_accel_x = NAN, // HIGH G
-        .adxl375_accel_y = NAN,
-        .adxl375_accel_z = NAN,
+        .bmi323_accel_x_G = NAN, // LOW G
+        .bmi323_accel_y_G = NAN,
+        .bmi323_accel_z_G = NAN,
+        .bmi323_gyro_x_degps = NAN,
+        .bmi323_gyro_y_degps = NAN,
+        .bmi323_gyro_z_degps = NAN,
+        .adxl375_accel_x_G = NAN, // HIGH G
+        .adxl375_accel_y_G = NAN,
+        .adxl375_accel_z_G = NAN,
         .bm1422_magn_x = NAN,
         .bm1422_magn_y = NAN,
         .bm1422_magn_z = NAN,
@@ -697,15 +697,15 @@ void sensors_test_loop()
         "           bm1422_magn_z: %f\n",
         log_p.ms5607_pressure_mbar,
         log_p.ms5607_temperature_c,
-        log_p.bmi323_accel_x,
-        log_p.bmi323_accel_y,
-        log_p.bmi323_accel_z,
-        log_p.bmi323_gyro_x,
-        log_p.bmi323_gyro_y,
-        log_p.bmi323_gyro_z,
-        log_p.adxl375_accel_x,
-        log_p.adxl375_accel_y,
-        log_p.adxl375_accel_z,
+        log_p.bmi323_accel_x_G,
+        log_p.bmi323_accel_y_G,
+        log_p.bmi323_accel_z_G,
+        log_p.bmi323_gyro_x_degps,
+        log_p.bmi323_gyro_y_degps,
+        log_p.bmi323_gyro_z_degps,
+        log_p.adxl375_accel_x_G,
+        log_p.adxl375_accel_y_G,
+        log_p.adxl375_accel_z_G,
         log_p.bm1422_magn_x,
         log_p.bm1422_magn_y,
         log_p.bm1422_magn_z);

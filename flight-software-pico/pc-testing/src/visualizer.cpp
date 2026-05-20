@@ -444,7 +444,7 @@ void ShowVisualizer()
 			{
 				log_packet_v3 lp = ((log_packet_v3 *)log_cropped_logv3)[i];
 				// Detect liftoff using High-G sensor (e.g., > 25 m/s^2)
-				if (lp.adxl375_accel_z * G_CONST > 40.0f)
+				if (lp.adxl375_accel_z_G * G_CONST > 40.0f)
 				{
 					launch_time_s = lp.time_boot_ms / 1000.0f;
 					break;
@@ -469,11 +469,11 @@ void ShowVisualizer()
 				float current_time_s = log_p.time_boot_ms / 1000.0f;
 
 				// Update sensor data in Master Struct
-				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y * G_CONST, log_p.bmi323_accel_x * G_CONST, log_p.bmi323_accel_z * G_CONST;
-				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x * G_CONST, -log_p.adxl375_accel_y * G_CONST, log_p.adxl375_accel_z * G_CONST;
-				inputs.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
-					log_p.bmi323_gyro_y * (M_PI / 180.0f),
-					log_p.bmi323_gyro_z * (M_PI / 180.0f);
+				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y_G * G_CONST, log_p.bmi323_accel_x_G * G_CONST, log_p.bmi323_accel_z_G * G_CONST;
+				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x_G * G_CONST, -log_p.adxl375_accel_y_G * G_CONST, log_p.adxl375_accel_z_G * G_CONST;
+				inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
+					log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
+					log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
 				float current_abs_alt = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100.0f);
 				inputs.Barometer_m = current_abs_alt - pad_altitude_m;
 
@@ -572,11 +572,11 @@ void ShowVisualizer()
 				AB_Filter_Process(f, inputs, s);
 
 				altitudeMeasured_m[i] = current_abs_alt - pad_altitude_m;
-				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z * G_CONST;
-				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z * G_CONST;
-				gyroXMeasured_degps[i] = log_p.bmi323_gyro_x;
-				gyroYMeasured_degps[i] = log_p.bmi323_gyro_y;
-				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z;
+				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z_G * G_CONST;
+				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z_G * G_CONST;
+				gyroXMeasured_degps[i] = log_p.bmi323_gyro_x_degps;
+				gyroYMeasured_degps[i] = log_p.bmi323_gyro_y_degps;
+				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z_degps;
 
 				accelerationZWorld_mps2[i] = f.AccelerationWorld.z();
 				velocityZWorld_mps[i] = f.VertState.VelocityUp_mps;

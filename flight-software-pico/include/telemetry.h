@@ -8,7 +8,8 @@ extern "C" {
 #include <stdint.h>
 
 #define TELEMETRY_PACKET_MAX_LEN 255
-#define TELEMETRY_PACKET_MAGIC "FUCKPETER"
+// Brian's callsign
+#define TELEMETRY_PACKET_MAGIC "KF8EBM"
 #define LOG_PACKET_MAGIC "COREYMAY3"
 
 enum StatusFlags {
@@ -35,7 +36,7 @@ enum StatusFlags {
 // };
 
 PACKED_STRUCT telemetry_packet {
-    char magic[9]; // 'FUCKPETER' in ASCII with no null terminator
+    char magic[6]; // Brian's callsign in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
 
@@ -59,22 +60,22 @@ PACKED_STRUCT log_packet_v3 {
     uint32_t time_boot_ms; // Timestamp (ms since system boot)
     float ms5607_pressure_mbar; // MS5607 Air Pressure (unit: mbar)
     float ms5607_temperature_c; // MS5607 Temperature (unit: degrees C)
-    float bmi323_accel_x; // BMI323 Acceleration X (unit: G)
-    float bmi323_accel_y; // BMI323 Acceleration Y (unit: G)
-    float bmi323_accel_z; // BMI323 Acceleration Z (unit: G)
-    float bmi323_gyro_x; // BMI323 Gyroscope X (unit: deg/s)
-    float bmi323_gyro_y; // BMI323 Gyroscope Y (unit: deg/s)
-    float bmi323_gyro_z; // BMI323 Gyroscope Z (unit: deg/s)
-    float adxl375_accel_x; // ADXL375 Acceleration X (unit: G)
-    float adxl375_accel_y; // ADXL375 Acceleration Y (unit: G)
-    float adxl375_accel_z; // ADXL375 Acceleration Z (unit: G)
+    float bmi323_accel_x_G; // BMI323 Acceleration X (unit: G)
+    float bmi323_accel_y_G; // BMI323 Acceleration Y (unit: G)
+    float bmi323_accel_z_G; // BMI323 Acceleration Z (unit: G)
+    float bmi323_gyro_x_degps; // BMI323 Gyroscope X (unit: deg/s)
+    float bmi323_gyro_y_degps; // BMI323 Gyroscope Y (unit: deg/s)
+    float bmi323_gyro_z_degps; // BMI323 Gyroscope Z (unit: deg/s)
+    float adxl375_accel_x_G; // ADXL375 Acceleration X (unit: G)
+    float adxl375_accel_y_G; // ADXL375 Acceleration Y (unit: G)
+    float adxl375_accel_z_G; // ADXL375 Acceleration Z (unit: G)
     float bm1422_magn_x; // BM1422 Magnetic Field X
     float bm1422_magn_y; // BM1422 Magnetic Field Y
     float bm1422_magn_z; // BM1422 Magnetic Field Z
-    float gps_lat; // Latitude  (unit: degres)
-    float gps_lng; // Longitude (unit: degrees)
-    float gps_alt; // Altitude  (unit: meters)
-    float gps_speed;
+    float gps_lat_deg; // Latitude  (unit: degres)
+    float gps_lng_deg; // Longitude (unit: degrees)
+    float gps_alt_m; // Altitude  (unit: meters)
+    float gps_speed_mps;
     float pt_volts;
     int32_t gps_course;
     uint8_t gps_num_sats;
