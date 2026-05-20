@@ -162,7 +162,7 @@ void AB_Attitude_State_Update_GPS(
     R(1, 1) = 0.5f;
     R(2, 2) = 0.5f;
 
-    Vector3f GPSMeas = sensor.GPS.block<3, 1>(3, 0);        // grabbing vector from sensor struct
+    Vector3f GPSMeas = sensor.GPS_Velocity_mps;
     GPSMeas.normalize();                                     // normalize it for saftey
     Vector3f GPSPred = sN.Quaternion_Body_To_ENU.conjugate() * GPSMeas; // rotate velocity vector to body
     Vector3f y = noseVec - GPSPred;                          // residual

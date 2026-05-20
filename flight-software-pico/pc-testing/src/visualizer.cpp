@@ -22,8 +22,6 @@
 
 #include <float.h>
 
-#define G 9.80665
-
 // check that length of log evenly divides by log packet size
 static_assert(log_cropped_logv3_len / sizeof(log_packet_v3) * sizeof(log_packet_v3) == log_cropped_logv3_len);
 const int log_len = log_cropped_logv3_len / sizeof(log_packet_v3);
@@ -446,7 +444,7 @@ void ShowVisualizer()
 			{
 				log_packet_v3 lp = ((log_packet_v3 *)log_cropped_logv3)[i];
 				// Detect liftoff using High-G sensor (e.g., > 25 m/s^2)
-				if (lp.adxl375_accel_z * G > 40.0f)
+				if (lp.adxl375_accel_z * G_CONST > 40.0f)
 				{
 					launch_time_s = lp.time_boot_ms / 1000.0f;
 					break;
@@ -471,8 +469,8 @@ void ShowVisualizer()
 				float current_time_s = log_p.time_boot_ms / 1000.0f;
 
 				// Update sensor data in Master Struct
-				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y * G, log_p.bmi323_accel_x * G, log_p.bmi323_accel_z * G;
-				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x * G, -log_p.adxl375_accel_y * G, log_p.adxl375_accel_z * G;
+				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y * G_CONST, log_p.bmi323_accel_x * G_CONST, log_p.bmi323_accel_z * G_CONST;
+				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x * G_CONST, -log_p.adxl375_accel_y * G_CONST, log_p.adxl375_accel_z * G_CONST;
 				inputs.Gyroscope_radps << log_p.bmi323_gyro_x * (M_PI / 180.0f),
 					log_p.bmi323_gyro_y * (M_PI / 180.0f),
 					log_p.bmi323_gyro_z * (M_PI / 180.0f);
@@ -549,12 +547,14 @@ void ShowVisualizer()
 					}
 
 					// Assign to filter inputs
-					inputs.GPS << pos_e, pos_n, pos_u, vel_e, vel_n, vel_u;
+					inputs.GPS_Position_m << pos_e, pos_n, pos_u;
+					inputs.GPS_Velocity_mps << vel_e, vel_n, vel_u;
 					altitudeGPS_m[i] = pos_u;
 				}
 				else
 				{
-					inputs.GPS.setZero();
+					inputs.GPS_Position_m.setZero();
+					inputs.GPS_Velocity_mps.setZero();
 					altitudeGPS_m[i] = 0.0f;
 				}
 
@@ -572,8 +572,8 @@ void ShowVisualizer()
 				AB_Filter_Process(f, inputs, s);
 
 				altitudeMeasured_m[i] = current_abs_alt - pad_altitude_m;
-				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z * G;
-				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z * G;
+				lowGAccelZMeasured_mps2[i] = log_p.bmi323_accel_z * G_CONST;
+				highGAccelZMeasured_mps2[i] = log_p.adxl375_accel_z * G_CONST;
 				gyroXMeasured_degps[i] = log_p.bmi323_gyro_x;
 				gyroYMeasured_degps[i] = log_p.bmi323_gyro_y;
 				gyroZMeasured_degps[i] = log_p.bmi323_gyro_z;
@@ -635,7 +635,7 @@ void ShowVisualizer()
 		{
 			ImPlot::SetupAxes("Time (s)", "Acceleration Z (m/s^2)");
 			ImPlot::SetupAxisLinks(ImAxis_X1, &lims.X.Min, &lims.X.Max);
-			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 15 * G, ImPlotCond_Once);
+			ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 15 * G_CONST, ImPlotCond_Once);
 			ImPlot::PlotLine("Acceleration Z (measured, low G sensor)", time_s, lowGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (measured, high G sensor)", time_s, highGAccelZMeasured_mps2, log_len, ImPlotLineFlags_None);
 			ImPlot::PlotLine("Acceleration Z (filtered, world frame)", time_s, accelerationZWorld_mps2, log_len, ImPlotLineFlags_None);

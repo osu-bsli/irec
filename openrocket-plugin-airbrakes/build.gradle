@@ -44,7 +44,7 @@ test {
 tasks.register('run', JavaExec) {
     dependsOn jar
     mainClass = 'info.openrocket.swing.startup.OpenRocket'
-    classpath = sourceSets.main.runtimeClasspath
+    classpath = files('OpenRocket-24.12.jar') + sourceSets.main.runtimeClasspath
     workingDir = projectDir
     args = ['IREC 4.22.26.ork']
 }

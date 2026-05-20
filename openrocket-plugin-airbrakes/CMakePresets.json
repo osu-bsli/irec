@@ -4,7 +4,7 @@
     {
       "name": "default",
       "generator": "Visual Studio 18 2026",
-      "binaryDir": "${sourceDir}/cmake-build-debug"
+      "binaryDir": "${sourceDir}/cmake-build"
     }
   ]
 }

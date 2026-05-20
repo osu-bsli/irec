@@ -23,7 +23,7 @@ target_include_directories(airbrakes PUBLIC
     ${FSW_DIR}/pc-testing/src/pico-stub
 )
 
-target_compile_options(airbrakes PUBLIC /MP /std:c++20 /DEBUG /Z7)
+target_compile_options(airbrakes PUBLIC /MP /std:c++20 /DEBUG)
 
 # jvm
 find_package(Java REQUIRED)

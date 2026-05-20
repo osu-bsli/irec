@@ -38,7 +38,7 @@ public class RocketSimulationExample {
         OpenRocketDocument document = loader.load();
         Simulation s = document.getSimulation(0);
 
-        Airbrakes.SetTargetApogee(9000);
+        Airbrakes.SetTargetApogee(8500);
         s.simulate();
         System.out.println("Apogee: " + s.getSimulatedData().getMaxAltitude() + " meters");
 

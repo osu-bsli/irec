@@ -74,7 +74,8 @@ JNIEXPORT jfloat JNICALL Java_Airbrakes_RunControllerAndGetDeploymentPct
     inputs.Gyroscope_radps.y() = gyroscopeY_radps;
     inputs.Gyroscope_radps.z() = gyroscopeZ_radps;
     inputs.Magnetometer.setZero();
-    inputs.GPS.setZero();
+    inputs.GPS_Position_m.setZero();
+    inputs.GPS_Velocity_mps.setZero();
     inputs.Barometer_m = barometer_m;
     inputs.dt = dt;
     inputs.IgnoreBaro = false;

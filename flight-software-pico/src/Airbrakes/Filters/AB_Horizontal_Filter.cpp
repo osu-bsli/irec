@@ -101,10 +101,10 @@ void AB_Horizontal_State_Update_GPS(
 	I.setIdentity();
 
 	//difference between position/velocity reading in NE and gps reading
-	y << (sensor.GPS(0) - (sN.Position_East)),
-		(sensor.GPS(1) - (sN.Position_North)),
-		(sensor.GPS(3) - (sN.VelocityEast_mps)),
-		(sensor.GPS(4) - (sN.VelocityNorth_mps));
+	y << (sensor.GPS_Position_m.x() - (sN.Position_East)),
+		(sensor.GPS_Position_m.y() - (sN.Position_North)),
+		(sensor.GPS_Velocity_mps.x() - (sN.VelocityEast_mps)),
+		(sensor.GPS_Velocity_mps.y() - (sN.VelocityNorth_mps));
 
 	//Now we find out H, or how the state effects the measurement
 	//[dbaro/dAlt, dBaro/dvel, dBaro/dBaroBias] depends on altitude and the bias!

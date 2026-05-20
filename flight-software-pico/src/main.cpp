@@ -70,7 +70,7 @@
 // FreeRTOS tick is 1ms when using Arduino like this
 // 20ms for 50hz, 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
 const static TickType_t runtime_interval_ms = CONFIG_RUNTIME_INTERVAL_MS; // 100 Hz
-const static TickType_t moc_interval_ms = 10;                             // 100 Hz
+const static TickType_t servo_overcurrent_interval_ms = 10;                             // 100 Hz
 const static TickType_t deploy_interval_ms = 20;                          // 50 Hz
 // const static TickType_t error_interval_ms = 100; // 10 Hz
 
@@ -419,7 +419,7 @@ void airbrakes_setup()
   analogReadResolution(ADC_RESOLUTION_BITS);
 }
 
-FSError servo_overcurrent()
+FSError do_servo_overcurrent_check()
 {
   const int ADC_STEPS = (1 << int(ADC_RESOLUTION_BITS)) - 1;
   const float MAX_EXPECTED_VOLTAGE = 3.3;
@@ -429,7 +429,7 @@ FSError servo_overcurrent()
   const int csense_raw = analogRead(PIN_CSENSE);
   const float csense_voltage = ((float)csense_raw) / ADC_STEPS * MAX_EXPECTED_VOLTAGE;
   const float servo_current = csense_voltage / CSENSE_RESISTANCE / GAIN;
-  // Serial.printf("%d %fV %fA\n\r", csense_raw, csense_voltage, servo_current);
+  Serial.printf("Servo current: %f A\n\r", servo_current);
 
 #define CURRENT_EMA_ALPHA 0.5
   // y[n]=αx[n]+(1−α)y[n−1]
@@ -598,16 +598,16 @@ static void deploy(void *pvParameters)
   }
 }
 
-static void moc_task(void *pvParameters)
+static void servo_overcurrent_task(void *pvParameters)
 {
   static TickType_t time = 0;
   while (true)
   {
-    FSError overcurrent_status = servo_overcurrent();
+    FSError overcurrent_status = do_servo_overcurrent_check();
 
     // Serial.printf("overcurrent status: %s\n\r", FS_ERROR_NAMES(overcurrent_status));
 
-    xTaskDelayUntil(&time, moc_interval_ms); // runs at 100hz
+    xTaskDelayUntil(&time, servo_overcurrent_interval_ms); // runs at 100hz
   }
 }
 
@@ -802,6 +802,9 @@ void test_airbrakes_hitl_control_loop()
         buf_i = 0;
       }
     }
+
+    delay(10);
+    do_servo_overcurrent_check();
   }
 }
 
@@ -928,7 +931,7 @@ void setup()
   BaseType_t moc_status;
   TaskHandle_t moc_handle;
 
-  moc_status = xTaskCreate(moc_task,
+  moc_status = xTaskCreate(servo_overcurrent_task,
                            "Motor Overcurrent",
                            2048,
                            NULL,

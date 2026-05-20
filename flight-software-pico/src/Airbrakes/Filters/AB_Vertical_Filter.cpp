@@ -106,7 +106,7 @@ void AB_Vertical_State_Update_GPS(
 	I.setIdentity();
 
 	//difference between GPS altitude and altitude in the state
-	y << (inputs.GPS(2) - sN.Altitude_m), (inputs.GPS(5) - sN.VelocityUp_mps);
+	y << (inputs.GPS_Position_m.z() - sN.Altitude_m), (inputs.GPS_Velocity_mps.z() - sN.VelocityUp_mps);
 
 	//Now we find out H, or how the state effects the measurement
 	//[dGPS/dAlt, dGPS/dvel, dGPS/dBaroBias] depends on altitude only

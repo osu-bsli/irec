@@ -6,26 +6,28 @@ using namespace Eigen;
 // variables from the code, so can properly keep track of the maximum allowed memory use.
 
 struct AB_Filter_Inputs
-{                                           // Struct containing all sensor data
-    Matrix<float, 3, 1> Accelerometer_mps2;      // Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1> AccelerometerHG_mps2;    // Accel(m/s^2) X, Y, Z
-    Matrix<float, 3, 1> Gyroscope_radps;          // AngularV(rad/s) X, Y, Z
-    Matrix<float, 3, 1> Magnetometer;       // Field(uT) X, Y, Z
-    Matrix<float, 6, 1> GPS;                // position(m) X, Y, Z and velocity(m/s) X, Y, Z
+{                                             // Struct containing all sensor data
+    Matrix<float, 3, 1> Accelerometer_mps2;   // Accel(m/s^2) X, Y, Z
+    Matrix<float, 3, 1> AccelerometerHG_mps2; // Accel(m/s^2) X, Y, Z
+    Matrix<float, 3, 1> Gyroscope_radps;      // AngularV(rad/s) X, Y, Z
+    Matrix<float, 3, 1> Magnetometer;         // Field(uT) X, Y, Z
+    Matrix<float, 3, 1> GPS_Position_m;       // position(m) X, Y, Z
+    Matrix<float, 3, 1> GPS_Velocity_mps;     // velocity(m/s) X, Y, Z
     float Barometer_m;                        // altitude(m) Z
-    float dt;                               // time between last sensor change, needs to be updated every time.
+    float dt;                                 // time between last sensor change, needs to be updated every time.
     bool IgnoreBaro;
 };
 
 struct AB_Snsrs_prevData
 {                            // Struct containing all sensor data
-    Matrix<float, 6, 1> GPS; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
+    Matrix<float, 3, 1> GPS_Position_m;       // position(m) X, Y, Z
+    Matrix<float, 3, 1> GPS_Velocity_mps;     // velocity(m/s) X, Y, Z
     float Barometer;
 };
 
 struct AB_Snsrs_booleans
 {             // Struct containing all sensor data
-    bool GPS; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
+    bool GPS_updated; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
 };
 
 struct AB_Attitude_State
@@ -36,17 +38,17 @@ struct AB_Attitude_State
 };
 
 struct AB_Vertical_State
-{                      // struct containing the state for the rocket's vertical motion
-    float Altitude_m;    // current height of the rocket relative to starting height
+{                         // struct containing the state for the rocket's vertical motion
+    float Altitude_m;     // current height of the rocket relative to starting height
     float VelocityUp_mps; // current velocity of the rocket relative to starting velocity
-    float Baro_Bias;   // barometer bias
+    float Baro_Bias;      // barometer bias
     Matrix<float, 3, 3> C;
 };
 
 struct AB_Horizontal_State
-{                         // struct containing the state for the rocket's horizontal motion
-    float Position_East;  // position in East direction relative to starting position
-    float Position_North; // position in North direction relative to starting position
+{                            // struct containing the state for the rocket's horizontal motion
+    float Position_East;     // position in East direction relative to starting position
+    float Position_North;    // position in North direction relative to starting position
     float VelocityEast_mps;  // Velocity in East direction relative to starting position
     float VelocityNorth_mps; // Velocity in North direction relative to starting position
     Matrix<float, 4, 4> C;
@@ -57,7 +59,6 @@ struct AB_Attitude_Prediction
     Matrix<float, 9, 9> C;
     Matrix<float, 9, 9> Q;
 };
-
 
 enum AB_Filter_Flight_Stage
 {
