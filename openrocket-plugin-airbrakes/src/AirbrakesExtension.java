@@ -101,14 +101,38 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             startInstant = Instant.now();
             airbrake_control_interval_timer = 0f;
             deploymentPctCommanded = 0;
-            deploymentPctCommanded = 0;
             deploymentPctSimulatedDynamics = 0;
 
-            /* Run filter a bunch of times on the rod to let the filter obtain launch rod angle via gravity vector */
-            var q = status.getRocketOrientationQuaternion();
-            var accel = q.invRotate(new Coordinate(0, 0, 1));
-            for (int i = 0; i < 1000; i++) {
-                RunControllerAndGetDeploymentPct((float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, (float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, 0, 0, 0, (float) status.getRocketPosition().z, 0.01f);
+            /* Run filter on the rod for 2 simulated seconds so it can converge on the launch rod angle
+               via the gravity vector before the rocket moves. */
+            Quaternion q = status.getRocketOrientationQuaternion();
+            float altitude = (float) status.getRocketPosition().z;
+
+            if (mode == AirbrakesMode.FULL_HITL) {
+                /* Send on-rod sensor packets to the FC in real time so its filter converges before launch. */
+                Coordinate sfBody = q.invRotate(new Coordinate(0, 0, G_CONST));
+                for (int i = 0; i < 200; i++) {
+                    byte[] packet = LogPacketV3.build(
+                            0, (long) (i * 10),
+                            LogPacketV3.altitudeToPressMbar(altitude),
+                            LogPacketV3.altitudeToTempC(altitude),
+                            (float) (sfBody.y / G_CONST),
+                            (float) (sfBody.x / G_CONST),
+                            (float) (sfBody.z / G_CONST),
+                            0f, 0f, 0f,
+                            (float) (-sfBody.x / G_CONST),
+                            (float) (-sfBody.y / G_CONST),
+                            (float) (sfBody.z / G_CONST));
+                    comPort.writeBytes(packet, packet.length);
+                    byte[] buffer = new byte[1];
+                    comPort.readBytes(buffer, 1, 0);
+                    try { Thread.sleep(10); } catch (InterruptedException e) { throw new RuntimeException(e); }
+                }
+            } else {
+                Coordinate accel = q.invRotate(new Coordinate(0, 0, 1));
+                for (int i = 0; i < 200; i++) {
+                    RunControllerAndGetDeploymentPct((float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, (float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, 0, 0, 0, altitude, 0.01f);
+                }
             }
         }
 
@@ -191,10 +215,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                     if (1 != comPort.readBytes(buffer, 1, 0)) {
                         throw new RuntimeException();
                     }
-                    if (buffer[0] != 0) {
-//                        System.out.printf("Airbrake deployment angle commanded by FC: %d\n", buffer[0]);
-                        deploymentPctCommanded = buffer[0];
-                    }
+                    deploymentPctCommanded = buffer[0];
                 } else if (bypassFilter) {
                     deploymentPctCommanded = RunControllerRawAndGetDeploymentPct((float) vel.x, (float) vel.y, (float) vel.z, distortedAltitude);
                 } else {

@@ -72,5 +72,7 @@ FSError acquire_sensor_data_from_serial(log_packet_v3 *log_p_out)
 
     memcpy(log_p_out, packet_rx_buf, sizeof(log_packet_v3));
 
+    // TODO sanity check that packets aren't dropped (maybe check that time_boot_ms always increments by 10? and make tritone wee woo wee woo sound if not)
+
     return SUCCESS;
 }
