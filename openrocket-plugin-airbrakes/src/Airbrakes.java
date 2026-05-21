@@ -40,6 +40,7 @@ public class Airbrakes extends AbstractSimulationExtension {
 
     public void initialize(SimulationConditions conditions) throws SimulationException {
         conditions.getSimulationListenerList().add(new AirbrakesListener());
+        SetRocketMass(31.740f);
     }
 
     final float G_CONST = 9.80665f;
@@ -130,8 +131,6 @@ public class Airbrakes extends AbstractSimulationExtension {
                         0.01f
                 );
             }
-
-            SetRocketMass(31.740f);
         }
 
         // We can't look at status.getFlightData() for anything except extension instead because it would

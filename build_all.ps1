@@ -7,7 +7,7 @@ cmake --build build
 
 Set-Location $PSScriptRoot\openrocket-plugin-airbrakes
 cmake --preset=default
-cmake --build cmake-build
+cmake --build cmake-build --config Release
 ./gradlew jar
 
 Set-Location $PSScriptRoot

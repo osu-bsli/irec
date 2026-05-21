@@ -30,6 +30,7 @@ sourceSets {
 }
 
 dependencies {
+    implementation 'org.junit.jupiter:junit-jupiter:6.0.0'
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 
@@ -47,13 +48,6 @@ tasks.register('run', JavaExec) {
     classpath = files('OpenRocket-24.12.jar') + sourceSets.main.runtimeClasspath
     workingDir = projectDir
     args = ['IREC 4.22.26.ork']
-}
-
-tasks.register('run-sim-suite', JavaExec) {
-    dependsOn jar
-    mainClass = 'RocketSimulationExample'
-    classpath = sourceSets.main.runtimeClasspath
-    workingDir = projectDir
 }
 
 tasks.withType(JavaCompile) {
