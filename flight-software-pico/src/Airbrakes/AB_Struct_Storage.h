@@ -25,11 +25,6 @@ struct AB_Snsrs_prevData
     float Barometer;
 };
 
-struct AB_Snsrs_booleans
-{             // Struct containing all sensor data
-    bool GPS_updated; // position(m) X, Y, Z and velocity(m/s) X, Y, Z
-};
-
 struct AB_Attitude_State
 {                                       // struct containing the state for the rocket's attitude
     Quaternionf Quaternion_Body_To_ENU; // quaternion describing rotation from body frame to ENU
@@ -72,7 +67,6 @@ struct AB_Filter
 {
     // structs for states and inputs
     AB_Snsrs_prevData PrevSensors;
-    AB_Snsrs_booleans Flags;
     AB_Vertical_State VertState;
     AB_Horizontal_State HorizState;
     AB_Attitude_State AttState;

@@ -42,8 +42,12 @@ public class Airbrakes extends AbstractSimulationExtension {
         conditions.getSimulationListenerList().add(new AirbrakesListener());
     }
 
+    final float G_CONST = 9.80665f;
+
     public static native void SetRocketMass(float mass_kg);
+
     public static native void SetTargetApogee(float meters);
+
     public static native float DragForce(float deployment_pct, float vTotal_mps, float altitude_m);
 
     public static native void InitController();
@@ -108,6 +112,24 @@ public class Airbrakes extends AbstractSimulationExtension {
             deploymentPctCommanded = 0;
             deploymentPctSimulatedDynamics = 0;
 
+            /* Run filter a bunch of times on the rod to let the filter obtain launch rod angle via gravity vector */
+            var q = status.getRocketOrientationQuaternion();
+            var accel = q.invRotate(new Coordinate(0, 0, 1));
+            for (int i = 0; i < 1000; i++) {
+                RunControllerAndGetDeploymentPct(
+                        (float)accel.x * G_CONST,
+                        (float)accel.y * G_CONST,
+                        (float)accel.z * G_CONST,
+                        (float)accel.x * G_CONST,
+                        (float)accel.y * G_CONST,
+                        (float)accel.z * G_CONST,
+                        0,
+                        0,
+                        0,
+                        (float) status.getRocketPosition().z,
+                        0.01f
+                );
+            }
 
             SetRocketMass(31.740f);
         }
@@ -174,7 +196,7 @@ public class Airbrakes extends AbstractSimulationExtension {
                     // Specific force in world frame: kinematic accel + (0,0,g) since accelerometers don't sense gravity
                     double ax = (vel.x - previousVelocity.x) / dt;
                     double ay = (vel.y - previousVelocity.y) / dt;
-                    double az = (vel.z - previousVelocity.z) / dt + 9.81;
+                    double az = (vel.z - previousVelocity.z) / dt + G_CONST;
                     Coordinate sfBody = q.invRotate(new Coordinate(ax, ay, az));
                     Coordinate omegaBody = q.invRotate(rotVel);
 

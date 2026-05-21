@@ -21,7 +21,6 @@ void AB_Filter_Initialize(AB_Filter &filter)
 	filter.PrevSensors.GPS_Position_m.setZero();
 	filter.PrevSensors.GPS_Velocity_mps.setZero();
 	filter.PrevSensors.Barometer = 0.0f;
-	filter.Flags.GPS_updated = false;
 	AB_Attitude_State_Initialization(
 		filter.AttState,
 		filter.AB_Att_Pred);
@@ -71,9 +70,15 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	/* Compare GPS previous and current coordinates to see if anything changed.
 	   This is useful because some crappy GPS receivers might report that they still have visible satellites
 	   despite not having a fix. */
-	if (filter.PrevSensors.GPS_Position_m.norm() != inputs.GPS_Position_m.norm() || filter.PrevSensors.GPS_Velocity_mps.norm() != inputs.GPS_Velocity_mps.norm())
+
+	bool GPS_updated = false;
+	if (filter.PrevSensors.GPS_Position_m.norm() != inputs.GPS_Position_m.norm())
 	{
-		filter.Flags.GPS_updated = true;
+		GPS_updated = true;
+	}
+	if (filter.PrevSensors.GPS_Velocity_mps.norm() != inputs.GPS_Velocity_mps.norm())
+	{
+		GPS_updated = true;
 	}
 
 	/* BMI323 low-g acceleration maxes out a +/-4g */
@@ -126,7 +131,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 
 	if (filter.flight_stage == AB_Filter_Flight_Stage_PAD)
 	{
-		/* If we're on the pad, we can use the gravity vector to detect the zenith attitude of the rocket. */
+		/* If we're on the pad, we can use the gravity vector to detect the attitude of the rocket. */
 		/* If a gravity vector can be detected (|accel| > 8 m/s && |accel| < 11 m/s), use it to update the Attitude Filter */
 		if (!highG && inputs.Accelerometer_mps2.norm() > 8.0f && inputs.Accelerometer_mps2.norm() < 11.0f && inputs.Accelerometer_mps2.z() < 2.1f * G_CONST)
 		{
@@ -144,7 +149,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		AB_Attitude_State_Update_Accel(filter.AttState, inputs, filter.AB_Att_Pred, highG);
 	}
 
-	if (filter.Flags.GPS_updated == true)
+	if (GPS_updated == true)
 	{
 		/* Use GPS for attitude filter when GPS reports velocity greater than 10 m/s */
 		if (inputs.GPS_Velocity_mps.norm() > 10.0f)
@@ -169,7 +174,7 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	*/
 
 	/* TODO: The idea for PseudoDrag is to be able to use a drag model to allow
-			 attitude observability from velocity and altitude. In reality, we can't
+			 attitude observability using velocity and altitude. In reality, we can't
 			 even sense altitude accurately enough (without extensive corrections for
 			 Venturi effect on static ports & other modeling) to make this work.
 
@@ -208,23 +213,12 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		}
 	}
 
-	if (filter.Flags.GPS_updated == true)
+	if (GPS_updated == true)
 	{
 		/* Only trust GPS if vertical GPS velocity is greater than 10 m/s */
 		if (inputs.GPS_Velocity_mps.z() > 10.0f)
 		{
 			AB_Vertical_State_Update_GPS(filter.VertState, inputs, settings);
-		}
-	}
-
-	if (filter.flight_stage == AB_Filter_Flight_Stage_PAD || filter.flight_stage == AB_Filter_Flight_Stage_APOGEE)
-	{
-		// If the vertical velocity is very small, we can be sure the rocket is on the ground, so
-		// force velocity north and velocity east to zero.
-		if (abs(filter.VertState.VelocityUp_mps) < 0.2)
-		{
-			filter.HorizState.VelocityNorth_mps = 0.0f;
-			filter.HorizState.VelocityEast_mps = 0.0f;
 		}
 	}
 
@@ -242,7 +236,18 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 	 * it is treated with less rigor and seriousness than other parts of the code.
 	 */
 
-	if (filter.Flags.GPS_updated == false && abs(filter.VertState.VelocityUp_mps) > 10.0f)
+	if (filter.flight_stage == AB_Filter_Flight_Stage_PAD || filter.flight_stage == AB_Filter_Flight_Stage_APOGEE)
+	{
+		// If the vertical velocity is very small, we can be sure the rocket is on the ground, so
+		// force velocity north and velocity east to zero.
+		if (abs(filter.VertState.VelocityUp_mps) < 0.2)
+		{
+			filter.HorizState.VelocityNorth_mps = 0.0f;
+			filter.HorizState.VelocityEast_mps = 0.0f;
+		}
+	}
+
+	if (GPS_updated == false && abs(filter.VertState.VelocityUp_mps) > 10.0f)
 	{
 		float velN, velE;
 		Estimate_Horizontal_Velocity(filter.AttState, filter.VertState, filter.HorizState, velN, velE);
@@ -271,15 +276,13 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		}
 	}
 
-	// finally the horizontal filter.
+	// Finally, run the horizontal filter itself
 	AB_Horizontal_State_Prediction(filter.HorizState, inputs, accelerationWorld, highG);
 
-	if (filter.Flags.GPS_updated == true)
+	if (GPS_updated == true)
 	{
 		AB_Horizontal_State_Update_GPS(filter.HorizState, inputs);
 	}
-
-	filter.Flags.GPS_updated = false;
 
 	// Here we save old sensor data
 	filter.PrevSensors.GPS_Position_m = inputs.GPS_Position_m;
