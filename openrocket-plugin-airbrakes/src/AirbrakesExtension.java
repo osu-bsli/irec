@@ -1,4 +1,3 @@
-
 import info.openrocket.core.aerodynamics.AerodynamicForces;
 import info.openrocket.core.aerodynamics.FlightConditions;
 import info.openrocket.core.simulation.FlightDataType;
@@ -12,6 +11,7 @@ import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.Quaternion;
 import com.fazecast.jSerialComm.*;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -25,20 +25,21 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
     public AirbrakesExtension() {
         this.comPort = SerialPort.getCommPort("COM3");
+        // Set full blocking mode
+        this.comPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
         this.comPort.setBaudRate(921600);
         this.comPort.openPort();
+        this.comPort.flushIOBuffers();
     }
 
     public enum AirbrakesMode {
         /* Closed-loop simulation with no hardware in the loop. */
-        CLOSED_LOOP_SIM,
-        /* The real-world airbrakes will move based on the deployment percentage the closed-loop simulation commands. */
-        HITL_CONTROL,
-        /* The airbrakes algorithm runs on the flight computer instead of on the PC. */
+        CLOSED_LOOP_SIM, /* The real-world airbrakes will move based on the deployment percentage the closed-loop simulation commands. */
+        HITL_CONTROL, /* The airbrakes algorithm runs on the flight computer instead of on the PC. */
         FULL_HITL
     }
 
-    public AirbrakesMode mode = AirbrakesMode.CLOSED_LOOP_SIM;
+    public static AirbrakesMode mode = AirbrakesMode.CLOSED_LOOP_SIM;
 
     public boolean isBypassFilter() {
         return bypassFilter;
@@ -64,26 +65,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
     public static native void InitController();
 
-    public static native float RunControllerAndGetDeploymentPct(
-            float accelerometerX_mps2,
-            float accelerometerY_mps2,
-            float accelerometerZ_mps2,
-            float accelerometerHgX_mps2,
-            float accelerometerHgY_mps2,
-            float accelerometerHgZ_mps2,
-            float gyroscopeX_radps,
-            float gyroscopeY_radps,
-            float gyroscopeZ_radps,
-            float barometer_m,
-            float dt
-    );
+    public static native float RunControllerAndGetDeploymentPct(float accelerometerX_mps2, float accelerometerY_mps2, float accelerometerZ_mps2, float accelerometerHgX_mps2, float accelerometerHgY_mps2, float accelerometerHgZ_mps2, float gyroscopeX_radps, float gyroscopeY_radps, float gyroscopeZ_radps, float barometer_m, float dt);
 
-    public static native float RunControllerRawAndGetDeploymentPct(
-            float velocityX_mps,
-            float velocityY_mps,
-            float velocityZ_mps,
-            float altitude_m
-    );
+    public static native float RunControllerRawAndGetDeploymentPct(float velocityX_mps, float velocityY_mps, float velocityZ_mps, float altitude_m);
 
     @Override
     public String getName() {
@@ -96,15 +80,11 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
     }
 
     private class AirbrakesListener extends AbstractSimulationListener {
-        private static final FlightDataType fdtDeploymentPctCommanded = FlightDataType.getType("Airbrake deployment commanded", "%",
-                UnitGroup.UNITS_NONE);
-        private static final FlightDataType fdtDeploymentPctSimulatedDynamics = FlightDataType.getType("Airbrake deployment simulated dynamics", "%",
-                UnitGroup.UNITS_NONE);
-        private static final FlightDataType fdtDistortedAltitude = FlightDataType.getType("Altitude w/simulated baro errors", "m",
-                UnitGroup.UNITS_LENGTH);
+        private static final FlightDataType fdtDeploymentPctCommanded = FlightDataType.getType("Airbrake deployment commanded", "%", UnitGroup.UNITS_NONE);
+        private static final FlightDataType fdtDeploymentPctSimulatedDynamics = FlightDataType.getType("Airbrake deployment simulated dynamics", "%", UnitGroup.UNITS_NONE);
+        private static final FlightDataType fdtDistortedAltitude = FlightDataType.getType("Altitude w/simulated baro errors", "m", UnitGroup.UNITS_LENGTH);
 
         private FlightConditions flightConditions = null;
-        private float deploymentPctCalculated = 0;
         private float deploymentPctCommanded = 0;
         private float deploymentPctSimulatedDynamics = 0;
         private final float DEPLOYMENT_TIME_S = 1.28333333F;
@@ -120,7 +100,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             previousTime = status.getSimulationTime();
             startInstant = Instant.now();
             airbrake_control_interval_timer = 0f;
-            deploymentPctCalculated = 0;
+            deploymentPctCommanded = 0;
             deploymentPctCommanded = 0;
             deploymentPctSimulatedDynamics = 0;
 
@@ -128,19 +108,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             var q = status.getRocketOrientationQuaternion();
             var accel = q.invRotate(new Coordinate(0, 0, 1));
             for (int i = 0; i < 1000; i++) {
-                RunControllerAndGetDeploymentPct(
-                        (float) accel.x * G_CONST,
-                        (float) accel.y * G_CONST,
-                        (float) accel.z * G_CONST,
-                        (float) accel.x * G_CONST,
-                        (float) accel.y * G_CONST,
-                        (float) accel.z * G_CONST,
-                        0,
-                        0,
-                        0,
-                        (float) status.getRocketPosition().z,
-                        0.01f
-                );
+                RunControllerAndGetDeploymentPct((float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, (float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, 0, 0, 0, (float) status.getRocketPosition().z, 0.01f);
             }
         }
 
@@ -190,37 +158,47 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             /* End dynamics simulation */
 
             if (dt > 0 && previousVelocity != null) {
-                if (bypassFilter) {
-                    deploymentPctCalculated = RunControllerRawAndGetDeploymentPct(
-                            (float) vel.x,
-                            (float) vel.y,
-                            (float) vel.z,
-                            distortedAltitude
-                    );
+                Quaternion q = status.getRocketOrientationQuaternion();
+                Coordinate rotVel = status.getRocketRotationVelocity();
+
+                // Specific force in world frame: kinematic accel + (0,0,g) since accelerometers don't sense gravity
+                double ax = (vel.x - previousVelocity.x) / dt;
+                double ay = (vel.y - previousVelocity.y) / dt;
+                double az = (vel.z - previousVelocity.z) / dt + G_CONST;
+                Coordinate sfBody = q.invRotate(new Coordinate(ax, ay, az));
+                Coordinate omegaBody = q.invRotate(rotVel);
+
+                if (mode == AirbrakesMode.FULL_HITL) {
+                    /* The swapped and flipped acceleration axes are to transform the accelerations
+                       into sensor frame. The FC code then transforms them back into body frame. */
+                    byte[] packet = LogPacketV3.build(
+                            0,
+                            (long) (currentTime * 1000),
+                            LogPacketV3.altitudeToPressMbar(distortedAltitude),
+                            LogPacketV3.altitudeToTempC(distortedAltitude),
+                            (float) (sfBody.y / G_CONST),
+                            (float) (sfBody.x / G_CONST),
+                            (float) (sfBody.z / G_CONST),
+                            (float) (omegaBody.x * LogPacketV3.DEG_PER_RAD),
+                            (float) (omegaBody.y * LogPacketV3.DEG_PER_RAD),
+                            (float) (omegaBody.z * LogPacketV3.DEG_PER_RAD),
+                            (float) (-sfBody.x / G_CONST),
+                            (float) (-sfBody.y / G_CONST),
+                            (float) (sfBody.z / G_CONST));
+                    comPort.writeBytes(packet, packet.length);
+
+                    byte[] buffer = new byte[1];
+                    if (1 != comPort.readBytes(buffer, 1, 0)) {
+                        throw new RuntimeException();
+                    }
+                    if (buffer[0] != 0) {
+//                        System.out.printf("Airbrake deployment angle commanded by FC: %d\n", buffer[0]);
+                        deploymentPctCommanded = buffer[0];
+                    }
+                } else if (bypassFilter) {
+                    deploymentPctCommanded = RunControllerRawAndGetDeploymentPct((float) vel.x, (float) vel.y, (float) vel.z, distortedAltitude);
                 } else {
-                    Quaternion q = status.getRocketOrientationQuaternion();
-                    Coordinate rotVel = status.getRocketRotationVelocity();
-
-                    // Specific force in world frame: kinematic accel + (0,0,g) since accelerometers don't sense gravity
-                    double ax = (vel.x - previousVelocity.x) / dt;
-                    double ay = (vel.y - previousVelocity.y) / dt;
-                    double az = (vel.z - previousVelocity.z) / dt + G_CONST;
-                    Coordinate sfBody = q.invRotate(new Coordinate(ax, ay, az));
-                    Coordinate omegaBody = q.invRotate(rotVel);
-
-                    deploymentPctCalculated = RunControllerAndGetDeploymentPct(
-                            (float) sfBody.x,
-                            (float) sfBody.y,
-                            (float) sfBody.z,
-                            (float) sfBody.x,
-                            (float) sfBody.y,
-                            (float) sfBody.z,
-                            (float) omegaBody.x,
-                            (float) omegaBody.y,
-                            (float) omegaBody.z,
-                            distortedAltitude,
-                            (float) dt
-                    );
+                    deploymentPctCommanded = RunControllerAndGetDeploymentPct((float) sfBody.x, (float) sfBody.y, (float) sfBody.z, (float) sfBody.x, (float) sfBody.y, (float) sfBody.z, (float) omegaBody.x, (float) omegaBody.y, (float) omegaBody.z, distortedAltitude, (float) dt);
                 }
             }
 
@@ -237,7 +215,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 if (airbrake_control_interval_timer >= AIRBRAKE_CONTROL_INTERVAL_S) {
                     airbrake_control_interval_timer -= AIRBRAKE_CONTROL_INTERVAL_S;
 
-                    deploymentPctCommanded = deploymentPctCalculated;
+                    deploymentPctCommanded = deploymentPctCommanded;
 
                     if (mode == AirbrakesMode.HITL_CONTROL) {
                         var arr = (Integer.toString((int) (float) deploymentPctCommanded) + "\n").getBytes();

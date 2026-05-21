@@ -313,7 +313,7 @@ const AB_Settings AB_Default_Settings()
 	// TODO: compared to the velocity we are currently obtaining by naively differentiating GPS position.
 	s.VertGpsR(1, 1) = 5.0f;
 
-	s.Mass_kg = 30.0f;
+	s.Mass_kg = CONFIG_ROCKET_MASS_KG;
 	s.GroundTemp_C = 35.0f;
 	s.DeploymentRate_pctPerS = 100.0f / 1.28333333f;
 	s.TargetApogee_m = CONFIG_AIRBRAKES_TARGET_APOGEE_METERS;
