@@ -12,7 +12,7 @@ static inline float CHECK_NAN(float x) {
 #define RAD_TO_DEG  57.295779513082320876798154814105
 
 const static inline float SEA_LEVEL_PRESSURE_PA = 101325.0f;
-static inline float get_altitude_from_pressure(float pressure_pa)
+static inline float get_altitude_from_pressure_pa(float pressure_pa)
 {
   if (pressure_pa < 0.1f)
     return 0.0f;

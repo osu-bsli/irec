@@ -61,7 +61,7 @@ public class BatchSimulate {
             double targetApogee = Double.parseDouble(parts[0]);
             double angleDeg     = Double.parseDouble(parts[1]);
 
-            Airbrakes.SetTargetApogee((float) targetApogee);
+            AirbrakesExtension.SetTargetApogee((float) targetApogee);
             s.getOptions().setLaunchRodAngle(Math.toRadians(angleDeg));
             s.simulate();
             double achieved = s.getSimulatedData().getMaxAltitude();

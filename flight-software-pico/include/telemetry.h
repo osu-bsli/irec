@@ -11,6 +11,7 @@ extern "C" {
 // Brian's callsign
 #define TELEMETRY_PACKET_MAGIC "KF8EBM"
 #define LOG_PACKET_MAGIC "COREYMAY3"
+constexpr size_t LOG_PACKET_MAGIC_LEN = sizeof(LOG_PACKET_MAGIC) - 1; // minus 1 to subtract null terminator
 
 enum StatusFlags {
     STATUS_FLAGS_RECOVERY_ARMED = 1 << 0,
@@ -52,7 +53,7 @@ PACKED_STRUCT telemetry_packet {
 END_PACKED_STRUCT;
 
 PACKED_STRUCT log_packet_v3 {
-    char magic[9]; // 'COREYMAY3' in ASCII with no null terminator
+    char magic[LOG_PACKET_MAGIC_LEN]; // 'COREYMAY3' in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
 
@@ -81,6 +82,7 @@ PACKED_STRUCT log_packet_v3 {
     uint8_t gps_num_sats;
 };
 END_PACKED_STRUCT;
+
 
 void telemetry_packet_make_header(struct telemetry_packet *p);
 void log_packet_make_header(struct log_packet_v3 *p);

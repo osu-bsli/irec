@@ -459,7 +459,7 @@ void ShowVisualizer()
 			for (int i = 0; i < pad_samples; i++)
 			{
 				log_packet_v3 p = ((log_packet_v3 *)log_cropped_logv3)[i];
-				pad_altitude_sum += get_altitude_from_pressure(p.ms5607_pressure_mbar * 100.0f);
+				pad_altitude_sum += get_altitude_from_pressure_pa(p.ms5607_pressure_mbar * 100.0f);
 			}
 			float pad_altitude_m = pad_altitude_sum / (float)pad_samples;
 
@@ -474,7 +474,7 @@ void ShowVisualizer()
 				inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
 					log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
 					log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
-				float current_abs_alt = get_altitude_from_pressure(log_p.ms5607_pressure_mbar * 100.0f);
+				float current_abs_alt = get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100.0f);
 				inputs.Barometer_m = current_abs_alt - pad_altitude_m;
 
 				// Calculate which GPS index to use

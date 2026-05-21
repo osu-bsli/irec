@@ -17,17 +17,28 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Random;
 
-public class Airbrakes extends AbstractSimulationExtension {
+public class AirbrakesExtension extends AbstractSimulationExtension {
 
     private boolean bypassFilter = false;
 
     public SerialPort comPort;
 
-    public Airbrakes() {
+    public AirbrakesExtension() {
         this.comPort = SerialPort.getCommPort("COM3");
         this.comPort.setBaudRate(921600);
         this.comPort.openPort();
     }
+
+    public enum AirbrakesMode {
+        /* Closed-loop simulation with no hardware in the loop. */
+        CLOSED_LOOP_SIM,
+        /* The real-world airbrakes will move based on the deployment percentage the closed-loop simulation commands. */
+        HITL_CONTROL,
+        /* The airbrakes algorithm runs on the flight computer instead of on the PC. */
+        FULL_HITL
+    }
+
+    public AirbrakesMode mode = AirbrakesMode.CLOSED_LOOP_SIM;
 
     public boolean isBypassFilter() {
         return bypassFilter;
@@ -118,12 +129,12 @@ public class Airbrakes extends AbstractSimulationExtension {
             var accel = q.invRotate(new Coordinate(0, 0, 1));
             for (int i = 0; i < 1000; i++) {
                 RunControllerAndGetDeploymentPct(
-                        (float)accel.x * G_CONST,
-                        (float)accel.y * G_CONST,
-                        (float)accel.z * G_CONST,
-                        (float)accel.x * G_CONST,
-                        (float)accel.y * G_CONST,
-                        (float)accel.z * G_CONST,
+                        (float) accel.x * G_CONST,
+                        (float) accel.y * G_CONST,
+                        (float) accel.z * G_CONST,
+                        (float) accel.x * G_CONST,
+                        (float) accel.y * G_CONST,
+                        (float) accel.z * G_CONST,
                         0,
                         0,
                         0,
@@ -143,8 +154,6 @@ public class Airbrakes extends AbstractSimulationExtension {
         }
 
         Random r = new Random();
-
-        final boolean HITL_AIRBRAKE_CONTROL = false;
 
         final float AIRBRAKE_CONTROL_INTERVAL_S = 2f; // 10 Hz, 100 ms period
         float airbrake_control_interval_timer = 0;
@@ -230,14 +239,14 @@ public class Airbrakes extends AbstractSimulationExtension {
 
                     deploymentPctCommanded = deploymentPctCalculated;
 
-                    if (HITL_AIRBRAKE_CONTROL) {
+                    if (mode == AirbrakesMode.HITL_CONTROL) {
                         var arr = (Integer.toString((int) (float) deploymentPctCommanded) + "\n").getBytes();
                         comPort.writeBytes(arr, arr.length);
                     }
                 }
             }
 
-            if (HITL_AIRBRAKE_CONTROL) {
+            if (mode == AirbrakesMode.HITL_CONTROL) {
                 // sleep so the simulation runs in realtime instead of faster than realtime
                 double timeSinceStart = Duration.between(startInstant, Instant.now()).get(ChronoUnit.SECONDS);
                 double simulationTimeAhead = status.getSimulationTime() - timeSinceStart;
