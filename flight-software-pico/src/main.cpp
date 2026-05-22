@@ -142,7 +142,7 @@ struct AirbrakesPacket
 
 static AB_Settings ab_settings = AB_Default_Settings();
 
-const uint32_t airbrakes_queue_len = 10;
+const uint32_t airbrakes_queue_len = 1;
 static StaticQueue_t airbrakes_queue_data;
 uint8_t airbrakes_queue_storage_buffer[airbrakes_queue_len * sizeof(AirbrakesPacket)];
 static QueueHandle_t airbrakes_queue;
@@ -601,10 +601,7 @@ static void runtime_task(void *pvParameters)
     // PredictDeploymentAngle_print_params(airbrakes_packet.ic);
     // print_sensor_data(log_p);
 
-    xQueueSendToFront(
-        airbrakes_queue,
-        &airbrakes_packet,
-        0);
+    xQueueOverwrite(airbrakes_queue, &airbrakes_packet);
 
     xTaskDelayUntil(&time, runtime_interval_ms);
   }
@@ -617,10 +614,6 @@ static void deploy_task(void *pvParameters)
 
   while (true)
   {
-    const TickType_t current_time = xTaskGetTickCount();
-    const TickType_t delta_time = current_time - time;
-    // const float delta_time_float = portTICK_PERIOD_MS / delta_time;
-    time = current_time;
 
     struct AirbrakesPacket airbrakes_packet_rx;
 
@@ -640,8 +633,6 @@ static void deploy_task(void *pvParameters)
       // tone(PIN_BUZZER, 523, 25);
 
       // Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
-
-      xQueueReset(airbrakes_queue);
     }
 
     xTaskDelayUntil(&time, deploy_interval_ms); // TODO log deployed angle
