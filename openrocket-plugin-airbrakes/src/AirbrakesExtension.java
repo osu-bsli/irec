@@ -91,6 +91,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
         private final float DEPLOYMENT_PCT_PER_SEC = 100F / DEPLOYMENT_TIME_S;
         private Coordinate previousVelocity = null;
         private double previousTime = 0;
+        /* Monotonic clock for HITL packet timestamps. Spans on-rod and postStep phases so the FC's
+           delta computation gives a sensible dt at the transition. */
+        private double hitlTimeS = 0;
         Instant startInstant;
 
         @Override
@@ -102,6 +105,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             airbrake_control_interval_timer = 0f;
             deploymentPctCommanded = 0;
             deploymentPctSimulatedDynamics = 0;
+            hitlTimeS = 0;
 
             /* Run filter on the rod for 2 simulated seconds so it can converge on the launch rod angle
                via the gravity vector before the rocket moves. */
@@ -112,8 +116,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 /* Send on-rod sensor packets to the FC in real time so its filter converges before launch. */
                 Coordinate sfBody = q.invRotate(new Coordinate(0, 0, G_CONST));
                 for (int i = 0; i < 200; i++) {
+                    hitlTimeS += 0.010;
                     byte[] packet = LogPacketV3.build(
-                            0, (long) (i * 10),
+                            0, (long) (hitlTimeS * 1000),
                             LogPacketV3.altitudeToPressMbar(altitude),
                             LogPacketV3.altitudeToTempC(altitude),
                             (float) (sfBody.y / G_CONST),
@@ -193,11 +198,12 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 Coordinate omegaBody = q.invRotate(rotVel);
 
                 if (mode == AirbrakesMode.FULL_HITL) {
+                    hitlTimeS += dt;
                     /* The swapped and flipped acceleration axes are to transform the accelerations
                        into sensor frame. The FC code then transforms them back into body frame. */
                     byte[] packet = LogPacketV3.build(
                             0,
-                            (long) (currentTime * 1000),
+                            (long) (hitlTimeS * 1000),
                             LogPacketV3.altitudeToPressMbar(distortedAltitude),
                             LogPacketV3.altitudeToTempC(distortedAltitude),
                             (float) (sfBody.y / G_CONST),

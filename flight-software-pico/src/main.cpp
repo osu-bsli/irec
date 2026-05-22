@@ -518,40 +518,43 @@ static log_packet_v3 get_blank_log_packet()
 
 static void runtime_task(void *pvParameters)
 {
-  static TickType_t time = xTaskGetTickCount();
-  
+
   /* Sample and average the altitude at flight computer startup and call it the ground altitude */
   constexpr int pressure_samples_for_ground_pressure = 20;
   float altitude_accumulator = 0;
+  uint32_t last_time_boot_ms = 0;
   for (int i = 0; i < pressure_samples_for_ground_pressure; i++)
   {
     log_packet_v3 log_p = get_blank_log_packet();
     acquire_sensor_data(&log_p);
     altitude_accumulator += get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100);
+    last_time_boot_ms = log_p.time_boot_ms;
     vTaskDelay(runtime_interval_ms);
   }
-  
+
   const float pad_altitude_m = altitude_accumulator / pressure_samples_for_ground_pressure;
-  
+
   AB_Filter filter;
   AB_Filter_Initialize(filter);
+
+  static TickType_t time = xTaskGetTickCount();
   
   while (true)
   {
-    const TickType_t current_time = xTaskGetTickCount();
-    const TickType_t delta_time = current_time - time;
-    const float delta_time_float = portTICK_PERIOD_MS / delta_time;
-    time = current_time;
-    
     log_packet_v3 log_p = get_blank_log_packet();
     log_p.status_flags = get_sensor_status_flags();
-    log_p.time_boot_ms = time;
-    
+    log_p.time_boot_ms = xTaskGetTickCount();
+
     // Acquire step
     FSError sensor_acquire_status = acquire_sensor_data(&log_p);
     FSError gps_acquire_status = acquire_gps_data(&log_p);
     
     log_packet_make_header(&log_p); // This must be run last for CRC to be correct
+
+    /* For HITL testing, acquire_sensor_data replaces log_p.time_boot_ms, so do 
+       delta time calculation based on the timestamp in the log packet. */
+    const uint32_t delta_time_ms = log_p.time_boot_ms - last_time_boot_ms;
+    last_time_boot_ms = log_p.time_boot_ms; 
     
     AB_Filter_Inputs inputs;
     
@@ -570,8 +573,11 @@ static void runtime_task(void *pvParameters)
     inputs.GPS_Velocity_mps.setZero();
     float current_abs_alt = get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100.0f);
     // inputs.Barometer_m = current_abs_alt - pad_altitude_m;
-    inputs.Barometer_m = current_abs_alt;
-    inputs.dt = runtime_interval_ms / 1000.0; 
+    inputs.Barometer_m = current_abs_alt;    
+
+    /* We cannot use a fixed delta time in this code because OpenRocket
+       refuses to give us fixed-size time steps for HITL testing.  */
+    inputs.dt = delta_time_ms / 1000.0; 
     inputs.IgnoreBaro = false;
     
     // TODO: GPS integration
