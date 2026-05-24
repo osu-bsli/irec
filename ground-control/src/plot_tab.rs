@@ -12,9 +12,7 @@ impl GroundControlApp {
             .link_cursor("cursorlinkgroup-1", Vec2b::new(true, false));
 
         plot.show(ui, |plotui| {
-            // plotui.line((&self.data.euler_a).into());
-            // plotui.line((&self.data.euler_b).into());
-            // plotui.line((&self.data.euler_y).into());
+            plotui.line(self.data.adxl375_accel_z.as_line());
             plotui.line(self.data.fused_accel_magnitude.as_line());
         });
     }

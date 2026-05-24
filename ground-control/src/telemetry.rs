@@ -55,6 +55,42 @@ impl Packet for LogPacketV1 {
     }
 }
 
+#[repr(C, packed)]
+#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+pub struct LogPacketV3 {
+    pub header: PacketHeader, // Magic is 'COREYMAY3' in ASCII with no null terminator
+
+    pub status_flags: u8, // StatusFlags bitfield
+    pub time_boot_ms: u32, // Timestamp (ms since system boot)
+    pub ms5607_pressure_mbar: f32, // MS5607 Air Pressure (unit: mbar)
+    pub ms5607_temperature_c: f32, // MS5607 Temperature (unit: degrees C)
+    pub bmi323_accel_x: f32, // BMI323 Acceleration X (unit: G)
+    pub bmi323_accel_y: f32, // BMI323 Acceleration Y (unit: G)
+    pub bmi323_accel_z: f32, // BMI323 Acceleration Z (unit: G)
+    pub bmi323_gyro_x: f32, // BMI323 Gyroscope X (unit: deg/s)
+    pub bmi323_gyro_y: f32, // BMI323 Gyroscope Y (unit: deg/s)
+    pub bmi323_gyro_z: f32, // BMI323 Gyroscope Z (unit: deg/s)
+    pub adxl375_accel_x: f32, // ADXL375 Acceleration X (unit: G)
+    pub adxl375_accel_y: f32, // ADXL375 Acceleration Y (unit: G)
+    pub adxl375_accel_z: f32, // ADXL375 Acceleration Z (unit: G)
+    pub bm1422_magn_x: f32, // BM1422 Magnetic Field X
+    pub bm1422_magn_y: f32, // BM1422 Magnetic Field Y
+    pub bm1422_magn_z: f32, // BM1422 Magnetic Field Z
+    pub gps_lat: f32, // Latitude  (unit: degres)
+    pub gps_lng: f32, // Longitude (unit: degrees)
+    pub gps_alt: f32, // Altitude  (unit: meters)
+    pub gps_speed: f32,
+    pub pt_volts: f32,
+    pub gps_course: i32,
+    pub gps_num_sats: u8,
+}
+
+impl Packet for LogPacketV3 {
+    fn magic() -> &'static [u8] {
+        b"COREYMAY3"
+    }
+}
+
 pub struct TelemetryDecoder<T> {
     data: [u8; 1024],
     data_pos: usize,

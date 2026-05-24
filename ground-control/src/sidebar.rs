@@ -4,7 +4,7 @@ use egui::{Color32, RichText};
 use serialport::SerialPortInfo;
 
 use crate::{
-    data_log_replay::load_zstd_data_log_v1,
+    data_log_replay::load_data_log_v3_from_path,
     serial_connection::{self, Status},
     Data, DataSeries, GroundControlApp,
 };
@@ -112,9 +112,15 @@ impl GroundControlApp {
                 ui.add_enabled_ui(
                     self.serial.connection_status() == Status::Disconnected,
                     |ui| {
-                        if ui.button("Open data log file").clicked() {
+                        if ui.button("Open data log file (zstd compressed)").clicked() {
                             if let Some(path) = rfd::FileDialog::new().pick_file() {
-                                self.open_data_log_v1(path);
+                                self.open_data_log_v3(path, true);
+                            }
+                        }
+
+                        if ui.button("Open data log file (uncompressed)").clicked() {
+                            if let Some(path) = rfd::FileDialog::new().pick_file() {
+                                self.open_data_log_v3(path, false);
                             }
                         }
 

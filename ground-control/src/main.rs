@@ -17,10 +17,9 @@ use std::time::Instant;
 use std::{collections::VecDeque, io::Cursor};
 
 use data::{Data, DataSeries};
-use data_log_replay::DataLogV1;
+use data_log_replay::DataLogV3;
 use eframe::egui::{self};
 use egui::RichText;
-use ground_control::FusionAhrs;
 use image::open;
 use num_traits::Float;
 use serial_connection::SerialConnection;
@@ -44,7 +43,6 @@ fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let args: Vec<String> = env::args().collect();
-    let open_data_log_path = args.get(1);
 
     let native_options = eframe::NativeOptions {
         vsync: false,
@@ -63,8 +61,7 @@ fn main() -> eframe::Result {
         native_options,
         Box::new(|cc| {
             Ok(Box::new(GroundControlApp::new(
-                cc,
-                open_data_log_path.cloned(),
+                cc
             )))
         }),
     )
@@ -95,7 +92,7 @@ struct GroundControlApp {
     triangle: Arc<Mutex<RotatingTriangle>>,
     triangle_angle: f32,
 
-    data_log: Option<DataLogV1>,
+    data_log: Option<DataLogV3>,
     data_log_status: RichText,
     data_log_replay_time_ms: f64,
     data_log_replay_playing: bool,
@@ -106,7 +103,7 @@ struct GroundControlApp {
 
 impl GroundControlApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, open_data_log_path: Option<String>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
         // This is also where you can customize the look and feel of egui using
@@ -149,10 +146,6 @@ impl GroundControlApp {
 
             replay_skip_ms_before_launch: 5000,
         };
-
-        if let Some(open_data_log_path) = open_data_log_path {
-            app.open_data_log_v1(open_data_log_path.into());
-        }
 
         app.serial.refresh_known_ports();
 
