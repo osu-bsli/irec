@@ -1,0 +1,16 @@
+<configuration>
+    <!-- Route all log output to stderr so it never contaminates the CSV stdout stream. -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Suppress OpenRocket's verbose INFO chatter entirely. -->
+    <logger name="info.openrocket" level="WARN"/>
+
+    <root level="WARN">
+        <appender-ref ref="STDERR"/>
+    </root>
+</configuration>
