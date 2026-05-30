@@ -46,6 +46,12 @@
 #define CONFIG_TEST_ACTIVE
 #endif
 
+/* Voltage divider ratio on PIN_VBAT_DIVIDED_TO_ADC.
+ * ratio = (R_top + R_bottom) / R_bottom
+ * Example: 100k top + 100k bottom → ratio = 2.0
+ * Measure the actual resistors on the board and set this accordingly. */
+#define CONFIG_VBAT_DIVIDER_RATIO ((100.0 + 10.0) / 10.0)
+
 /*
  * Accelerometer calibration values — applied as: corrected = scale * (raw + offset)
  * Run tools/accel_calibration.m on a CSV produced by CONFIG_TEST_ACCEL_CALIBRATION

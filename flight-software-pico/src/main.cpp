@@ -591,7 +591,9 @@ static void runtime_task(void *pvParameters)
           .servo_overcurrent_task_iter_max_us = g_servo_overcurrent_task_iter_max_us,
           .sdcard_write_task_iter_us = g_sdcard_write_task_iter_us,
           .sdcard_write_task_iter_max_us = g_sdcard_write_task_iter_max_us,
-          .battery_mV = 0,
+          .battery_mV = (uint16_t)(
+              ((float)analogRead(PIN_VBAT_DIVIDED_TO_ADC) / ((1 << ADC_RESOLUTION_BITS) - 1))
+              * 3.3f * CONFIG_VBAT_DIVIDER_RATIO * 1000.0f),
           .airbrakes_servo_mA = g_servo_current_ma,
           .is_in_operational_mode = 1,
           .altitude_angle_mrad = (uint16_t)((M_PI / 2.0f - airbrakes_packet.ic.thetaZ_rad) * 1000.0f),
@@ -1076,23 +1078,25 @@ void test_airbrakes_hitl_control_loop()
 
 void pre_operational_mode_loop()
 {
-  Serial.println("Entering pre-operational mode loop...");
+  Serial.println("Entering pre-operational mode. Waiting for SWITCH_TO_OPERATIONAL_MODE command from ground...");
 
   while (true)
   {
     /*
-     * Received radio commands in radio_command_rx_queue have
-     * already been verified to be valid packets.
+     * Received radio commands in radio_command_rx_queue have already been
+     * verified (magic, "CMD", CRC16) by lora_receive_packet_isr_callback.
+     * Block here until any command arrives, then inspect the command byte.
      */
     command_packet p;
+    xQueueReceive(radio_command_rx_queue, &p, portMAX_DELAY);
 
-    BaseType_t receive_status = xQueueReceive(
-        radio_command_rx_queue,
-        &p,
-        0);
+    if (p.command_byte == RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE)
+    {
+      Serial.println("SWITCH_TO_OPERATIONAL_MODE received. Entering operational mode.");
+      break;
+    }
   }
 
-  /* Play switch to operational mode sound effect */
   tone(PIN_BUZZER, 261, 100);
   delay(100);
   tone(PIN_BUZZER, 523, 500);

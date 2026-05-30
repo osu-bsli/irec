@@ -17,6 +17,7 @@
 #define PIN_AIRBRAKES_TX 7
 // Analog Pin 1
 #define PIN_CSENSE A1 
+#define PIN_VBAT_DIVIDED_TO_ADC A2 
 
 //Sensor board
 #define PIN_I2C0_SCL 21
