@@ -75,6 +75,11 @@ static void print_formatted_telemetry_to_serial(telemetry_packet telemetry_p)
         "uint16_t runtime_task_iter_us: %d\n"
         "uint16_t runtime_task_iter_max_us: %d\n"
         "uint16_t deploy_task_iter_us: %d\n"
+        "uint16_t deploy_task_iter_max_us: %d\n"
+        "uint16_t servo_overcurrent_task_iter_us: %d\n"
+        "uint16_t servo_overcurrent_task_iter_max_us: %d\n"
+        "uint16_t sdcard_write_task_iter_us: %d\n"
+        "uint16_t sdcard_write_task_iter_max_us: %d\n"
         "uint16_t battery_mV: %d\n"
         "uint16_t airbrakes_servo_mA: %d\n"
         "bool is_in_operational_mode: %d\n"
@@ -83,6 +88,8 @@ static void print_formatted_telemetry_to_serial(telemetry_packet telemetry_p)
         "float ms5607_temperature_c: %f\n"
         "uint16_t bmi323_accel_magnitude_milliG: %d\n"
         "uint16_t adxl375_accel_magnitude_milliG: %d\n"
+        "uint16_t bmi323_accel_magnitude_cal_milliG: %d\n"
+        "uint16_t adxl375_accel_magnitude_cal_milliG: %d\n"
         "uint8_t commanded_airbrake_deploy_pct: %d\n",
 
         telemetry_p.status_flags,
@@ -90,6 +97,11 @@ static void print_formatted_telemetry_to_serial(telemetry_packet telemetry_p)
         telemetry_p.runtime_task_iter_us,
         telemetry_p.runtime_task_iter_max_us,
         telemetry_p.deploy_task_iter_us,
+        telemetry_p.deploy_task_iter_max_us,
+        telemetry_p.servo_overcurrent_task_iter_us,
+        telemetry_p.servo_overcurrent_task_iter_max_us,
+        telemetry_p.sdcard_write_task_iter_us,
+        telemetry_p.sdcard_write_task_iter_max_us,
         telemetry_p.battery_mV,
         telemetry_p.airbrakes_servo_mA,
         telemetry_p.is_in_operational_mode,
@@ -98,6 +110,8 @@ static void print_formatted_telemetry_to_serial(telemetry_packet telemetry_p)
         telemetry_p.ms5607_temperature_c,
         telemetry_p.bmi323_accel_magnitude_milliG,
         telemetry_p.adxl375_accel_magnitude_milliG,
+        telemetry_p.bmi323_accel_magnitude_cal_milliG,
+        telemetry_p.adxl375_accel_magnitude_cal_milliG,
         telemetry_p.commanded_airbrake_deploy_pct);
 }
 

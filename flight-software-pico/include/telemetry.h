@@ -54,6 +54,10 @@ PACKED_STRUCT command_packet {
 };
 END_PACKED_STRUCT;
 
+/* IMPORTANT: whenever fields are added, removed, or reordered here, also update
+   print_formatted_telemetry_to_serial() in ../ground-computer-pico/src/main.cpp.
+   The ground computer includes this header directly so sizeof() and CRC are
+   automatically correct, but the hardcoded printf format string is not. */
 PACKED_STRUCT telemetry_packet {
     char magic[TELEMETRY_PACKET_MAGIC_LEN]; // Brian's callsign in ASCII with no null terminator
     uint8_t size; // Total size of struct
@@ -64,15 +68,22 @@ PACKED_STRUCT telemetry_packet {
     uint16_t runtime_task_iter_us;
     uint16_t runtime_task_iter_max_us;
     uint16_t deploy_task_iter_us;
+    uint16_t deploy_task_iter_max_us;
+    uint16_t servo_overcurrent_task_iter_us;
+    uint16_t servo_overcurrent_task_iter_max_us;
+    uint16_t sdcard_write_task_iter_us;
+    uint16_t sdcard_write_task_iter_max_us;
     uint16_t battery_mV;
     uint16_t airbrakes_servo_mA; 
     bool is_in_operational_mode;
     uint16_t altitude_angle_mrad; // Altitude angle; angle from horizon (unit: mrad) 
     float ms5607_pressure_mbar; 
     float ms5607_temperature_c; 
-    uint16_t bmi323_accel_magnitude_milliG; 
-    uint16_t adxl375_accel_magnitude_milliG; 
-    uint8_t commanded_airbrake_deploy_pct; 
+    uint16_t bmi323_accel_magnitude_milliG;
+    uint16_t adxl375_accel_magnitude_milliG;
+    uint16_t bmi323_accel_magnitude_cal_milliG;
+    uint16_t adxl375_accel_magnitude_cal_milliG;
+    uint8_t commanded_airbrake_deploy_pct;
 };
 END_PACKED_STRUCT;
 

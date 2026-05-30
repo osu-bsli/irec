@@ -53,7 +53,7 @@
 // Flash
 #include <WinbondW25N.h>
 
-#include <RP2350.h>
+#include "instrumentation.h"
 #include "testing/testing.h"
 #include <checksum.h>
 
@@ -77,8 +77,6 @@ const static TickType_t TELEMETRY_INTERVAL_MS = 1000;                     // 1 H
 
 FSError sdcard_init(fs::File *fileOut);
 
-static fs::File log_file;
-
 static struct fc_adxl375 adxl375;
 static struct fc_bmi323 bmi323;
 static struct fc_ms5607 ms5607;
@@ -94,53 +92,19 @@ static Adafruit_ADS1115 pt_ads;
 static Servo AirBrakeServo;
 static uint8_t g_airbrake_pct = 0;
 
-/* Performance instrumentation macros */
-#define DWT_ENABLE_AND_RESET()                    \
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; \
-  DWT->CYCCNT = 0;                                \
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-#define DWT_GET_MICROSECONDS() (DWT->CYCCNT / SYS_CLK_MHZ)
+static volatile uint16_t g_servo_current_ma = 0;
+
+static volatile uint32_t g_deploy_task_iter_us = 0;
+static volatile uint32_t g_deploy_task_iter_max_us = 0;
+static volatile uint32_t g_servo_overcurrent_task_iter_us = 0;
+static volatile uint32_t g_servo_overcurrent_task_iter_max_us = 0;
+static volatile uint32_t g_sdcard_write_task_iter_us = 0;
+static volatile uint32_t g_sdcard_write_task_iter_max_us = 0;
+
 
 #define C5_HZ 587
 #define NOTE(n) (C5_HZ * pow(2, (n / 12.0)))
 #define BEEP(n) tone(PIN_BUZZER, NOTE(n), 100)
-
-enum LogQueueType : uint8_t
-{
-  SENSOR,
-  ERROR,
-  DEPLOYMENT_ANGLE
-};
-
-struct LogQueue
-{
-  enum LogQueueType type;
-  uint8_t error_code;
-  int deployment_angle;
-  uint8_t status_flags;       // StatusFlags bitfield
-  uint32_t time_boot_ms;      // Timestamp (ms since system boot)
-  float ms5607_pressure_mbar; // MS5607 Air Pressure (unit: mbar)
-  float ms5607_temperature_c; // MS5607 Temperature (unit: degrees C)
-  float bmi323_accel_x;       // BMI323 Acceleration X (unit: G)
-  float bmi323_accel_y;       // BMI323 Acceleration Y (unit: G)
-  float bmi323_accel_z;       // BMI323 Acceleration Z (unit: G)
-  float bmi323_gyro_x;        // BMI323 Gyroscope X (unit: deg/s)
-  float bmi323_gyro_y;        // BMI323 Gyroscope Y (unit: deg/s)
-  float bmi323_gyro_z;        // BMI323 Gyroscope Z (unit: deg/s)
-  float adxl375_accel_x;      // ADXL375 Acceleration X (unit: G)
-  float adxl375_accel_y;      // ADXL375 Acceleration Y (unit: G)
-  float adxl375_accel_z;      // ADXL375 Acceleration Z (unit: G)
-  float bm1422_magn_x;        // BM1422 Magnetic Field X
-  float bm1422_magn_y;        // BM1422 Magnetic Field Y
-  float bm1422_magn_z;        // BM1422 Magnetic Field Z
-  float gps_lat;              // Latitude  (unit: degres)
-  float gps_lng;              // Longitude (unit: degrees)
-  float gps_alt;              // Altitude  (unit: meters)
-  float gps_speed;
-  float pt_volts;
-  int32_t gps_course;
-  uint8_t gps_num_sats;
-} LogQueue;
 
 struct AirbrakesPacket
 {
@@ -157,7 +121,7 @@ static AB_Settings ab_settings = AB_Default_Settings();
   static QueueHandle_t name##_queue
 
 STATIC_QUEUE_DECLARE_HELPER(airbrakes, 1, struct AirbrakesPacket);
-STATIC_QUEUE_DECLARE_HELPER(log, 100, struct LogQueue);
+STATIC_QUEUE_DECLARE_HELPER(log, 100, log_packet_latest);
 STATIC_QUEUE_DECLARE_HELPER(radio_command_rx, 100, struct command_packet);
 
 #define STATIC_QUEUE_INIT_HELPER(name) \
@@ -528,7 +492,7 @@ static void runtime_task(void *pvParameters)
 
   while (true)
   {
-    DWT_ENABLE_AND_RESET();
+    instrumentation_reset();
 
     log_packet_latest log_p = get_blank_log_packet();
     log_p.status_flags = get_sensor_status_flags();
@@ -545,15 +509,35 @@ static void runtime_task(void *pvParameters)
     const uint32_t delta_time_ms = log_p.time_boot_ms - last_time_boot_ms;
     last_time_boot_ms = log_p.time_boot_ms;
 
+    // Calibrated accel values — only used by the nav filter and telemetry magnitudes.
+    // log_p retains raw sensor values for logging.
+    // Calibration is skipped in HITL_FULL mode because acquire_sensor_data injects
+    // already-physical OpenRocket values; applying corrections would corrupt them.
+#ifdef CONFIG_TEST_AIRBRAKES_HITL_FULL
+    const float bmi323_x_cal = log_p.bmi323_accel_x_G;
+    const float bmi323_y_cal = log_p.bmi323_accel_y_G;
+    const float bmi323_z_cal = log_p.bmi323_accel_z_G;
+    const float adxl375_x_cal = log_p.adxl375_accel_x_G;
+    const float adxl375_y_cal = log_p.adxl375_accel_y_G;
+    const float adxl375_z_cal = log_p.adxl375_accel_z_G;
+#else
+    const float bmi323_x_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_X * (log_p.bmi323_accel_x_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_X);
+    const float bmi323_y_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_Y * (log_p.bmi323_accel_y_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_Y);
+    const float bmi323_z_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_Z * (log_p.bmi323_accel_z_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_Z);
+    const float adxl375_x_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_X * (log_p.adxl375_accel_x_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_X);
+    const float adxl375_y_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_Y * (log_p.adxl375_accel_y_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_Y);
+    const float adxl375_z_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_Z * (log_p.adxl375_accel_z_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_Z);
+#endif
+
     AB_Filter_Inputs inputs;
 
     // Convert log packet into airbrake filter inputs
-    inputs.Accelerometer_mps2 << log_p.bmi323_accel_y_G * G_CONST,
-        log_p.bmi323_accel_x_G * G_CONST,
-        log_p.bmi323_accel_z_G * G_CONST;
-    inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x_G * G_CONST,
-        -log_p.adxl375_accel_y_G * G_CONST,
-        log_p.adxl375_accel_z_G * G_CONST;
+    inputs.Accelerometer_mps2 << bmi323_y_cal * G_CONST,
+        bmi323_x_cal * G_CONST,
+        bmi323_z_cal * G_CONST;
+    inputs.AccelerometerHG_mps2 << -adxl375_x_cal * G_CONST,
+        -adxl375_y_cal * G_CONST,
+        adxl375_z_cal * G_CONST;
     inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
         log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
         log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
@@ -573,7 +557,7 @@ static void runtime_task(void *pvParameters)
 
     AB_Filter_Process(filter, inputs, ab_settings);
 
-    log_file.write((uint8_t *)&log_p, sizeof(log_packet_latest));
+    xQueueSend(log_queue, &log_p, 0);
 
     /* Generate packet for airbrake deployment task and send it off */
     float velocityHoriz_mps = sqrt(filter.HorizState.VelocityNorth_mps * filter.HorizState.VelocityNorth_mps +
@@ -601,16 +585,35 @@ static void runtime_task(void *pvParameters)
           .time_boot_ms = log_p.time_boot_ms,
           .runtime_task_iter_us = loop_iter_time_us,
           .runtime_task_iter_max_us = loop_iter_time_max_us,
-          .deploy_task_iter_us = 0xBEEF,
-          .battery_mV = 0xBEEF,
-          .airbrakes_servo_mA = 0xBEEF,
+          .deploy_task_iter_us = g_deploy_task_iter_us,
+          .deploy_task_iter_max_us = g_deploy_task_iter_max_us,
+          .servo_overcurrent_task_iter_us = g_servo_overcurrent_task_iter_us,
+          .servo_overcurrent_task_iter_max_us = g_servo_overcurrent_task_iter_max_us,
+          .sdcard_write_task_iter_us = g_sdcard_write_task_iter_us,
+          .sdcard_write_task_iter_max_us = g_sdcard_write_task_iter_max_us,
+          .battery_mV = 0,
+          .airbrakes_servo_mA = g_servo_current_ma,
           .is_in_operational_mode = 1,
-          .altitude_angle_mrad = 0xBEEF,
-          .ms5607_pressure_mbar = 0xBEEF,
-          .ms5607_temperature_c = 0xBEEF,
-          .bmi323_accel_magnitude_milliG = 0xBEEF,
-          .adxl375_accel_magnitude_milliG = 0xBEEF,
-          .commanded_airbrake_deploy_pct = 0xFF,
+          .altitude_angle_mrad = (uint16_t)((M_PI / 2.0f - airbrakes_packet.ic.thetaZ_rad) * 1000.0f),
+          .ms5607_pressure_mbar = log_p.ms5607_pressure_mbar,
+          .ms5607_temperature_c = log_p.ms5607_temperature_c,
+          .bmi323_accel_magnitude_milliG = (uint16_t)(sqrtf(
+              log_p.bmi323_accel_x_G * log_p.bmi323_accel_x_G +
+              log_p.bmi323_accel_y_G * log_p.bmi323_accel_y_G +
+              log_p.bmi323_accel_z_G * log_p.bmi323_accel_z_G) * 1000.0f),
+          .adxl375_accel_magnitude_milliG = (uint16_t)(sqrtf(
+              log_p.adxl375_accel_x_G * log_p.adxl375_accel_x_G +
+              log_p.adxl375_accel_y_G * log_p.adxl375_accel_y_G +
+              log_p.adxl375_accel_z_G * log_p.adxl375_accel_z_G) * 1000.0f),
+          .bmi323_accel_magnitude_cal_milliG = (uint16_t)(sqrtf(
+              bmi323_x_cal * bmi323_x_cal +
+              bmi323_y_cal * bmi323_y_cal +
+              bmi323_z_cal * bmi323_z_cal) * 1000.0f),
+          .adxl375_accel_magnitude_cal_milliG = (uint16_t)(sqrtf(
+              adxl375_x_cal * adxl375_x_cal +
+              adxl375_y_cal * adxl375_y_cal +
+              adxl375_z_cal * adxl375_z_cal) * 1000.0f),
+          .commanded_airbrake_deploy_pct = g_airbrake_pct,
       };
 
       telemetry_packet_make_header(&telemetry_p);
@@ -622,7 +625,7 @@ static void runtime_task(void *pvParameters)
       digitalWrite(PIN_ACTIVITY_LED, !digitalRead(PIN_ACTIVITY_LED));
     }
 
-    loop_iter_time_us = DWT_GET_MICROSECONDS();
+    loop_iter_time_us = instrumentation_get_microseconds();
     if (loop_iter_time_max_us < loop_iter_time_us)
     {
       loop_iter_time_max_us = loop_iter_time_us;
@@ -635,9 +638,13 @@ static void runtime_task(void *pvParameters)
 static void deploy_task(void *pvParameters)
 {
   static TickType_t time = xTaskGetTickCount();
+  TickType_t loop_iter_time_us = 0;
+  TickType_t loop_iter_time_max_us = 0;
 
   while (true)
   {
+    instrumentation_reset();
+
     struct AirbrakesPacket airbrakes_packet_rx;
 
     BaseType_t receive_status = xQueueReceive(
@@ -658,7 +665,15 @@ static void deploy_task(void *pvParameters)
       // Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
     }
 
-    xTaskDelayUntil(&time, DEPLOY_INTERVAL_MS); // TODO log deployed angle
+    loop_iter_time_us = instrumentation_get_microseconds();
+    if (loop_iter_time_max_us < loop_iter_time_us)
+    {
+      loop_iter_time_max_us = loop_iter_time_us;
+    }
+    g_deploy_task_iter_us = loop_iter_time_us;
+    g_deploy_task_iter_max_us = loop_iter_time_max_us;
+
+    xTaskDelayUntil(&time, DEPLOY_INTERVAL_MS);
   }
 }
 
@@ -678,6 +693,7 @@ FSError do_servo_overcurrent_check()
   // y[n]=αx[n]+(1−α)y[n−1]
   static float EMA_current_value = 0.0;
   EMA_current_value = CURRENT_EMA_ALPHA * servo_current + (1 - CURRENT_EMA_ALPHA) * EMA_current_value; // Exponential Moving Average
+  g_servo_current_ma = (uint16_t)(EMA_current_value * 1000.0f);
 
   if (EMA_current_value > MAX_SERVO_CURRENT_AMPS)
   {
@@ -692,11 +708,24 @@ FSError do_servo_overcurrent_check()
 static void servo_overcurrent_task(void *pvParameters)
 {
   static TickType_t time = 0;
+  TickType_t loop_iter_time_us = 0;
+  TickType_t loop_iter_time_max_us = 0;
+
   while (true)
   {
+    instrumentation_reset();
+
     FSError overcurrent_status = do_servo_overcurrent_check();
 
     // Serial.printf("overcurrent status: %s\n\r", FS_ERROR_NAMES(overcurrent_status));
+
+    loop_iter_time_us = instrumentation_get_microseconds();
+    if (loop_iter_time_max_us < loop_iter_time_us)
+    {
+      loop_iter_time_max_us = loop_iter_time_us;
+    }
+    g_servo_overcurrent_task_iter_us = loop_iter_time_us;
+    g_servo_overcurrent_task_iter_max_us = loop_iter_time_max_us;
 
     xTaskDelayUntil(&time, SERVO_OVERCURRENT_INTERVAL_MS); // runs at 100hz
   }
@@ -735,6 +764,40 @@ void gps_test_loop()
         log_p.gps_num_sats);
 
     delay(1000);
+  }
+}
+
+static void sdcard_write_task(void *pvParameters)
+{
+  fs::File log_file;
+  FSError log_status = sdcard_init(&log_file);
+  if (log_status != SUCCESS)
+  {
+    Serial.printf("[Error] SD Card Logging Initialization Failure: %s\n\r", FCError__strings[log_status]);
+  }
+
+  TickType_t loop_iter_time_us = 0;
+  TickType_t loop_iter_time_max_us = 0;
+
+  while (true)
+  {
+    log_packet_latest log_p;
+    xQueueReceive(log_queue, &log_p, portMAX_DELAY);
+
+    instrumentation_reset();
+
+    if (log_status == SUCCESS)
+    {
+      log_file.write((uint8_t *)&log_p, sizeof(log_packet_latest));
+    }
+
+    loop_iter_time_us = instrumentation_get_microseconds();
+    if (loop_iter_time_max_us < loop_iter_time_us)
+    {
+      loop_iter_time_max_us = loop_iter_time_us;
+    }
+    g_sdcard_write_task_iter_us = loop_iter_time_us;
+    g_sdcard_write_task_iter_max_us = loop_iter_time_max_us;
   }
 }
 
@@ -842,6 +905,84 @@ void sensors_test_loop()
   }
 }
 
+#ifdef CONFIG_TEST_ACCEL_CALIBRATION
+void accel_calibration_test_loop()
+{
+  FSError sensor_status = sensors_setup();
+  if (sensor_status != SUCCESS)
+  {
+    Serial.printf("[Error] Sensor init failure: %s\n\r", FCError__strings[sensor_status]);
+  }
+
+  SPI1.setMISO(PIN_FS_SPI_MISO);
+  SPI1.setMOSI(PIN_FS_SPI_MOSI);
+  SPI1.setSCK(PIN_FS_SPI_SCK);
+
+  if (!SD.begin(PIN_SD_CS, SPI1))
+  {
+    Serial.println("[Error] SD card init failed");
+    while (true) delay(1000);
+  }
+
+  const char *filename = "/accel_cal.csv";
+  if (SD.exists(filename))
+    SD.remove(filename);
+
+  fs::File csv_file = SD.open(filename, FILE_WRITE);
+  if (!csv_file)
+  {
+    Serial.println("[Error] Failed to open accel_cal.csv");
+    while (true) delay(1000);
+  }
+
+  csv_file.println("capture_id,sample_id,bmi323_x_G,bmi323_y_G,bmi323_z_G,adxl375_x_G,adxl375_y_G,adxl375_z_G");
+  csv_file.flush();
+
+  Serial.println("Accel calibration mode. Press Enter to start each capture.");
+  Serial.println("Suggested order: +X up, -X up, +Y up, -Y up, +Z up, -Z up");
+  Serial.println("After 5s settling delay, 100 samples (1s at 100Hz) will be taken.");
+
+  int capture_id = 0;
+  while (true)
+  {
+    Serial.printf("Capture %d ready. Press Enter...\n\r", capture_id);
+
+    while (Serial.read() == -1)
+      delay(10);
+    delay(20);
+    while (Serial.available())
+      Serial.read();
+
+    Serial.printf("Capture %d: settling for 5 seconds...\n\r", capture_id);
+    delay(5000);
+
+    Serial.printf("Capture %d: sampling...\n\r", capture_id);
+    for (int i = 0; i < 100; i++)
+    {
+      struct fc_adxl375_data adxl375_data = {};
+      fc_adxl375_process(&adxl375, &adxl375_data);
+
+      struct fc_bmi323_data bmi323_data = {};
+      fc_bmi323_process(&bmi323, &bmi323_data);
+
+      char line[128];
+      snprintf(line, sizeof(line),
+               "%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\r\n",
+               capture_id, i,
+               (double)bmi323_data.accel_x, (double)bmi323_data.accel_y, (double)bmi323_data.accel_z,
+               (double)adxl375_data.accel_x, (double)adxl375_data.accel_y, (double)adxl375_data.accel_z);
+      csv_file.print(line);
+
+      delay(10);
+    }
+
+    csv_file.flush();
+    Serial.printf("Capture %d complete.\n\r", capture_id);
+    capture_id++;
+  }
+}
+#endif
+
 void pressure_transducer_setup()
 {
   Serial.println("Setting up PT...");
@@ -859,17 +1000,14 @@ void test_airbrakes_algo_performance_loop()
 
   while (true)
   {
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    // Reset and enable the cycle counter
-    DWT->CYCCNT = 0;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    instrumentation_reset();
 
     // Run function to benchmark
     int itersReqd;
     const float airbrake_pct = PredictDeploymentPct(ic, &itersReqd, ab_settings);
 
     // Take time
-    int us_taken = DWT->CYCCNT / SYS_CLK_MHZ;
+    int us_taken = (int)instrumentation_get_microseconds();
 
     PredictDeploymentAngle_print_params(ic);
     Serial.printf("       airbrake_pct: %f\n", airbrake_pct);
@@ -992,6 +1130,10 @@ void setup()
   sensors_test_loop();
 #endif
 
+#ifdef CONFIG_TEST_ACCEL_CALIBRATION
+  accel_calibration_test_loop();
+#endif
+
 #ifdef CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE
   test_airbrakes_algo_performance_loop();
 #endif
@@ -1009,14 +1151,6 @@ void setup()
 #ifndef CONFIG_TEST_NO_PRE_OPERATIONAL_MODE
   pre_operational_mode_loop();
 #endif
-
-  /* SD card and flash logging */
-  Serial.println("Setting up SD card...");
-  FSError log_status = sdcard_init(&log_file);
-  if (log_status != SUCCESS)
-  {
-    Serial.printf("[Error] SD Card Logging Initialization Failure: %s\n\r", FCError__strings[log_status]);
-  }
 
   Serial.println("Setting up sensors...");
   // Sensors board
@@ -1090,6 +1224,24 @@ void setup()
     while (true)
     {
       Serial.printf("[Error] Could not create servo overcurrent task");
+    }
+  }
+
+  BaseType_t sdcard_write_task_status;
+  TaskHandle_t sdcard_write_task_handle;
+
+  sdcard_write_task_status = xTaskCreate(sdcard_write_task,
+                                         "SD card write task",
+                                         8192,
+                                         NULL,
+                                         configMAX_PRIORITIES - 2,
+                                         &sdcard_write_task_handle);
+
+  if (sdcard_write_task_status != pdPASS)
+  {
+    while (true)
+    {
+      Serial.printf("[Error] Could not create SD card write task");
     }
   }
 
