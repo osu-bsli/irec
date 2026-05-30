@@ -21,7 +21,7 @@ one partition will be used each time the flight computer is turned on. */
 
 #define PAGES_PER_PARTITION (FLASH_NUM_PAGES / CONFIG_NUM_PARTITIONS)
 #define PARTITION_SIZE (FLASH_NUM_PAGES * PAGE_SIZE) / CONFIG_NUM_PARTITIONS
-#define PACKETS_PER_PARTITION PARTITION_SIZE / (sizeof(log_packet_v3))
+#define PACKETS_PER_PARTITION PARTITION_SIZE / (sizeof(log_packet_latest))
 
 /* Check that the pages divide evenly into number of configured partitions */
 static_assert(PAGES_PER_PARTITION * CONFIG_NUM_PARTITIONS == FLASH_NUM_PAGES);

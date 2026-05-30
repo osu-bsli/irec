@@ -10,6 +10,7 @@ extern "C" {
 #define TELEMETRY_PACKET_MAX_LEN 255
 // Brian's callsign
 #define TELEMETRY_PACKET_MAGIC "KF8EBM"
+constexpr size_t TELEMETRY_PACKET_MAGIC_LEN = sizeof(TELEMETRY_PACKET_MAGIC) - 1; // minus 1 to subtract null terminator
 #define LOG_PACKET_MAGIC "COREYMAY3"
 constexpr size_t LOG_PACKET_MAGIC_LEN = sizeof(LOG_PACKET_MAGIC) - 1; // minus 1 to subtract null terminator
 
@@ -36,19 +37,42 @@ enum StatusFlags {
 //     ROCKET_ERROR,
 // };
 
+#define RADIO_COMMAND_DEPLOY_AIRBRAKES 0x01 
+#define RADIO_COMMAND_STOW_AIRBRAKES 0x02
+#define RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE 0x67
+
+#define COMMAND_PACKET_MAGIC TELEMETRY_PACKET_MAGIC
+#define COMMAND_PACKET_MAGIC_LEN TELEMETRY_PACKET_MAGIC_LEN
+
+PACKED_STRUCT command_packet {
+    char magic[COMMAND_PACKET_MAGIC_LEN]; // Brian's callsign in ASCII with no null terminator
+    uint8_t size; // Total size of struct
+    uint16_t crc16;
+
+    char cmd[3]; // "CMD"
+    uint8_t command_byte;
+};
+END_PACKED_STRUCT;
+
 PACKED_STRUCT telemetry_packet {
-    char magic[6]; // Brian's callsign in ASCII with no null terminator
+    char magic[TELEMETRY_PACKET_MAGIC_LEN]; // Brian's callsign in ASCII with no null terminator
     uint8_t size; // Total size of struct
     uint16_t crc16;
 
     uint8_t status_flags; // StatusFlags bitfield
-    uint8_t rocket_flags;
     uint32_t time_boot_ms; // Timestamp (ms since system boot)
-    float pitch; // Fused sensor data (unit: Euler angle deg)
-    float yaw;   // Fused sensor data (unit: Euler angle deg)
-    float roll;  // Fused sensor data (unit: Euler angle deg)
-    float accel_magnitude; // Magnitude of acceleration (unit: G)
-    float ms5607_pressure_mbar; // Pressure (unit: mbar)
+    uint16_t runtime_task_iter_us;
+    uint16_t runtime_task_iter_max_us;
+    uint16_t deploy_task_iter_us;
+    uint16_t battery_mV;
+    uint16_t airbrakes_servo_mA; 
+    bool is_in_operational_mode;
+    uint16_t altitude_angle_mrad; // Altitude angle; angle from horizon (unit: mrad) 
+    float ms5607_pressure_mbar; 
+    float ms5607_temperature_c; 
+    uint16_t bmi323_accel_magnitude_milliG; 
+    uint16_t adxl375_accel_magnitude_milliG; 
+    uint8_t commanded_airbrake_deploy_pct; 
 };
 END_PACKED_STRUCT;
 
@@ -83,9 +107,10 @@ PACKED_STRUCT log_packet_v3 {
 };
 END_PACKED_STRUCT;
 
+typedef struct log_packet_v3 log_packet_latest;
 
 void telemetry_packet_make_header(struct telemetry_packet *p);
-void log_packet_make_header(struct log_packet_v3 *p);
+void log_packet_make_header(log_packet_latest *p);
 
 #ifdef __cplusplus
 }

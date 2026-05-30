@@ -41,7 +41,6 @@
 
 // Arduino
 #include <Servo.h>
-#include <SPI.h>
 #include <LoRa.h>
 #include <SD.h>
 #include <TinyGPS++.h>
@@ -56,6 +55,7 @@
 
 #include <RP2350.h>
 #include "testing/testing.h"
+#include <checksum.h>
 
 #define I2C_SENSOR_FREQUENCY 200000
 #define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
@@ -69,9 +69,10 @@
 
 // FreeRTOS tick is 1ms when using Arduino like this
 // 20ms for 50hz, 10ms for 100hz, 4 for 250hz, 3 for 333.33hz, 2.5 for 400hz, 2 for 500hz
-const static TickType_t runtime_interval_ms = CONFIG_RUNTIME_INTERVAL_MS; // 100 Hz
-const static TickType_t servo_overcurrent_interval_ms = 10;               // 100 Hz
-const static TickType_t deploy_interval_ms = 100;                          // 10 Hz
+const static TickType_t RUNTIME_INTERVAL_MS = CONFIG_RUNTIME_INTERVAL_MS; // 100 Hz
+const static TickType_t SERVO_OVERCURRENT_INTERVAL_MS = 10;               // 100 Hz
+const static TickType_t DEPLOY_INTERVAL_MS = 100;                         // 10 Hz
+const static TickType_t TELEMETRY_INTERVAL_MS = 1000;                     // 1 Hz
 // const static TickType_t error_interval_ms = 100; // 10 Hz
 
 FSError sdcard_init(fs::File *fileOut);
@@ -83,7 +84,6 @@ static struct fc_bmi323 bmi323;
 static struct fc_ms5607 ms5607;
 static struct fc_bm1422 bm1422;
 
-
 #define GPSSerial Serial1
 static TinyGPSPlus gps;
 
@@ -93,6 +93,13 @@ static Adafruit_ADS1115 pt_ads;
 #define AIRBRAKE_DEPLOYED_ANGLE 33
 static Servo AirBrakeServo;
 static uint8_t g_airbrake_pct = 0;
+
+/* Performance instrumentation macros */
+#define DWT_ENABLE_AND_RESET()                    \
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; \
+  DWT->CYCCNT = 0;                                \
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+#define DWT_GET_MICROSECONDS() (DWT->CYCCNT / SYS_CLK_MHZ)
 
 #define C5_HZ 587
 #define NOTE(n) (C5_HZ * pow(2, (n / 12.0)))
@@ -142,15 +149,23 @@ struct AirbrakesPacket
 
 static AB_Settings ab_settings = AB_Default_Settings();
 
-const uint32_t airbrakes_queue_len = 1;
-static StaticQueue_t airbrakes_queue_data;
-uint8_t airbrakes_queue_storage_buffer[airbrakes_queue_len * sizeof(AirbrakesPacket)];
-static QueueHandle_t airbrakes_queue;
+#define STATIC_QUEUE_DECLARE_HELPER(name, len, type)                                        \
+  typedef type name##_queue_type;                                                           \
+  static const uint32_t name##_queue_len = len;                                             \
+  static StaticQueue_t name##_queue_data;                                                   \
+  static uint8_t name##_queue_storage_buffer[name##_queue_len * sizeof(name##_queue_type)]; \
+  static QueueHandle_t name##_queue
 
-const uint32_t log_queue_len = 100;
-static StaticQueue_t log_queue_data;
-uint8_t log_queue_storage_buffer[log_queue_len * sizeof(LogQueue)];
-static QueueHandle_t log_queue;
+STATIC_QUEUE_DECLARE_HELPER(airbrakes, 1, struct AirbrakesPacket);
+STATIC_QUEUE_DECLARE_HELPER(log, 100, struct LogQueue);
+STATIC_QUEUE_DECLARE_HELPER(radio_command_rx, 100, struct command_packet);
+
+#define STATIC_QUEUE_INIT_HELPER(name) \
+  name##_queue = xQueueCreateStatic(   \
+      name##_queue_len,                \
+      sizeof(name##_queue_type),       \
+      name##_queue_storage_buffer,     \
+      &name##_queue_data);
 
 /// Due to the nature of the PICO we can configure
 /// nearly every pin to do multiple functions.
@@ -215,7 +230,7 @@ int motor_map(int pct)
   return map(pct, 0, 100, AIRBRAKE_STOWED_ANGLE, AIRBRAKE_DEPLOYED_ANGLE);
 }
 
-// static void print_log_packet(struct log_packet_v3 p) {
+// static void print_log_packet(struct log_packet_latest p) {
 //   // %u is poo poo and C doesn't support printing char as a number so we have to use this work around for those values smaller than a word
 //   const uint32_t status_flags = 0 | p.status_flags;
 //   const uint32_t crc = 0 | p.crc16;
@@ -260,7 +275,7 @@ int motor_map(int pct)
 //   );
 // }
 
-FSError acquire_gps_data(log_packet_v3 *log_p)
+FSError acquire_gps_data(log_packet_latest *log_p)
 {
   while (GPSSerial.available())
   {
@@ -328,7 +343,7 @@ uint8_t get_sensor_status_flags()
 
 /// Acquires i2c sensor data and updates the provided log packet struct
 /// If an error is encountered reading the data it provides it, but otherwise processes the data
-FSError acquire_sensor_data(struct log_packet_v3 *log_p)
+FSError acquire_sensor_data(log_packet_latest *log_p)
 {
 #ifdef CONFIG_TEST_FULL_STACK_WITH_PRERECORDED_DATA
   return acquire_sensor_data_prerecorded(log_p);
@@ -344,17 +359,15 @@ FSError acquire_sensor_data(struct log_packet_v3 *log_p)
   struct fc_adxl375_data adxl375_data;
   const FSError adxl_status = fc_adxl375_process(&adxl375, &adxl375_data);
 
-  if (adxl_status != SUCCESS)
-  {
-    // TODO maybe an error somewhere in the log
-    return adxl_status;
-    // Serial.printf("adxl read error\n\r");
-  }
-  else
+  if (adxl_status == SUCCESS)
   {
     log_p->adxl375_accel_x_G = adxl375_data.accel_x;
     log_p->adxl375_accel_y_G = adxl375_data.accel_y;
     log_p->adxl375_accel_z_G = adxl375_data.accel_z;
+  }
+  else
+  {
+    // TODO maybe
   }
 
   // struct fc_bm1422_data bm1422_data;
@@ -369,13 +382,7 @@ FSError acquire_sensor_data(struct log_packet_v3 *log_p)
   struct fc_bmi323_data bmi323_data;
   const FSError bmi323_status = fc_bmi323_process(&bmi323, &bmi323_data);
 
-  if (bmi323_status != SUCCESS)
-  {
-    // TODO maybe an error somewhere in the log
-    // Serial.printf("bmi323 read error\n\r");
-    return bmi323_status;
-  }
-  else
+  if (bmi323_status == SUCCESS)
   {
     log_p->bmi323_accel_x_G = bmi323_data.accel_x;
     log_p->bmi323_accel_y_G = bmi323_data.accel_y;
@@ -384,20 +391,22 @@ FSError acquire_sensor_data(struct log_packet_v3 *log_p)
     log_p->bmi323_gyro_y_degps = bmi323_data.gyro_y;
     log_p->bmi323_gyro_z_degps = bmi323_data.gyro_z;
   }
+  else
+  {
+    // TODO maybe
+  }
 
   struct fc_ms5607_data ms5607_data;
   const FSError ms5607_status = fc_ms5607_process(&ms5607, &ms5607_data);
 
-  if (ms5607_status != SUCCESS)
-  {
-    // TODO maybe an error somewhere in the log
-    // Serial.printf("ms5607 read error\n\r");
-    return ms5607_status;
-  }
-  else
+  if (ms5607_status == SUCCESS)
   {
     log_p->ms5607_pressure_mbar = ms5607_data.pressure_mbar;
     log_p->ms5607_temperature_c = ms5607_data.temperature_c;
+  }
+  else
+  {
+    // TODO maybe
   }
 
   return SUCCESS;
@@ -413,6 +422,244 @@ void airbrakes_setup()
 
   // Current sense setup
   analogReadResolution(ADC_RESOLUTION_BITS);
+}
+
+void print_sensor_data(const log_packet_latest &log_p)
+{
+  Serial.printf(
+      "======== Sensor data ========\n"
+      "    ms5607_pressure_mbar: %f\n"
+      "    ms5607_temperature_c: %f\n"
+      "          bmi323_accel_x: %f\n"
+      "          bmi323_accel_y: %f\n"
+      "          bmi323_accel_z: %f\n"
+      "           bmi323_gyro_x: %f\n"
+      "           bmi323_gyro_y: %f\n"
+      "           bmi323_gyro_z: %f\n"
+      "         adxl375_accel_x: %f\n"
+      "         adxl375_accel_y: %f\n"
+      "         adxl375_accel_z: %f\n"
+      "           bm1422_magn_x: %f\n"
+      "           bm1422_magn_y: %f\n"
+      "           bm1422_magn_z: %f\n",
+      log_p.ms5607_pressure_mbar,
+      log_p.ms5607_temperature_c,
+      log_p.bmi323_accel_x_G,
+      log_p.bmi323_accel_y_G,
+      log_p.bmi323_accel_z_G,
+      log_p.bmi323_gyro_x_degps,
+      log_p.bmi323_gyro_y_degps,
+      log_p.bmi323_gyro_z_degps,
+      log_p.adxl375_accel_x_G,
+      log_p.adxl375_accel_y_G,
+      log_p.adxl375_accel_z_G,
+      log_p.bm1422_magn_x,
+      log_p.bm1422_magn_y,
+      log_p.bm1422_magn_z);
+}
+
+void PredictDeploymentAngle_print_params(const apogeeIC ic)
+{
+  Serial.printf("======== PredictDeploymentAngle parameters =========\n");
+  Serial.printf("                altitude_m: %f\n", ic.altitude_m);
+  Serial.printf("             velocityZ_mps: %f\n", ic.velocityZ_mps);
+  Serial.printf("                thetaZ_rad: %f\n", ic.thetaZ_rad);
+  Serial.printf("    airbrakeDeployment_pct: %f\n", ic.airbrakeDeployment_pct);
+}
+
+static log_packet_latest get_blank_log_packet()
+{
+  log_packet_latest log_p = {
+      .status_flags = 0,
+      .time_boot_ms = 0,
+      .ms5607_pressure_mbar = NAN,
+      .ms5607_temperature_c = NAN,
+      .bmi323_accel_x_G = NAN, // LOW G
+      .bmi323_accel_y_G = NAN,
+      .bmi323_accel_z_G = NAN,
+      .bmi323_gyro_x_degps = NAN,
+      .bmi323_gyro_y_degps = NAN,
+      .bmi323_gyro_z_degps = NAN,
+      .adxl375_accel_x_G = NAN, // HIGH G
+      .adxl375_accel_y_G = NAN,
+      .adxl375_accel_z_G = NAN,
+      .bm1422_magn_x = NAN,
+      .bm1422_magn_y = NAN,
+      .bm1422_magn_z = NAN,
+      .gps_lat_deg = NAN,
+      .gps_lng_deg = NAN,
+      .gps_alt_m = NAN,
+      .gps_speed_mps = NAN,
+      .pt_volts = NAN,
+      .gps_course = -0x7FFFFFFF,
+      .gps_num_sats = 0xFF,
+  };
+
+  return log_p;
+}
+
+static void runtime_task(void *pvParameters)
+{
+  vTaskPreemptionDisable(NULL);
+
+  /* Sample and average the altitude at flight computer startup and call it the ground altitude */
+  constexpr int pressure_samples_for_ground_pressure = 20;
+  float altitude_accumulator = 0;
+  uint32_t last_time_boot_ms = 0;
+  for (int i = 0; i < pressure_samples_for_ground_pressure; i++)
+  {
+    log_packet_latest log_p = get_blank_log_packet();
+    acquire_sensor_data(&log_p);
+    altitude_accumulator += get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100);
+    last_time_boot_ms = log_p.time_boot_ms;
+    vTaskDelay(RUNTIME_INTERVAL_MS);
+  }
+
+  const float pad_altitude_m = altitude_accumulator / pressure_samples_for_ground_pressure;
+
+  AB_Filter filter;
+  AB_Filter_Initialize(filter);
+
+  TickType_t time = xTaskGetTickCount();
+  TickType_t telemetry_timer = time;
+
+  TickType_t loop_iter_time_us = 0;
+  TickType_t loop_iter_time_max_us = 0;
+
+  while (true)
+  {
+    DWT_ENABLE_AND_RESET();
+
+    log_packet_latest log_p = get_blank_log_packet();
+    log_p.status_flags = get_sensor_status_flags();
+    log_p.time_boot_ms = xTaskGetTickCount();
+
+    // Acquire step
+    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+    FSError gps_acquire_status = acquire_gps_data(&log_p);
+
+    log_packet_make_header(&log_p); // This must be run after all other fields are set to be correct
+
+    /* For HITL testing, acquire_sensor_data replaces log_p.time_boot_ms, so do
+       delta time calculation based on the timestamp in the log packet. */
+    const uint32_t delta_time_ms = log_p.time_boot_ms - last_time_boot_ms;
+    last_time_boot_ms = log_p.time_boot_ms;
+
+    AB_Filter_Inputs inputs;
+
+    // Convert log packet into airbrake filter inputs
+    inputs.Accelerometer_mps2 << log_p.bmi323_accel_y_G * G_CONST,
+        log_p.bmi323_accel_x_G * G_CONST,
+        log_p.bmi323_accel_z_G * G_CONST;
+    inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x_G * G_CONST,
+        -log_p.adxl375_accel_y_G * G_CONST,
+        log_p.adxl375_accel_z_G * G_CONST;
+    inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
+        log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
+        log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
+    inputs.Magnetometer.setZero();
+    inputs.GPS_Position_m.setZero();
+    inputs.GPS_Velocity_mps.setZero();
+    float current_abs_alt = get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100.0f);
+    // inputs.Barometer_m = current_abs_alt - pad_altitude_m;
+    inputs.Barometer_m = current_abs_alt;
+
+    /* We cannot use a fixed delta time in this code because OpenRocket
+       refuses to give us fixed-size time steps for HITL testing.  */
+    inputs.dt = delta_time_ms / 1000.0;
+    inputs.IgnoreBaro = false;
+
+    // TODO: GPS integration
+
+    AB_Filter_Process(filter, inputs, ab_settings);
+
+    log_file.write((uint8_t *)&log_p, sizeof(log_packet_latest));
+
+    /* Generate packet for airbrake deployment task and send it off */
+    float velocityHoriz_mps = sqrt(filter.HorizState.VelocityNorth_mps * filter.HorizState.VelocityNorth_mps +
+                                   filter.HorizState.VelocityEast_mps * filter.HorizState.VelocityEast_mps);
+    struct AirbrakesPacket airbrakes_packet{.ic =
+                                                {
+                                                    .altitude_m = filter.VertState.Altitude_m,
+                                                    .velocityZ_mps = filter.VertState.VelocityUp_mps,
+                                                    .thetaZ_rad = (float)(atan2(velocityHoriz_mps, filter.VertState.VelocityUp_mps)),
+                                                    .airbrakeDeployment_pct = 0,
+                                                }};
+
+    // PredictDeploymentAngle_print_params(airbrakes_packet.ic);
+    // print_sensor_data(log_p);
+
+    xQueueOverwrite(airbrakes_queue, &airbrakes_packet);
+
+    /* Telemetry */
+    if (time >= telemetry_timer)
+    {
+      telemetry_timer += TELEMETRY_INTERVAL_MS;
+
+      telemetry_packet telemetry_p = {
+          .status_flags = log_p.status_flags,
+          .time_boot_ms = log_p.time_boot_ms,
+          .runtime_task_iter_us = loop_iter_time_us,
+          .runtime_task_iter_max_us = loop_iter_time_max_us,
+          .deploy_task_iter_us = 0xBEEF,
+          .battery_mV = 0xBEEF,
+          .airbrakes_servo_mA = 0xBEEF,
+          .is_in_operational_mode = 1,
+          .altitude_angle_mrad = 0xBEEF,
+          .ms5607_pressure_mbar = 0xBEEF,
+          .ms5607_temperature_c = 0xBEEF,
+          .bmi323_accel_magnitude_milliG = 0xBEEF,
+          .adxl375_accel_magnitude_milliG = 0xBEEF,
+          .commanded_airbrake_deploy_pct = 0xFF,
+      };
+
+      telemetry_packet_make_header(&telemetry_p);
+
+      LoRa.beginPacket();
+      LoRa.write((uint8_t *)&telemetry_p, sizeof(telemetry_p));
+      LoRa.endPacket(true);
+
+      digitalWrite(PIN_ACTIVITY_LED, !digitalRead(PIN_ACTIVITY_LED));
+    }
+
+    loop_iter_time_us = DWT_GET_MICROSECONDS();
+    if (loop_iter_time_max_us < loop_iter_time_us)
+    {
+      loop_iter_time_max_us = loop_iter_time_us;
+    }
+
+    xTaskDelayUntil(&time, RUNTIME_INTERVAL_MS);
+  }
+}
+
+static void deploy_task(void *pvParameters)
+{
+  static TickType_t time = xTaskGetTickCount();
+
+  while (true)
+  {
+    struct AirbrakesPacket airbrakes_packet_rx;
+
+    BaseType_t receive_status = xQueueReceive(
+        airbrakes_queue,
+        &airbrakes_packet_rx,
+        0);
+
+    if (receive_status == pdTRUE)
+    {
+      int itersReqd;
+      g_airbrake_pct = round(PredictDeploymentPct(airbrakes_packet_rx.ic, &itersReqd, ab_settings));
+      const int servo_degrees = motor_map(g_airbrake_pct);
+
+      AirBrakeServo.write(servo_degrees);
+
+      // tone(PIN_BUZZER, 523, 25);
+
+      // Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
+    }
+
+    xTaskDelayUntil(&time, DEPLOY_INTERVAL_MS); // TODO log deployed angle
+  }
 }
 
 FSError do_servo_overcurrent_check()
@@ -442,203 +689,6 @@ FSError do_servo_overcurrent_check()
   return SUCCESS;
 }
 
-void print_sensor_data(const log_packet_v3 &log_p)
-{
-  Serial.printf(
-    "======== Sensor data ========\n"
-    "    ms5607_pressure_mbar: %f\n"
-    "    ms5607_temperature_c: %f\n"
-    "          bmi323_accel_x: %f\n"
-    "          bmi323_accel_y: %f\n"
-    "          bmi323_accel_z: %f\n"
-    "           bmi323_gyro_x: %f\n"
-    "           bmi323_gyro_y: %f\n"
-    "           bmi323_gyro_z: %f\n"
-    "         adxl375_accel_x: %f\n"
-    "         adxl375_accel_y: %f\n"
-    "         adxl375_accel_z: %f\n"
-    "           bm1422_magn_x: %f\n"
-    "           bm1422_magn_y: %f\n"
-    "           bm1422_magn_z: %f\n",
-    log_p.ms5607_pressure_mbar,
-    log_p.ms5607_temperature_c,
-    log_p.bmi323_accel_x_G,
-    log_p.bmi323_accel_y_G,
-    log_p.bmi323_accel_z_G,
-    log_p.bmi323_gyro_x_degps,
-    log_p.bmi323_gyro_y_degps,
-    log_p.bmi323_gyro_z_degps,
-    log_p.adxl375_accel_x_G,
-    log_p.adxl375_accel_y_G,
-    log_p.adxl375_accel_z_G,
-    log_p.bm1422_magn_x,
-    log_p.bm1422_magn_y,
-    log_p.bm1422_magn_z);
-}
-
-void PredictDeploymentAngle_print_params(const apogeeIC ic)
-{
-  Serial.printf("======== PredictDeploymentAngle parameters =========\n");
-  Serial.printf("                altitude_m: %f\n", ic.altitude_m);
-  Serial.printf("             velocityZ_mps: %f\n", ic.velocityZ_mps);
-  Serial.printf("                thetaZ_rad: %f\n", ic.thetaZ_rad);
-  Serial.printf("    airbrakeDeployment_pct: %f\n", ic.airbrakeDeployment_pct);
-}
-
-static log_packet_v3 get_blank_log_packet()
-{
-  struct log_packet_v3 log_p = {
-    .status_flags = 0,
-    .time_boot_ms = 0,
-    .ms5607_pressure_mbar = NAN,
-    .ms5607_temperature_c = NAN,
-    .bmi323_accel_x_G = NAN, // LOW G
-    .bmi323_accel_y_G = NAN,
-    .bmi323_accel_z_G = NAN,
-    .bmi323_gyro_x_degps = NAN,
-    .bmi323_gyro_y_degps = NAN,
-    .bmi323_gyro_z_degps = NAN,
-    .adxl375_accel_x_G = NAN, // HIGH G
-    .adxl375_accel_y_G = NAN,
-    .adxl375_accel_z_G = NAN,
-    .bm1422_magn_x = NAN,
-    .bm1422_magn_y = NAN,
-    .bm1422_magn_z = NAN,
-    .gps_lat_deg = NAN,
-    .gps_lng_deg = NAN,
-    .gps_alt_m = NAN,
-    .gps_speed_mps = NAN,
-    .pt_volts = NAN,
-    .gps_course = -0x7FFFFFFF,
-    .gps_num_sats = 0xFF,
-  };
-
-  return log_p;
-}
-
-static void runtime_task(void *pvParameters)
-{
-
-  /* Sample and average the altitude at flight computer startup and call it the ground altitude */
-  constexpr int pressure_samples_for_ground_pressure = 20;
-  float altitude_accumulator = 0;
-  uint32_t last_time_boot_ms = 0;
-  for (int i = 0; i < pressure_samples_for_ground_pressure; i++)
-  {
-    log_packet_v3 log_p = get_blank_log_packet();
-    acquire_sensor_data(&log_p);
-    altitude_accumulator += get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100);
-    last_time_boot_ms = log_p.time_boot_ms;
-    vTaskDelay(runtime_interval_ms);
-  }
-
-  const float pad_altitude_m = altitude_accumulator / pressure_samples_for_ground_pressure;
-
-  AB_Filter filter;
-  AB_Filter_Initialize(filter);
-
-  static TickType_t time = xTaskGetTickCount();
-  
-  while (true)
-  {
-    log_packet_v3 log_p = get_blank_log_packet();
-    log_p.status_flags = get_sensor_status_flags();
-    log_p.time_boot_ms = xTaskGetTickCount();
-
-    // Acquire step
-    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
-    FSError gps_acquire_status = acquire_gps_data(&log_p);
-    
-    log_packet_make_header(&log_p); // This must be run last for CRC to be correct
-
-    /* For HITL testing, acquire_sensor_data replaces log_p.time_boot_ms, so do 
-       delta time calculation based on the timestamp in the log packet. */
-    const uint32_t delta_time_ms = log_p.time_boot_ms - last_time_boot_ms;
-    last_time_boot_ms = log_p.time_boot_ms; 
-    
-    AB_Filter_Inputs inputs;
-    
-    // Convert log packet into airbrake filter inputs
-    inputs.Accelerometer_mps2 <<     log_p.bmi323_accel_y_G * G_CONST,
-                                     log_p.bmi323_accel_x_G * G_CONST, 
-                                     log_p.bmi323_accel_z_G * G_CONST;
-    inputs.AccelerometerHG_mps2 <<  -log_p.adxl375_accel_x_G * G_CONST, 
-                                    -log_p.adxl375_accel_y_G * G_CONST,
-                                     log_p.adxl375_accel_z_G * G_CONST;
-    inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
-                              log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
-                              log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
-    inputs.Magnetometer.setZero();
-    inputs.GPS_Position_m.setZero();
-    inputs.GPS_Velocity_mps.setZero();
-    float current_abs_alt = get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100.0f);
-    // inputs.Barometer_m = current_abs_alt - pad_altitude_m;
-    inputs.Barometer_m = current_abs_alt;    
-
-    /* We cannot use a fixed delta time in this code because OpenRocket
-       refuses to give us fixed-size time steps for HITL testing.  */
-    inputs.dt = delta_time_ms / 1000.0; 
-    inputs.IgnoreBaro = false;
-    
-    // TODO: GPS integration
-    
-    AB_Filter_Process(filter, inputs, ab_settings);
-    
-    log_file.write((uint8_t *)&log_p, sizeof(log_packet_v3));
-    log_file.flush();
-  
-    /* Generate packet for airbrake deployment task and send it off */
-    float velocityHoriz_mps = sqrt(filter.HorizState.VelocityNorth_mps * filter.HorizState.VelocityNorth_mps +
-                    filter.HorizState.VelocityEast_mps * filter.HorizState.VelocityEast_mps);
-    struct AirbrakesPacket airbrakes_packet{.ic = 
-      {
-        .altitude_m = filter.VertState.Altitude_m,
-        .velocityZ_mps = filter.VertState.VelocityUp_mps,
-        .thetaZ_rad = (float)(atan2(velocityHoriz_mps, filter.VertState.VelocityUp_mps)),
-        .airbrakeDeployment_pct = 0,
-    }};
-
-    // PredictDeploymentAngle_print_params(airbrakes_packet.ic);
-    // print_sensor_data(log_p);
-
-    xQueueOverwrite(airbrakes_queue, &airbrakes_packet);
-
-    xTaskDelayUntil(&time, runtime_interval_ms);
-  }
-}
-
-
-static void deploy_task(void *pvParameters)
-{
-  static TickType_t time = xTaskGetTickCount();
-
-  while (true)
-  {
-
-    struct AirbrakesPacket airbrakes_packet_rx;
-
-    BaseType_t receive_status = xQueueReceive(
-        airbrakes_queue,
-        &airbrakes_packet_rx,
-        0);
-
-    if (receive_status == pdTRUE)
-    {
-      int itersReqd;
-      g_airbrake_pct = round(PredictDeploymentPct(airbrakes_packet_rx.ic, &itersReqd, ab_settings));
-      const int servo_degrees = motor_map(g_airbrake_pct);
-
-      AirBrakeServo.write(servo_degrees);
-
-      // tone(PIN_BUZZER, 523, 25);
-
-      // Serial.printf("dt: %d servo degrees: %d\n\r", delta_time, servo_degrees);
-    }
-
-    xTaskDelayUntil(&time, deploy_interval_ms); // TODO log deployed angle
-  }
-}
-
 static void servo_overcurrent_task(void *pvParameters)
 {
   static TickType_t time = 0;
@@ -648,7 +698,7 @@ static void servo_overcurrent_task(void *pvParameters)
 
     // Serial.printf("overcurrent status: %s\n\r", FS_ERROR_NAMES(overcurrent_status));
 
-    xTaskDelayUntil(&time, servo_overcurrent_interval_ms); // runs at 100hz
+    xTaskDelayUntil(&time, SERVO_OVERCURRENT_INTERVAL_MS); // runs at 100hz
   }
 }
 
@@ -666,7 +716,7 @@ void gps_test_loop()
 
   while (true)
   {
-    log_packet_v3 log_p = {0};
+    log_packet_latest log_p = {0};
     acquire_gps_data(&log_p);
 
     Serial.printf(
@@ -688,6 +738,72 @@ void gps_test_loop()
   }
 }
 
+static void lora_receive_packet_isr_callback(int packet_size);
+
+static void lora_setup()
+{
+  Serial.println("Setting up LoRa...");
+  SPI.setSCK(PIN_LORA_SCK);
+  SPI.setMOSI(PIN_LORA_MOSI);
+  SPI.setMISO(PIN_LORA_MISO);
+  LoRa.setSPI(SPI);
+  LoRa.setPins(PIN_LORA_CS, PIN_LORA_RESET, PIN_LORA_IRQ_PIN0);
+  if (!LoRa.begin(CONFIG_LORA_FREQUENCY_HZ))
+  {
+    Serial.println("LoRa initialization failed");
+  }
+  LoRa.setGain(6);
+  LoRa.onReceive(lora_receive_packet_isr_callback);
+}
+
+/*
+ * Verifies validity of received packet and pushes to receive queue if verified to be valid.
+ */
+static void lora_receive_packet_isr_callback(int packet_size)
+{
+  /* we don't need to check packet boundaries here because LoRa already has the idea of packets */
+
+  // discard packets of the wrong size
+  if (packet_size != sizeof(command_packet))
+    return;
+
+  /* read the received data into buffer */
+  uint8_t buf[sizeof(command_packet)];
+  for (int i = 0; i < sizeof(command_packet); i++)
+  {
+    int data_or_neg1 = LoRa.read();
+
+    // if we run out of data while reading, return
+    if (data_or_neg1 == -1)
+      return;
+
+    buf[i] = data_or_neg1;
+  }
+
+  command_packet p;
+  memcpy(&p, buf, sizeof(command_packet));
+
+  // if magic doesn't match, return
+  if (memcmp(p.magic, COMMAND_PACKET_MAGIC, sizeof(p.magic)) != 0)
+    return;
+
+  // if "CMD" doesn't match, return
+  if (memcmp(p.cmd, "CMD", sizeof(p.cmd)) != 0)
+    return;
+
+  /* verify CRC16 match */
+  uint16_t p_crc16 = p.crc16;
+  p.crc16 = 0;
+
+  uint16_t computed_crc16 = crc_modbus((const unsigned char *)&p, sizeof(struct command_packet));
+  // if CRC16 mismatch, return
+  if (computed_crc16 != p_crc16)
+    return;
+
+  // if all checks pass, push verified command packet to queue
+  xQueueSendFromISR(radio_command_rx_queue, &p, NULL);
+}
+
 void sensors_test_loop()
 {
   FSError sensor_status = sensors_setup();
@@ -701,7 +817,7 @@ void sensors_test_loop()
 
   while (true)
   {
-    log_packet_v3 log_p = {
+    log_packet_latest log_p = {
         .ms5607_pressure_mbar = NAN,
         .ms5607_temperature_c = NAN,
         .bmi323_accel_x_G = NAN, // LOW G
@@ -820,6 +936,30 @@ void test_airbrakes_hitl_control_loop()
   }
 }
 
+void pre_operational_mode_loop()
+{
+  Serial.println("Entering pre-operational mode loop...");
+
+  while (true)
+  {
+    /*
+     * Received radio commands in radio_command_rx_queue have
+     * already been verified to be valid packets.
+     */
+    command_packet p;
+
+    BaseType_t receive_status = xQueueReceive(
+        radio_command_rx_queue,
+        &p,
+        0);
+  }
+
+  /* Play switch to operational mode sound effect */
+  tone(PIN_BUZZER, 261, 100);
+  delay(100);
+  tone(PIN_BUZZER, 523, 500);
+}
+
 void setup()
 {
   // FLIGHT COMPUTER INITIALIZATION
@@ -830,6 +970,10 @@ void setup()
   tone(PIN_BUZZER, 523, 100);
   delay(3000);
   tone(PIN_BUZZER, 523, 100);
+
+  STATIC_QUEUE_INIT_HELPER(airbrakes);
+  STATIC_QUEUE_INIT_HELPER(log);
+  STATIC_QUEUE_INIT_HELPER(radio_command_rx);
 
 /* Make it very obvious, using a bunch of beeping, if a test option is enabled */
 #ifdef CONFIG_TEST_ACTIVE
@@ -860,6 +1004,12 @@ void setup()
   test_airbrakes_hitl_control_loop();
 #endif
 
+  lora_setup();
+
+#ifndef CONFIG_TEST_NO_PRE_OPERATIONAL_MODE
+  pre_operational_mode_loop();
+#endif
+
   /* SD card and flash logging */
   Serial.println("Setting up SD card...");
   FSError log_status = sdcard_init(&log_file);
@@ -876,40 +1026,27 @@ void setup()
     Serial.printf("[Error] Sensor Initialization Failure: %s\n\r", FCError__strings[sensor_status]);
   }
 
-  // Pressure Transducer
+  // Will not fly Pressure Transducer
 
-  // GPS ?
   gps_setup();
 
   Serial.println("Setting up airbrakes...");
   airbrakes_setup();
 
-  airbrakes_queue = xQueueCreateStatic(
-      airbrakes_queue_len,
-      sizeof(AirbrakesPacket),
-      airbrakes_queue_storage_buffer,
-      &airbrakes_queue_data);
-
-  log_queue = xQueueCreateStatic(
-      log_queue_len,
-      sizeof(LogQueue),
-      log_queue_storage_buffer,
-      &log_queue_data);
-
   // FLIGHT COMPUTER RUNTIME
 
-  BaseType_t runtime_status;
-  TaskHandle_t runtime_handle;
+  BaseType_t runtime_task_status;
+  TaskHandle_t runtime_task_handle;
 
   // runtime task
-  runtime_status = xTaskCreate(runtime_task,
-                               "Runtime task",
-                               32768,
-                               NULL,
-                               configMAX_PRIORITIES - 1,
-                               &runtime_handle);
+  runtime_task_status = xTaskCreate(runtime_task,
+                                    "Runtime task",
+                                    32768,
+                                    NULL,
+                                    configMAX_PRIORITIES - 1,
+                                    &runtime_task_handle);
 
-  if (runtime_status != pdPASS)
+  if (runtime_task_status != pdPASS)
   {
     while (true)
     {
@@ -917,18 +1054,18 @@ void setup()
     }
   }
 
-  BaseType_t deploy_status;
-  TaskHandle_t deploy_handle;
+  BaseType_t deploy_task_status;
+  TaskHandle_t deploy_task_handle;
 
   // deploy task
-  deploy_status = xTaskCreate(deploy_task,
-                              "Deploy task",
-                              32768,
-                              NULL,
-                              configMAX_PRIORITIES - 1,
-                              &deploy_handle);
+  deploy_task_status = xTaskCreate(deploy_task,
+                                   "Deploy task",
+                                   32768,
+                                   NULL,
+                                   configMAX_PRIORITIES - 1,
+                                   &deploy_task_handle);
 
-  if (deploy_status != pdPASS)
+  if (deploy_task_status != pdPASS)
   {
     while (true)
     {
@@ -938,17 +1075,17 @@ void setup()
 
   // motor overcurrent task
 
-  BaseType_t servo_overcurrent_status;
-  TaskHandle_t servo_overcurrent_handle;
+  BaseType_t servo_overcurrent_task_status;
+  TaskHandle_t servo_overcurrent_task_handle;
 
-  servo_overcurrent_status = xTaskCreate(servo_overcurrent_task,
-                                         "Servo overcurrent task",
-                                         2048,
-                                         NULL,
-                                         configMAX_PRIORITIES - 1,
-                                         &servo_overcurrent_handle);
+  servo_overcurrent_task_status = xTaskCreate(servo_overcurrent_task,
+                                              "Servo overcurrent task",
+                                              2048,
+                                              NULL,
+                                              configMAX_PRIORITIES - 1,
+                                              &servo_overcurrent_task_handle);
 
-  if (servo_overcurrent_status != pdPASS)
+  if (servo_overcurrent_task_status != pdPASS)
   {
     while (true)
     {

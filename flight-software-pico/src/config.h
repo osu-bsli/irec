@@ -4,6 +4,10 @@
 #define CONFIG_RUNTIME_INTERVAL_MS 10
 #define CONFIG_ROCKET_MASS_KG 30
 
+/* Check IREC Student Band Plan for allowed frequencies */
+#define CONFIG_LORA_FREQUENCY_HZ 905 * 1000000
+
+
 /* All CONFIG_TEST_<> options direct the software to enter a testing mode upon startup. */
 /* When a CONFIG_TEST_<> option is enabled, the normal functionality of the flight software DOES NOT RUN. */
 
@@ -17,7 +21,8 @@
 // #define CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE
 // #define CONFIG_TEST_AIRBRAKES_EXTEND_AND_RETRACT
 // #define CONFIG_TEST_AIRBRAKES_HITL_CONTROL_ONLY
-#define CONFIG_TEST_AIRBRAKES_HITL_FULL
+// #define CONFIG_TEST_AIRBRAKES_HITL_FULL
+#define CONFIG_TEST_NO_PRE_OPERATIONAL_MODE
 
 #ifdef CONFIG_TEST_AIRBRAKES_HITL_FULL
     #undef CONFIG_AIRBRAKES_TARGET_APOGEE_METERS
@@ -34,6 +39,7 @@
     defined(CONFIG_TEST_AIRBRAKES_ALGO_PERFORMANCE) || \
     defined(CONFIG_TEST_AIRBRAKES_EXTEND_AND_RETRACT) || \
     defined(CONFIG_TEST_AIRBRAKES_HITL_CONTROL_ONLY) || \
-    defined(CONFIG_TEST_AIRBRAKES_HITL_FULL)
+    defined(CONFIG_TEST_AIRBRAKES_HITL_FULL) || \
+    defined(CONFIG_TEST_NO_PRE_OPERATIONAL_MODE)
 #define CONFIG_TEST_ACTIVE
 #endif

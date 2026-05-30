@@ -129,7 +129,7 @@ impl GroundControlApp {
                         rocket_angle * ALPHA + self.rocket_angle_ema * (1.0 - ALPHA);
                     self.rocket_angle_ema = new_rocket_angle_ema;
 
-                    let rocket = egui::Image::new(egui::include_image!("assets/rocket vis.png"))
+                    let rocket = egui::Image::new(egui::include_image!("../assets/rocket vis.png"))
                         .rotate(new_rocket_angle_ema, Vec2::new(0.5, 0.5))
                         .max_height(100.0);
 

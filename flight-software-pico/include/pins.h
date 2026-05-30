@@ -26,7 +26,14 @@
 #define PIN_I2C1_SDA 14
 
 #define PIN_ACTIVITY_LED 1
-//#define PIN_LED 35
+//#define PIN_LED 3
 
 #define PIN_BUZZER 26
+
+#define PIN_LORA_CS 5
+#define PIN_LORA_RESET 6
+#define PIN_LORA_IRQ_PIN0 0
+#define PIN_LORA_SCK 2
+#define PIN_LORA_MOSI 3
+#define PIN_LORA_MISO 4
     

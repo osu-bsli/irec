@@ -1,13 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod dashboard_tab;
 mod data;
 mod data_log_replay;
-mod plot_tab;
 mod serial_connection;
 mod sidebar;
 mod telemetry;
 mod vis3d;
+mod tabs;
 
 use std::env;
 use std::mem::size_of;

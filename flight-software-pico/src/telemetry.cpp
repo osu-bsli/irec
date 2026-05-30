@@ -4,7 +4,7 @@
 
 void telemetry_packet_make_header(struct telemetry_packet *p)
 {
-  // Copy in "FUCKPETER" magic
+  // Copy in magic
   memcpy(p->magic, TELEMETRY_PACKET_MAGIC, sizeof(p->magic));
   p->size = sizeof(struct telemetry_packet);
 
@@ -15,15 +15,15 @@ void telemetry_packet_make_header(struct telemetry_packet *p)
   p->crc16 = crc_modbus((const unsigned char*)p, sizeof(struct telemetry_packet));
 }
 
-void log_packet_make_header(struct log_packet_v3 *p)
+void log_packet_make_header(log_packet_latest *p)
 {
-  // Copy in "COREYMAY3" magic
+  // Copy in magic
   memcpy(p->magic, LOG_PACKET_MAGIC, sizeof(p->magic));
-  p->size = sizeof(struct log_packet_v3);
+  p->size = sizeof(log_packet_latest);
 
   // Zero out the CRC16 field
   p->crc16 = 0;
 
   // Write CRC
-  p->crc16 = crc_modbus((const unsigned char*)p, sizeof(struct log_packet_v3));
+  p->crc16 = crc_modbus((const unsigned char*)p, sizeof(log_packet_latest));
 }
