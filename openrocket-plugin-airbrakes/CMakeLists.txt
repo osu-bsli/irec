@@ -3,6 +3,8 @@ project(pc-testing)
 
 set(FSW_DIR ${CMAKE_SOURCE_DIR}/../flight-software-pico/)
 
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+
 add_library(airbrakes SHARED
     ${FSW_DIR}/src/Airbrakes/Filters/AB_Attitude_Filter.cpp
     ${FSW_DIR}/src/Airbrakes/Filters/AB_Filter_Main.cpp
@@ -11,7 +13,7 @@ add_library(airbrakes SHARED
     ${FSW_DIR}/src/Airbrakes/AB_Deployment.cpp
     ${FSW_DIR}/src/Airbrakes/MathFunctions.cpp
 
-    src/AirbrakesJniHarness.cpp
+    src/main/jni/AirbrakesJniHarness.cpp
 )
 
 target_include_directories(airbrakes PUBLIC
@@ -23,7 +25,14 @@ target_include_directories(airbrakes PUBLIC
     ${FSW_DIR}/pc-testing/src/pico-stub
 )
 
-target_compile_options(airbrakes PUBLIC /MP /std:c++20 /DEBUG)
+target_compile_options(airbrakes PUBLIC 
+    $<$<PLATFORM_ID:Windows>:/MP /std:c++20 /DEBUG>
+    $<$<PLATFORM_ID:Linux>:-O3 -ggdb -fsanitize=address -Wall -fno-omit-frame-pointer>
+)
+
+target_link_options(airbrakes PUBLIC 
+    $<$<PLATFORM_ID:Linux>:-O3 -ggdb -fsanitize=address -Wall>
+)
 
 # jvm
 find_package(Java REQUIRED)

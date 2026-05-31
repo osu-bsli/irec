@@ -1,37 +1,37 @@
 #include <utility.h>
 
-#include "main/jni/headers/AirbrakesExtension.h"
+#include "headers/space_bsli_AirbrakesExtension.h"
 
 #include "AB_Deployment.h"
 #include "AB_Filter_Main.h"
 
 static AB_Settings settings = AB_Default_Settings();
 
-JNIEXPORT void JNICALL Java_AirbrakesExtension_SetRocketMass
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SetRocketMass
   (JNIEnv *env, jclass c, float mass_kg) {
     settings.Mass_kg = mass_kg;
 }
 
-JNIEXPORT void JNICALL Java_AirbrakesExtension_SetTargetApogee
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SetTargetApogee
   (JNIEnv *env, jclass c, float meters) {
     settings.TargetApogee_m = meters;
 }
 
 
-JNIEXPORT jfloat JNICALL Java_AirbrakesExtension_DragForce
+JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_DragForce
 (JNIEnv *env, jclass c, float deployment_pct, float vTotal_mps, float altitude_m) {
     return AB_drag_force(deployment_pct, vTotal_mps, altitude_m, settings);
 }
 
 static AB_Filter filter;
 
-JNIEXPORT void JNICALL Java_AirbrakesExtension_InitController
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_InitController
 (JNIEnv *env, jclass c) {
     AB_Filter_Initialize(filter);
 }
 
 
-JNIEXPORT jfloat JNICALL Java_AirbrakesExtension_RunControllerRawAndGetDeploymentPct
+JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_RunControllerRawAndGetDeploymentPct
 (JNIEnv *env, jclass c,
  jfloat velocityX_mps,
  jfloat velocityY_mps,
@@ -49,7 +49,7 @@ JNIEXPORT jfloat JNICALL Java_AirbrakesExtension_RunControllerRawAndGetDeploymen
     return PredictDeploymentPct(ic, &itersReqd, settings);
 }
 
-JNIEXPORT jfloat JNICALL Java_AirbrakesExtension_RunControllerAndGetDeploymentPct
+JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_RunControllerAndGetDeploymentPct
 (JNIEnv *env, jclass c,
  jfloat accelerometerX_mps2,
  jfloat accelerometerY_mps2,

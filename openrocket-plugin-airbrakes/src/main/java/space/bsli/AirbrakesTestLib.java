@@ -1,3 +1,5 @@
+package space.bsli;
+
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.file.GeneralRocketLoader;

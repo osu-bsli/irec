@@ -1,3 +1,5 @@
+package space.bsli;
+
 import info.openrocket.core.aerodynamics.AerodynamicForces;
 import info.openrocket.core.aerodynamics.FlightConditions;
 import info.openrocket.core.simulation.FlightDataType;
@@ -11,6 +13,13 @@ import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.Quaternion;
 import com.fazecast.jSerialComm.*;
 
+import static space.bsli.AirbrakesConfig.AIRBRAKE_CONTROL_INTERVAL_S;
+import static space.bsli.AirbrakesConfig.DEPLOYMENT_TIME_S;
+import static space.bsli.AirbrakesConfig.DEPLOYMENT_PCT_PER_SEC;
+import static space.bsli.AirbrakesConfig.MODE;
+
+import space.bsli.AirbrakesConfig.AirbrakesMode;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,28 +27,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.Random;
 
 public class AirbrakesExtension extends AbstractSimulationExtension {
-
     private boolean bypassFilter = false;
 
     public SerialPort comPort;
 
     public AirbrakesExtension() {
-        this.comPort = SerialPort.getCommPort("COM3");
-        // Set full blocking mode
-        this.comPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
-        this.comPort.setBaudRate(921600);
-        this.comPort.openPort();
-        this.comPort.flushIOBuffers();
-    }
 
-    public enum AirbrakesMode {
-        /* Closed-loop simulation with no hardware in the loop. */
-        CLOSED_LOOP_SIM, /* The real-world airbrakes will move based on the deployment percentage the closed-loop simulation commands. */
-        HITL_CONTROL, /* The airbrakes algorithm runs on the flight computer instead of on the PC. */
-        FULL_HITL
     }
-
-    public static AirbrakesMode mode = AirbrakesMode.CLOSED_LOOP_SIM;
+    public static AirbrakesMode mode = AirbrakesConfig.MODE;
 
     public boolean isBypassFilter() {
         return bypassFilter;
@@ -87,8 +82,6 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
         private FlightConditions flightConditions = null;
         private float deploymentPctCommanded = 0;
         private float deploymentPctSimulatedDynamics = 0;
-        private final float DEPLOYMENT_TIME_S = 1.28333333F;
-        private final float DEPLOYMENT_PCT_PER_SEC = 100F / DEPLOYMENT_TIME_S;
         private Coordinate previousVelocity = null;
         private double previousTime = 0;
         /* Monotonic clock for HITL packet timestamps. Spans on-rod and postStep phases so the FC's
@@ -98,6 +91,16 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
         @Override
         public void startSimulation(SimulationStatus status) throws SimulationException {
+            if (mode == AirbrakesMode.FULL_HITL || mode == AirbrakesMode.HITL_CONTROL) {
+                /* Open serial port for HITL */
+                comPort = SerialPort.getCommPort("COM3");
+                // Set full blocking mode
+                comPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
+                comPort.setBaudRate(921600);
+                comPort.openPort();
+                comPort.flushIOBuffers();
+            }
+
             InitController();
             previousVelocity = status.getRocketVelocity();
             previousTime = status.getSimulationTime();
@@ -152,7 +155,6 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
         Random r = new Random();
 
-        final float AIRBRAKE_CONTROL_INTERVAL_S = 2f; // 10 Hz, 100 ms period
         float airbrake_control_interval_timer = 0;
 
         @Override

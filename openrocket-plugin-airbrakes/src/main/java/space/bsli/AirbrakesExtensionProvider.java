@@ -1,3 +1,5 @@
+package space.bsli;
+
 import info.openrocket.core.plugin.Plugin;
 import info.openrocket.core.simulation.extension.AbstractSimulationExtensionProvider;
 
@@ -5,6 +7,6 @@ import info.openrocket.core.simulation.extension.AbstractSimulationExtensionProv
 public class AirbrakesExtensionProvider extends AbstractSimulationExtensionProvider {
     public AirbrakesExtensionProvider() {
         super(AirbrakesExtension.class, "Active controls", "BSLI IREC Airbrakes");
-        System.loadLibrary("cmake-build/Release/airbrakes");
+        System.loadLibrary("airbrakes");
     }
 }

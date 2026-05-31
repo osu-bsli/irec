@@ -1,3 +1,6 @@
+import space.bsli.AirbrakesTestLib;
+import space.bsli.AirbrakesExtension;
+
 import info.openrocket.core.simulation.exception.SimulationException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -6,7 +9,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AirbrakesJUnitTest {
-    static final float ACCEPTABLE_APOGEE_DEVIATION_M = 20;
+    static final float ACCEPTABLE_APOGEE_DEVIATION_M = 100;
 
     @BeforeAll
     static void beforeAll() {

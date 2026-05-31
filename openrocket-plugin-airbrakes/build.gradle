@@ -21,35 +21,60 @@ repositories {
     }
     mavenCentral()
 }
-sourceSets {
-    main {
-        java {
-            srcDirs = ['src']
-        }
-    }
-}
 
 dependencies {
+    implementation("info.openrocket:core:24.12")
+    implementation 'com.fazecast:jSerialComm:[2.0.0,)'
+
     implementation 'org.junit.jupiter:junit-jupiter:6.0.0'
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-
-    implementation("info.openrocket:core:24.12")
-    implementation 'com.fazecast:jSerialComm:[2.0.0,)'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-test {
+tasks.named('test', Test) {
     useJUnitPlatform()
+
+    dependsOn tasks.cmakeBuild
+    workingDir = projectDir
+    systemProperty "java.library.path", file("cmake-build/Release").absolutePath
+    // environment("LD_PRELOAD", "/usr/lib/gcc/x86_64-linux-gnu/14/libasan.so")
+    
+
+    maxHeapSize = '1G'
+
+    testLogging {
+        events "passed"
+    }
 }
 
 tasks.register('run', JavaExec) {
     dependsOn jar
+
     mainClass = 'info.openrocket.swing.startup.OpenRocket'
     classpath = files('OpenRocket-24.12.jar') + sourceSets.main.runtimeClasspath
+
     workingDir = projectDir
+    systemProperty "java.library.path", file("cmake-build/Release").absolutePath
+
     args = ['IREC 4.22.26.ork']
 }
 
 tasks.withType(JavaCompile) {
     options.compilerArgs += ["-h", file("src/main/jni/headers")]
 }
+
+tasks.register('cmakeConfigure', Exec) {
+    // 1. Generate the build configuration files
+    commandLine 'cmake', '-Bcmake-build', '-S.', '-GNinja', '-DCMAKE_BUILD_TYPE=Release'
+}
+
+tasks.register('cmakeBuild', Exec) {
+    // 2. Execute the actual compilation
+    dependsOn cmakeConfigure
+    commandLine 'cmake', '--build', 'cmake-build'
+}
+
+tasks.named('jar') {
+    dependsOn(tasks.cmakeBuild)
+} 
