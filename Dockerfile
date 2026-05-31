@@ -1,9 +1,11 @@
 FROM ubuntu:26.04
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -y && apt-get upgrade -y && apt-get install -y openjdk-17-jdk maven && rm -rf /var/lib/apt/lists/*
-WORKDIR /irec
-COPY . .
+ENV LANG=C.UTF-8
 
-WORKDIR /irec/openrocket-plugin-airbrakes
-RUN chmod +x ./gradlew
-RUN ./gradlew jar
+# Install apt packages
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y openjdk-17-jdk maven build-essential cmake ninja-build python3-full python3-pip git libsdl3-devel
+RUN rm -rf /var/lib/apt/lists/*
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

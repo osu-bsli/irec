@@ -5,9 +5,4 @@ Set-Location $PSScriptRoot\flight-software-pico\pc-testing
 cmake --preset=default
 cmake --build build
 
-Set-Location $PSScriptRoot\openrocket-plugin-airbrakes
-cmake --preset=default
-cmake --build cmake-build --config Release
-./gradlew jar
-
 Set-Location $PSScriptRoot

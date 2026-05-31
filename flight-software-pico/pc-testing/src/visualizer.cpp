@@ -176,9 +176,11 @@ void plotTooltip(const OutDataSeries &e)
 
 void enable_exception_on_NaN()
 {
-	// Disable exceptions to avoid premature exits, then enable specific ones
-	_controlfp_s(nullptr, 0, _MCW_EM);
-	_controlfp_s(nullptr, ~(_EM_INVALID | _EM_ZERODIVIDE | _EM_DENORMAL), _MCW_EM);
+#ifdef _WIN32
+// Disable exceptions to avoid premature exits, then enable specific ones
+_controlfp_s(nullptr, 0, _MCW_EM);
+_controlfp_s(nullptr, ~(_EM_INVALID | _EM_ZERODIVIDE | _EM_DENORMAL), _MCW_EM);
+#endif
 }
 
 template <int N>
