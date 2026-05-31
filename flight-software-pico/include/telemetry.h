@@ -84,6 +84,10 @@ PACKED_STRUCT telemetry_packet {
     uint16_t bmi323_accel_magnitude_cal_milliG;
     uint16_t adxl375_accel_magnitude_cal_milliG;
     uint8_t commanded_airbrake_deploy_pct;
+    float gps_lat_deg; 
+    float gps_lng_deg;
+    float gps_alt_m;
+    uint8_t gps_num_sats;
 };
 END_PACKED_STRUCT;
 

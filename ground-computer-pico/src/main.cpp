@@ -103,7 +103,11 @@ static void print_formatted_telemetry_to_serial(const telemetry_packet &p)
         "runtime_task:         %u us  (max %u)\r\n"
         "deploy_task:          %u us  (max %u)\r\n"
         "servo_overcurrent:    %u us  (max %u)\r\n"
-        "sdcard_write:         %u us  (max %u)\r\n",
+        "sdcard_write:         %u us  (max %u)\r\n"
+        "gps_lat_deg:          %f\r\n"
+        "gps_lng_deg:          %f\r\n"
+        "gps_alt_m:            %f\r\n"
+        "gps_num_sats:         %u\r\n",
         (unsigned long)p.time_boot_ms,
         p.ms5607_pressure_mbar,
         p.ms5607_temperature_c,
@@ -118,7 +122,12 @@ static void print_formatted_telemetry_to_serial(const telemetry_packet &p)
         p.runtime_task_iter_us,          p.runtime_task_iter_max_us,
         p.deploy_task_iter_us,           p.deploy_task_iter_max_us,
         p.servo_overcurrent_task_iter_us, p.servo_overcurrent_task_iter_max_us,
-        p.sdcard_write_task_iter_us,     p.sdcard_write_task_iter_max_us);
+        p.sdcard_write_task_iter_us,     p.sdcard_write_task_iter_max_us,
+        p.gps_lat_deg,
+        p.gps_lng_deg,
+        p.gps_alt_m,
+        p.gps_num_sats
+    );
 }
 
 static void send_command(uint8_t command_byte)
@@ -174,6 +183,7 @@ static void monitor_telemetry()
         if (try_recv_telemetry(&p))
         {
             Serial.print("---\r\n");
+            Serial.printf("[RSSI]: %d dBm\r\n", LoRa.packetRssi());
             print_formatted_telemetry_to_serial(p);
         }
     }
@@ -244,7 +254,10 @@ static void prompt_switch_to_operational()
     else if (strcmp(buf, SWITCH_CONFIRMATION) == 0)
     {
         Serial.print("Confirmation accepted. Sending command..." CRLF);
-        send_command(RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE);
+        for (int i = 0; i < 10; i++ ) 
+        {
+            send_command(RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE);
+        }
         Serial.print("SWITCH_TO_OPERATIONAL_MODE sent." CRLF);
     }
     else

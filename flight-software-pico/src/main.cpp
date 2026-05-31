@@ -76,6 +76,7 @@ const static TickType_t TELEMETRY_INTERVAL_MS = 1000;                     // 1 H
 // const static TickType_t error_interval_ms = 100; // 10 Hz
 
 FSError sdcard_init(fs::File *fileOut);
+bool sdcard_is_in_degraded_state = false;
 
 static struct fc_adxl375 adxl375;
 static struct fc_bmi323 bmi323;
@@ -94,13 +95,14 @@ static uint8_t g_airbrake_pct = 0;
 
 static volatile uint16_t g_servo_current_ma = 0;
 
+static volatile uint32_t g_runtime_task_iter_us = 0;
+static volatile uint32_t g_runtime_task_iter_max_us = 0;
 static volatile uint32_t g_deploy_task_iter_us = 0;
 static volatile uint32_t g_deploy_task_iter_max_us = 0;
 static volatile uint32_t g_servo_overcurrent_task_iter_us = 0;
 static volatile uint32_t g_servo_overcurrent_task_iter_max_us = 0;
 static volatile uint32_t g_sdcard_write_task_iter_us = 0;
 static volatile uint32_t g_sdcard_write_task_iter_max_us = 0;
-
 
 #define C5_HZ 587
 #define NOTE(n) (C5_HZ * pow(2, (n / 12.0)))
@@ -149,6 +151,36 @@ static void gpio_config()
   pinMode(PIN_ACTIVITY_LED, OUTPUT);
 
   bi_decl(bi_2pins_with_func(PIN_I2C0_SDA, PIN_I2C0_SCL, GPIO_FUNC_I2C));
+}
+
+struct calibrated_accel_readings {
+  float bmi323_x_cal;
+  float bmi323_y_cal;
+  float bmi323_z_cal;
+  float adxl375_x_cal;
+  float adxl375_y_cal;
+  float adxl375_z_cal;
+};
+
+static calibrated_accel_readings apply_accelerometer_calibrations(log_packet_latest log_p)
+{
+  const float bmi323_x_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_X * (log_p.bmi323_accel_x_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_X);
+  const float bmi323_y_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_Y * (log_p.bmi323_accel_y_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_Y);
+  const float bmi323_z_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_Z * (log_p.bmi323_accel_z_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_Z);
+  const float adxl375_x_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_X * (log_p.adxl375_accel_x_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_X);
+  const float adxl375_y_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_Y * (log_p.adxl375_accel_y_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_Y);
+  const float adxl375_z_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_Z * (log_p.adxl375_accel_z_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_Z);
+
+  calibrated_accel_readings cal = {
+    .bmi323_x_cal = bmi323_x_cal,
+    .bmi323_y_cal = bmi323_y_cal,
+    .bmi323_z_cal = bmi323_z_cal,
+    .adxl375_x_cal = adxl375_x_cal,
+    .adxl375_y_cal = adxl375_y_cal,
+    .adxl375_z_cal = adxl375_z_cal,
+  };
+
+  return cal;
 }
 
 static FSError sensors_setup()
@@ -300,6 +332,10 @@ uint8_t get_sensor_status_flags()
   if (ms5607.is_in_degraded_state)
   {
     result |= STATUS_FLAGS_MS5607_DEGRADED;
+  }
+  if (sdcard_is_in_degraded_state)
+  {
+    result |= STATUS_FLAGS_SD_CARD_DEGRADED;
   }
 
   return result;
@@ -462,6 +498,62 @@ static log_packet_latest get_blank_log_packet()
   return log_p;
 }
 
+static uint16_t read_battery_voltage_mV()
+{
+  return (uint16_t)(((float)analogRead(PIN_VBAT_DIVIDED_TO_ADC) / ((1 << ADC_RESOLUTION_BITS) - 1)) * 3.3f * CONFIG_VBAT_DIVIDER_RATIO * 1000.0f);
+}
+
+static telemetry_packet fill_out_and_read_things_for_telemetry_packet(log_packet_latest log_p, float thetaZ_rad)
+{
+  calibrated_accel_readings cal = apply_accelerometer_calibrations(log_p);
+
+  telemetry_packet telemetry_p = {
+      .status_flags = log_p.status_flags,
+      .time_boot_ms = log_p.time_boot_ms,
+      .runtime_task_iter_us = g_runtime_task_iter_us, 
+      .runtime_task_iter_max_us = g_runtime_task_iter_max_us, 
+      .deploy_task_iter_us = g_deploy_task_iter_us,
+      .deploy_task_iter_max_us = g_deploy_task_iter_max_us,
+      .servo_overcurrent_task_iter_us = g_servo_overcurrent_task_iter_us,
+      .servo_overcurrent_task_iter_max_us = g_servo_overcurrent_task_iter_max_us,
+      .sdcard_write_task_iter_us = g_sdcard_write_task_iter_us,
+      .sdcard_write_task_iter_max_us = g_sdcard_write_task_iter_max_us,
+      .battery_mV = read_battery_voltage_mV(),
+      .airbrakes_servo_mA = g_servo_current_ma,
+      .is_in_operational_mode = 1,
+      .altitude_angle_mrad = (uint16_t)((M_PI / 2.0f - thetaZ_rad) * 1000.0f),
+      .ms5607_pressure_mbar = log_p.ms5607_pressure_mbar,
+      .ms5607_temperature_c = log_p.ms5607_temperature_c,
+      .bmi323_accel_magnitude_milliG = (uint16_t)(sqrtf(
+                                                      log_p.bmi323_accel_x_G * log_p.bmi323_accel_x_G +
+                                                      log_p.bmi323_accel_y_G * log_p.bmi323_accel_y_G +
+                                                      log_p.bmi323_accel_z_G * log_p.bmi323_accel_z_G) *
+                                                  1000.0f),
+      .adxl375_accel_magnitude_milliG = (uint16_t)(sqrtf(
+                                                       log_p.adxl375_accel_x_G * log_p.adxl375_accel_x_G +
+                                                       log_p.adxl375_accel_y_G * log_p.adxl375_accel_y_G +
+                                                       log_p.adxl375_accel_z_G * log_p.adxl375_accel_z_G) *
+                                                   1000.0f),
+      .bmi323_accel_magnitude_cal_milliG = (uint16_t)(sqrtf(
+                                                          cal.bmi323_x_cal * cal.bmi323_x_cal +
+                                                          cal.bmi323_y_cal * cal.bmi323_y_cal +
+                                                          cal.bmi323_z_cal * cal.bmi323_z_cal) *
+                                                      1000.0f),
+      .adxl375_accel_magnitude_cal_milliG = (uint16_t)(sqrtf(
+                                                           cal.adxl375_x_cal * cal.adxl375_x_cal +
+                                                           cal.adxl375_y_cal * cal.adxl375_y_cal +
+                                                           cal.adxl375_z_cal * cal.adxl375_z_cal) *
+                                                       1000.0f),
+      .commanded_airbrake_deploy_pct = g_airbrake_pct,
+      .gps_lat_deg = log_p.gps_lat_deg,
+      .gps_lng_deg = log_p.gps_lng_deg,
+      .gps_alt_m = log_p.gps_alt_m,
+      .gps_num_sats = log_p.gps_num_sats,
+  };
+
+  return telemetry_p;
+}
+
 static void runtime_task(void *pvParameters)
 {
   vTaskPreemptionDisable(NULL);
@@ -509,35 +601,17 @@ static void runtime_task(void *pvParameters)
     const uint32_t delta_time_ms = log_p.time_boot_ms - last_time_boot_ms;
     last_time_boot_ms = log_p.time_boot_ms;
 
-    // Calibrated accel values — only used by the nav filter and telemetry magnitudes.
-    // log_p retains raw sensor values for logging.
-    // Calibration is skipped in HITL_FULL mode because acquire_sensor_data injects
-    // already-physical OpenRocket values; applying corrections would corrupt them.
-#ifdef CONFIG_TEST_AIRBRAKES_HITL_FULL
-    const float bmi323_x_cal = log_p.bmi323_accel_x_G;
-    const float bmi323_y_cal = log_p.bmi323_accel_y_G;
-    const float bmi323_z_cal = log_p.bmi323_accel_z_G;
-    const float adxl375_x_cal = log_p.adxl375_accel_x_G;
-    const float adxl375_y_cal = log_p.adxl375_accel_y_G;
-    const float adxl375_z_cal = log_p.adxl375_accel_z_G;
-#else
-    const float bmi323_x_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_X * (log_p.bmi323_accel_x_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_X);
-    const float bmi323_y_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_Y * (log_p.bmi323_accel_y_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_Y);
-    const float bmi323_z_cal = CONFIG_CALIB_BMI323_ACCEL_SCALE_Z * (log_p.bmi323_accel_z_G + CONFIG_CALIB_BMI323_ACCEL_OFFSET_Z);
-    const float adxl375_x_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_X * (log_p.adxl375_accel_x_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_X);
-    const float adxl375_y_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_Y * (log_p.adxl375_accel_y_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_Y);
-    const float adxl375_z_cal = CONFIG_CALIB_ADXL375_ACCEL_SCALE_Z * (log_p.adxl375_accel_z_G + CONFIG_CALIB_ADXL375_ACCEL_OFFSET_Z);
-#endif
-
     AB_Filter_Inputs inputs;
 
+    calibrated_accel_readings cal = apply_accelerometer_calibrations(log_p);
+
     // Convert log packet into airbrake filter inputs
-    inputs.Accelerometer_mps2 << bmi323_y_cal * G_CONST,
-        bmi323_x_cal * G_CONST,
-        bmi323_z_cal * G_CONST;
-    inputs.AccelerometerHG_mps2 << -adxl375_x_cal * G_CONST,
-        -adxl375_y_cal * G_CONST,
-        adxl375_z_cal * G_CONST;
+    inputs.Accelerometer_mps2 << cal.bmi323_y_cal * G_CONST,
+        cal.bmi323_x_cal * G_CONST,
+        cal.bmi323_z_cal * G_CONST;
+    inputs.AccelerometerHG_mps2 << -cal.adxl375_x_cal * G_CONST,
+        -cal.adxl375_y_cal * G_CONST,
+        cal.adxl375_z_cal * G_CONST;
     inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
         log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
         log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
@@ -580,44 +654,7 @@ static void runtime_task(void *pvParameters)
     {
       telemetry_timer += TELEMETRY_INTERVAL_MS;
 
-      telemetry_packet telemetry_p = {
-          .status_flags = log_p.status_flags,
-          .time_boot_ms = log_p.time_boot_ms,
-          .runtime_task_iter_us = loop_iter_time_us,
-          .runtime_task_iter_max_us = loop_iter_time_max_us,
-          .deploy_task_iter_us = g_deploy_task_iter_us,
-          .deploy_task_iter_max_us = g_deploy_task_iter_max_us,
-          .servo_overcurrent_task_iter_us = g_servo_overcurrent_task_iter_us,
-          .servo_overcurrent_task_iter_max_us = g_servo_overcurrent_task_iter_max_us,
-          .sdcard_write_task_iter_us = g_sdcard_write_task_iter_us,
-          .sdcard_write_task_iter_max_us = g_sdcard_write_task_iter_max_us,
-          .battery_mV = (uint16_t)(
-              ((float)analogRead(PIN_VBAT_DIVIDED_TO_ADC) / ((1 << ADC_RESOLUTION_BITS) - 1))
-              * 3.3f * CONFIG_VBAT_DIVIDER_RATIO * 1000.0f),
-          .airbrakes_servo_mA = g_servo_current_ma,
-          .is_in_operational_mode = 1,
-          .altitude_angle_mrad = (uint16_t)((M_PI / 2.0f - airbrakes_packet.ic.thetaZ_rad) * 1000.0f),
-          .ms5607_pressure_mbar = log_p.ms5607_pressure_mbar,
-          .ms5607_temperature_c = log_p.ms5607_temperature_c,
-          .bmi323_accel_magnitude_milliG = (uint16_t)(sqrtf(
-              log_p.bmi323_accel_x_G * log_p.bmi323_accel_x_G +
-              log_p.bmi323_accel_y_G * log_p.bmi323_accel_y_G +
-              log_p.bmi323_accel_z_G * log_p.bmi323_accel_z_G) * 1000.0f),
-          .adxl375_accel_magnitude_milliG = (uint16_t)(sqrtf(
-              log_p.adxl375_accel_x_G * log_p.adxl375_accel_x_G +
-              log_p.adxl375_accel_y_G * log_p.adxl375_accel_y_G +
-              log_p.adxl375_accel_z_G * log_p.adxl375_accel_z_G) * 1000.0f),
-          .bmi323_accel_magnitude_cal_milliG = (uint16_t)(sqrtf(
-              bmi323_x_cal * bmi323_x_cal +
-              bmi323_y_cal * bmi323_y_cal +
-              bmi323_z_cal * bmi323_z_cal) * 1000.0f),
-          .adxl375_accel_magnitude_cal_milliG = (uint16_t)(sqrtf(
-              adxl375_x_cal * adxl375_x_cal +
-              adxl375_y_cal * adxl375_y_cal +
-              adxl375_z_cal * adxl375_z_cal) * 1000.0f),
-          .commanded_airbrake_deploy_pct = g_airbrake_pct,
-      };
-
+      telemetry_packet telemetry_p = fill_out_and_read_things_for_telemetry_packet(log_p, airbrakes_packet.ic.thetaZ_rad);
       telemetry_packet_make_header(&telemetry_p);
 
       LoRa.beginPacket();
@@ -632,6 +669,8 @@ static void runtime_task(void *pvParameters)
     {
       loop_iter_time_max_us = loop_iter_time_us;
     }
+    g_runtime_task_iter_us = loop_iter_time_us;
+    g_runtime_task_iter_max_us = loop_iter_time_max_us;
 
     xTaskDelayUntil(&time, RUNTIME_INTERVAL_MS);
   }
@@ -775,6 +814,7 @@ static void sdcard_write_task(void *pvParameters)
   FSError log_status = sdcard_init(&log_file);
   if (log_status != SUCCESS)
   {
+    sdcard_is_in_degraded_state = true;
     Serial.printf("[Error] SD Card Logging Initialization Failure: %s\n\r", FCError__strings[log_status]);
   }
 
@@ -807,7 +847,6 @@ static void lora_receive_packet_isr_callback(int packet_size);
 
 static void lora_setup()
 {
-  Serial.println("Setting up LoRa...");
   SPI.setSCK(PIN_LORA_SCK);
   SPI.setMOSI(PIN_LORA_MOSI);
   SPI.setMISO(PIN_LORA_MISO);
@@ -923,7 +962,8 @@ void accel_calibration_test_loop()
   if (!SD.begin(PIN_SD_CS, SPI1))
   {
     Serial.println("[Error] SD card init failed");
-    while (true) delay(1000);
+    while (true)
+      delay(1000);
   }
 
   const char *filename = "/accel_cal.csv";
@@ -934,7 +974,8 @@ void accel_calibration_test_loop()
   if (!csv_file)
   {
     Serial.println("[Error] Failed to open accel_cal.csv");
-    while (true) delay(1000);
+    while (true)
+      delay(1000);
   }
 
   csv_file.println("capture_id,sample_id,bmi323_x_G,bmi323_y_G,bmi323_z_G,adxl375_x_G,adxl375_y_G,adxl375_z_G");
@@ -1080,21 +1121,61 @@ void pre_operational_mode_loop()
 {
   Serial.println("Entering pre-operational mode. Waiting for SWITCH_TO_OPERATIONAL_MODE command from ground...");
 
+  const TickType_t HEARTBEAT_INTERVAL_MS = 1000;
+  TickType_t time = xTaskGetTickCount();
+  TickType_t heartbeat_timer = time;
+
   while (true)
   {
+    time = xTaskGetTickCount();
+
     /*
      * Received radio commands in radio_command_rx_queue have already been
      * verified (magic, "CMD", CRC16) by lora_receive_packet_isr_callback.
-     * Block here until any command arrives, then inspect the command byte.
      */
     command_packet p;
-    xQueueReceive(radio_command_rx_queue, &p, portMAX_DELAY);
-
-    if (p.command_byte == RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE)
+    if (xQueueReceive(radio_command_rx_queue, &p, 0))
     {
-      Serial.println("SWITCH_TO_OPERATIONAL_MODE received. Entering operational mode.");
-      break;
+      if (p.command_byte == RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE)
+      {
+        Serial.println("SWITCH_TO_OPERATIONAL_MODE received. Entering operational mode.");
+        break;
+      }
+      else if (p.command_byte == RADIO_COMMAND_DEPLOY_AIRBRAKES)
+      {
+        AirBrakeServo.write(motor_map(100));
+      }
+      else if (p.command_byte == RADIO_COMMAND_STOW_AIRBRAKES)
+      {
+        AirBrakeServo.write(motor_map(0));
+      }
     }
+
+    if (time >= heartbeat_timer)
+    {
+      heartbeat_timer += HEARTBEAT_INTERVAL_MS;
+
+      tone(PIN_BUZZER, 1000, 10);
+
+      log_packet_latest log_p = get_blank_log_packet();
+      log_p.status_flags = get_sensor_status_flags();
+      log_p.time_boot_ms = xTaskGetTickCount();
+
+      // Acquire step
+      FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+      FSError gps_acquire_status = acquire_gps_data(&log_p);
+
+      telemetry_packet telemetry_p = fill_out_and_read_things_for_telemetry_packet(log_p, 0);
+      telemetry_p.is_in_operational_mode = 0;
+      telemetry_packet_make_header(&telemetry_p);
+
+      LoRa.beginPacket();
+      LoRa.write((uint8_t *)&telemetry_p, sizeof(telemetry_p));
+      LoRa.endPacket(false);
+      LoRa.receive();
+    }
+
+    delay(100);
   }
 
   tone(PIN_BUZZER, 261, 100);
@@ -1150,12 +1231,9 @@ void setup()
   test_airbrakes_hitl_control_loop();
 #endif
 
+  Serial.println("Setting up LoRa...");
   lora_setup();
-
-#ifndef CONFIG_TEST_NO_PRE_OPERATIONAL_MODE
-  pre_operational_mode_loop();
-#endif
-
+  
   Serial.println("Setting up sensors...");
   // Sensors board
   FSError sensor_status = sensors_setup();
@@ -1165,11 +1243,15 @@ void setup()
   }
 
   // Will not fly Pressure Transducer
-
+  Serial.println("Setting up GPS...");
   gps_setup();
 
   Serial.println("Setting up airbrakes...");
   airbrakes_setup();
+
+#ifndef CONFIG_TEST_NO_PRE_OPERATIONAL_MODE
+  pre_operational_mode_loop();
+#endif
 
   // FLIGHT COMPUTER RUNTIME
 
