@@ -19,15 +19,14 @@
 
 // Flight Computer
 #include <error.h>
-#include "sensors/adxl375.h"
-#include "sensors/bm1422.h"
-#include "sensors/bmi323.h"
-#include "sensors/ms5607.h"
 #include "pins.h"
 #include "test_data.h"
 #include "telemetry.h"
 #include "logging.h"
 #include <error.h>
+#include "sensors.h"
+#include "gps.h"
+#include "hardware.h"
 
 // AirBrakes
 #include "Filters/AB_Filter_Main.h"
@@ -35,34 +34,21 @@
 #include "AB_Deployment.h"
 #include "filter_inputs.h"
 
-// Pico
-#include <pico/stdlib.h>
-#include <pico/binary_info.h>
-#include <hardware/i2c.h>
-
 // Arduino
+#include <Arduino.h>
 #include <Servo.h>
 #include <LoRa.h>
 #include <SD.h>
-#include <TinyGPS++.h>
-#include <Wire.h>
-#include <SPI.h>
 
-// Adafruit
-#include <Adafruit_ADS1X15.h>
-
-// Flash
-#include <WinbondW25N.h>
+// FreeRTOS
+#include <FreeRTOS.h>
+#include <queue.h>
 
 #include "instrumentation.h"
 #include "testing/testing.h"
 #include <checksum.h>
 
-#define I2C_SENSOR_FREQUENCY 200000
-#define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000
-
-#define GPS_BAUD_RATE 115200
-#define GPS_UART_FIFO_SIZE 1024
+#define I2C_PRESSURE_TRANSDUCER_FREQUENCY 400000  
 
 #define MAX_SERVO_CURRENT_AMPS 2.2
 
@@ -79,14 +65,6 @@ const static TickType_t TELEMETRY_INTERVAL_MS = 1000;                     // 1 H
 FSError sdcard_init(fs::File *fileOut);
 bool sdcard_is_in_degraded_state = false;
 
-static struct fc_adxl375 adxl375;
-static struct fc_bmi323 bmi323;
-static struct fc_ms5607 ms5607;
-static struct fc_bm1422 bm1422;
-
-#define GPSSerial Serial1
-static TinyGPSPlus gps;
-
 // GPS reference point, locked by gps_compute_enu() on the first valid fix.
 // All ENU position outputs are relative to this point. Works for both live
 // NMEA and serial-injected GPS (OpenRocket HITL).
@@ -94,8 +72,6 @@ static bool   gps_has_reference = false;
 static double gps_ref_lat_deg   = 0.0;
 static double gps_ref_lng_deg   = 0.0;
 static float  gps_ref_alt_m     = 0.0f;
-
-static Adafruit_ADS1115 pt_ads;
 
 #define AIRBRAKE_STOWED_ANGLE 91
 #define AIRBRAKE_DEPLOYED_ANGLE 33
@@ -142,24 +118,15 @@ STATIC_QUEUE_DECLARE_HELPER(radio_command_rx, 100, struct command_packet);
       name##_queue_storage_buffer,     \
       &name##_queue_data);
 
-/// Due to the nature of the PICO we can configure
-/// nearly every pin to do multiple functions.
-/// As such all the pin configuration should
-/// logically all be in one function.
-static void gpio_config()
+static uint8_t get_status_flags()
 {
+  uint8_t result = get_sensor_status_flags();
+  if (sdcard_is_in_degraded_state)
+  {
+    result |= STATUS_FLAGS_SD_CARD_DEGRADED;
+  }
 
-  // sensor i2c configuration
-
-  i2c_init(i2c0, I2C_SENSOR_FREQUENCY);
-  gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
-  gpio_pull_up(PIN_I2C0_SDA);
-  gpio_pull_up(PIN_I2C0_SCL);
-
-  pinMode(PIN_ACTIVITY_LED, OUTPUT);
-
-  bi_decl(bi_2pins_with_func(PIN_I2C0_SDA, PIN_I2C0_SCL, GPIO_FUNC_I2C));
+  return result;
 }
 
 struct calibrated_accel_readings {
@@ -190,44 +157,6 @@ static calibrated_accel_readings apply_accelerometer_calibrations(log_packet_lat
   };
 
   return cal;
-}
-
-static FSError sensors_setup()
-{
-  // Initialize sensor drivers
-  FSError result = SUCCESS;
-
-  // Magnometer is not in use because it barely helps the GNC and its a bitch to solder
-  // const FSError bm1422_status = fc_bm1422_initialize(&bm1422);
-  const FSError adxl375_status = fc_adxl375_initialize(&adxl375);
-  const FSError bmi323_status = fc_bmi323_initialize(&bmi323);
-  const FSError ms5607_status = fc_ms5607_initialize(&ms5607);
-
-  // Serial.printf("[Info] bm1422 status: %s\n\r", FCError__strings[bm1422_status]);
-  // Serial.printf("[Info] adxl375 status: %s\n\r", FCError__strings[adxl375_status]);
-  // Serial.printf("[Info] bmi323 status: %s\n\r", FCError__strings[bmi323_status]);
-  // Serial.printf("[Info] ms5607 status: %s\n\r", FCError__strings[ms5607_status]);
-
-  // if (bm1422_status != SUCCESS) {
-  // result = bm1422_status;
-  // }
-
-  if (adxl375_status != SUCCESS)
-  {
-    result = adxl375_status;
-  }
-
-  if (bmi323_status != SUCCESS)
-  {
-    result = bmi323_status;
-  }
-
-  if (ms5607_status != SUCCESS)
-  {
-    result = ms5607_status;
-  }
-
-  return result;
 }
 
 int motor_map(int pct)
@@ -280,45 +209,6 @@ int motor_map(int pct)
 //   );
 // }
 
-FSError acquire_gps_data(log_packet_latest *log_p)
-{
-  while (GPSSerial.available())
-  {
-    uint8_t c = GPSSerial.read();
-    gps.encode(c);
-#ifdef CONFIG_TEST_GPS_PRINT_NMEA_TO_SERIAL
-    Serial.print((char)c);
-#endif
-  }
-
-  if (gps.location.isValid())
-  {
-    log_p->gps_lat_deg = gps.location.lat();
-    log_p->gps_lng_deg = gps.location.lng();
-  }
-
-  if (gps.altitude.isValid())
-  {
-    log_p->gps_alt_m = gps.altitude.meters();
-  }
-
-  if (gps.speed.isValid())
-  {
-    log_p->gps_speed_mps = (float)gps.speed.mps();
-  }
-
-  if (gps.course.isValid())
-  {
-    log_p->gps_course = (int32_t)(gps.course.deg() * 100);
-  }
-
-  if (gps.satellites.isValid())
-  {
-    log_p->gps_num_sats = gps.satellites.value();
-  }
-
-  return SUCCESS;
-}
 
 /* Convert log-packet GPS fields to ENU (East, North, Up) metres and horizontal
    velocity in m/s, relative to the reference point captured at first valid fix.
@@ -373,107 +263,6 @@ static bool gps_compute_enu(const log_packet_latest &log_p,
   }
 
   return true;
-}
-
-/// TODO probably add more sensor state for PT and GPS or something
-/// Produces a bitfield corresponding to which sensors are properly reading data
-uint8_t get_sensor_status_flags()
-{
-  uint8_t result = 0;
-
-  if (adxl375.is_in_degraded_state)
-  {
-    result |= STATUS_FLAGS_ADXL375_DEGRADED;
-  }
-  if (bm1422.is_in_degraded_state)
-  {
-    result |= STATUS_FLAGS_BM1422_DEGRADED;
-  }
-  if (bmi323.is_in_degraded_state)
-  {
-    result |= STATUS_FLAGS_BMI323_DEGRADED;
-  }
-  if (ms5607.is_in_degraded_state)
-  {
-    result |= STATUS_FLAGS_MS5607_DEGRADED;
-  }
-  if (sdcard_is_in_degraded_state)
-  {
-    result |= STATUS_FLAGS_SD_CARD_DEGRADED;
-  }
-
-  return result;
-}
-
-/// Acquires i2c sensor data and updates the provided log packet struct
-/// If an error is encountered reading the data it provides it, but otherwise processes the data
-FSError acquire_sensor_data(log_packet_latest *log_p)
-{
-#ifdef CONFIG_TEST_FULL_STACK_WITH_PRERECORDED_DATA
-  return acquire_sensor_data_prerecorded(log_p);
-#endif
-#ifdef CONFIG_TEST_AIRBRAKES_HITL_FULL
-  auto status = acquire_sensor_data_from_serial(log_p);
-  // tone(PIN_BUZZER, 523, 100);
-  /* Send airbrake deployment angle back to testing PC */
-  Serial.write(g_airbrake_pct);
-  return status;
-#endif
-
-  struct fc_adxl375_data adxl375_data;
-  const FSError adxl_status = fc_adxl375_process(&adxl375, &adxl375_data);
-
-  if (adxl_status == SUCCESS)
-  {
-    log_p->adxl375_accel_x_G = adxl375_data.accel_x;
-    log_p->adxl375_accel_y_G = adxl375_data.accel_y;
-    log_p->adxl375_accel_z_G = adxl375_data.accel_z;
-  }
-  else
-  {
-    // TODO maybe
-  }
-
-  // struct fc_bm1422_data bm1422_data;
-  // const FSError bm1422_status = fc_bm1422_process(&bm1422, bm1422_data);
-
-  // if (bm1422_status != SUCCESS) {
-  //   // TODO maybe an error somewhere in the log
-  //   // Serial.printf("bm1422 read error\n\r");
-  //   return bm1422_status;
-  // }
-
-  struct fc_bmi323_data bmi323_data;
-  const FSError bmi323_status = fc_bmi323_process(&bmi323, &bmi323_data);
-
-  if (bmi323_status == SUCCESS)
-  {
-    log_p->bmi323_accel_x_G = bmi323_data.accel_x;
-    log_p->bmi323_accel_y_G = bmi323_data.accel_y;
-    log_p->bmi323_accel_z_G = bmi323_data.accel_z;
-    log_p->bmi323_gyro_x_degps = bmi323_data.gyro_x;
-    log_p->bmi323_gyro_y_degps = bmi323_data.gyro_y;
-    log_p->bmi323_gyro_z_degps = bmi323_data.gyro_z;
-  }
-  else
-  {
-    // TODO maybe
-  }
-
-  struct fc_ms5607_data ms5607_data;
-  const FSError ms5607_status = fc_ms5607_process(&ms5607, &ms5607_data);
-
-  if (ms5607_status == SUCCESS)
-  {
-    log_p->ms5607_pressure_mbar = ms5607_data.pressure_mbar;
-    log_p->ms5607_temperature_c = ms5607_data.temperature_c;
-  }
-  else
-  {
-    // TODO maybe
-  }
-
-  return SUCCESS;
 }
 
 void airbrakes_setup()
@@ -651,7 +440,7 @@ static void runtime_task(void *pvParameters)
     instrumentation_reset();
 
     log_packet_latest log_p = get_blank_log_packet();
-    log_p.status_flags = get_sensor_status_flags();
+    log_p.status_flags = get_status_flags();
     log_p.time_boot_ms = xTaskGetTickCount();
 
     // Acquire step
@@ -824,14 +613,6 @@ static void servo_overcurrent_task(void *pvParameters)
 
     xTaskDelayUntil(&time, SERVO_OVERCURRENT_INTERVAL_MS); // runs at 100hz
   }
-}
-
-void gps_setup()
-{
-  GPSSerial.setRX(PIN_GPS_RX);
-  GPSSerial.setTX(PIN_GPS_TX);
-  GPSSerial.setFIFOSize(GPS_UART_FIFO_SIZE);
-  GPSSerial.begin(GPS_BAUD_RATE, SERIAL_8N1);
 }
 
 void gps_test_loop()
@@ -1080,12 +861,6 @@ void accel_calibration_test_loop()
 }
 #endif
 
-void pressure_transducer_setup()
-{
-  Serial.println("Setting up PT...");
-  pt_ads.begin(0x48, &Wire1, PIN_I2C1_SDA, PIN_I2C1_SCL);
-}
-
 void test_airbrakes_algo_performance_loop()
 {
   struct apogeeIC ic = {
@@ -1220,7 +995,7 @@ void pre_operational_mode_loop()
       tone(PIN_BUZZER, 1000, 10);
 
       log_packet_latest log_p = get_blank_log_packet();
-      log_p.status_flags = get_sensor_status_flags();
+      log_p.status_flags = get_status_flags();
       log_p.time_boot_ms = xTaskGetTickCount();
 
       // Acquire step

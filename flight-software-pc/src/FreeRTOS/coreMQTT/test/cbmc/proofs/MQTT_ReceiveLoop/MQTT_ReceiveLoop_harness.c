@@ -1,0 +1,112 @@
+/*
+ * coreMQTT
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+/**
+ * @file MQTT_ReceiveLoop_harness.c
+ * @brief Implements the proof harness for MQTT_ReceiveLoop function.
+ */
+#include "core_mqtt.h"
+#include "mqtt_cbmc_state.h"
+
+MQTTStatus_t MQTT_DeserializeAck( const MQTTPacketInfo_t * pIncomingPacket,
+                                  uint16_t * pPacketId,
+                                  MQTTReasonCodeInfo_t * pReasonCode,
+                                  MQTTPropBuilder_t * propBuffer,
+                                  MQTTConnectionProperties_t * pConnectProperties )
+{
+    MQTTStatus_t result;
+
+    return result;
+}
+
+MQTTStatus_t MQTT_DeserializePublish( const MQTTPacketInfo_t * pIncomingPacket,
+                                      uint16_t * pPacketId,
+                                      MQTTPublishInfo_t * pPublishInfo,
+                                      MQTTPropBuilder_t * propBuffer,
+                                      uint32_t maxPacketSize,
+                                      uint16_t topicAliasMax )
+{
+    MQTTStatus_t result;
+
+    return result;
+}
+
+MQTTStatus_t MQTT_SerializeDisconnect( const MQTTPropBuilder_t * pDisconnectProperties,
+                                       MQTTSuccessFailReasonCode_t * pReasonCode,
+                                       uint32_t remainingLength,
+                                       const MQTTFixedBuffer_t * pFixedBuffer )
+{
+    MQTTStatus_t result;
+
+    return result;
+}
+
+MQTTStatus_t MQTT_DeserializeDisconnect( const MQTTPacketInfo_t * pPacket,
+                                         uint32_t maxPacketSize,
+                                         MQTTReasonCodeInfo_t * pDisconnectInfo,
+                                         MQTTPropBuilder_t * propBuffer )
+{
+    MQTTStatus_t result;
+
+    return result;
+}
+
+MQTTStatus_t MQTT_GetDisconnectPacketSize( const MQTTPropBuilder_t * pDisconnectProperties,
+                                           uint32_t * pRemainingLength,
+                                           uint32_t * pPacketSize,
+                                           uint32_t maxPacketSize,
+                                           MQTTSuccessFailReasonCode_t * pReasonCode )
+{
+    MQTTStatus_t result;
+
+    return result;
+}
+
+MQTTStatus_t MQTT_ProcessIncomingPacketTypeAndLength( const uint8_t * pBuffer,
+                                                      const size_t * pIndex,
+                                                      MQTTPacketInfo_t * pIncomingPacket )
+{
+    static counter = 5;
+
+    counter--;
+
+    if( counter == 0 )
+    {
+        return MQTTBadResponse;
+    }
+
+    MQTTStatus_t result;
+
+    return result;
+}
+
+void harness()
+{
+    MQTTContext_t * pContext;
+
+    pContext = allocateMqttContext( NULL );
+    __CPROVER_assume( isValidMqttContext( pContext ) );
+
+    MQTT_ReceiveLoop( pContext );
+}

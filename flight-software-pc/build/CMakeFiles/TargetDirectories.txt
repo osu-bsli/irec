@@ -1,0 +1,3 @@
+/home/brian/Git/irec/flight-software-pc/build/CMakeFiles/flight-software-pc.dir
+/home/brian/Git/irec/flight-software-pc/build/CMakeFiles/edit_cache.dir
+/home/brian/Git/irec/flight-software-pc/build/CMakeFiles/rebuild_cache.dir
