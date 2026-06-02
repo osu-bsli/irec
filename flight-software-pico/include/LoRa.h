@@ -70,6 +70,7 @@ public:
 
   void setTxPower(int level, int outputPin = PA_OUTPUT_PA_BOOST_PIN);
   void setFrequency(long frequency);
+  long getFrequency();
   void setSpreadingFactor(int sf);
   void setSignalBandwidth(long sbw);
   void setCodingRate4(int denominator);

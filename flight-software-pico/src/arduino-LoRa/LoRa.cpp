@@ -498,6 +498,16 @@ void LoRaClass::setFrequency(long frequency)
   writeRegister(REG_FRF_LSB, (uint8_t)(frf >> 0));
 }
 
+long LoRaClass::getFrequency()
+{
+  uint64_t frf = (
+    ((uint64_t)readRegister(REG_FRF_MSB) << 16) |
+    ((uint64_t)readRegister(REG_FRF_MID) << 8) | 
+    (uint64_t)readRegister(REG_FRF_LSB)
+  );
+  return (frf * 32000000) >> 19;
+}
+
 int LoRaClass::getSpreadingFactor()
 {
   return readRegister(REG_MODEM_CONFIG_2) >> 4;

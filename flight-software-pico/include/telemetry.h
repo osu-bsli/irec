@@ -39,6 +39,8 @@ enum StatusFlags {
 
 #define RADIO_COMMAND_DEPLOY_AIRBRAKES 0x01 
 #define RADIO_COMMAND_STOW_AIRBRAKES 0x02
+#define RADIO_COMMAND_SET_LORA_FREQUENCY 0x03
+#define RADIO_COMMAND_SET_LORA_BANDWIDTH 0x04
 #define RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE 0x67
 
 #define COMMAND_PACKET_MAGIC TELEMETRY_PACKET_MAGIC
@@ -51,6 +53,7 @@ PACKED_STRUCT command_packet {
 
     char cmd[3]; // "CMD"
     uint8_t command_byte;
+    uint32_t command_arg;
 };
 END_PACKED_STRUCT;
 

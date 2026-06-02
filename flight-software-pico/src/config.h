@@ -5,7 +5,7 @@
 #define CONFIG_ROCKET_MASS_KG 30
 
 /* Check IREC Student Band Plan for allowed frequencies */
-#define CONFIG_LORA_FREQUENCY_HZ 905 * 1000000
+#define CONFIG_LORA_FREQUENCY_HZ_INITIAL 905 * 1000000
 
 
 /* All CONFIG_TEST_<> options direct the software to enter a testing mode upon startup. */

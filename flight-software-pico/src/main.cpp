@@ -852,7 +852,7 @@ static void lora_setup()
   SPI.setMISO(PIN_LORA_MISO);
   LoRa.setSPI(SPI);
   LoRa.setPins(PIN_LORA_CS, PIN_LORA_RESET, PIN_LORA_IRQ_PIN0);
-  if (!LoRa.begin(CONFIG_LORA_FREQUENCY_HZ))
+  if (!LoRa.begin(CONFIG_LORA_FREQUENCY_HZ_INITIAL))
   {
     Serial.println("LoRa initialization failed");
   }
@@ -1148,6 +1148,14 @@ void pre_operational_mode_loop()
       else if (p.command_byte == RADIO_COMMAND_STOW_AIRBRAKES)
       {
         AirBrakeServo.write(motor_map(0));
+      }
+      else if (p.command_byte == RADIO_COMMAND_SET_LORA_FREQUENCY)
+      {
+        LoRa.setFrequency(p.command_arg);
+      }
+      else if (p.command_byte == RADIO_COMMAND_SET_LORA_BANDWIDTH)
+      {
+        LoRa.setSignalBandwidth(p.command_arg);
       }
     }
 
