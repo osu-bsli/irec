@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <Arduino.h>
+#include <SPI.h>
 #include <pico/stdlib.h>
 #include <pico/binary_info.h>
 #include <hardware/i2c.h>
@@ -26,4 +27,8 @@ void gpio_config()
   pinMode(PIN_ACTIVITY_LED, OUTPUT);
 
   bi_decl(bi_2pins_with_func(PIN_I2C0_SDA, PIN_I2C0_SCL, GPIO_FUNC_I2C));
+
+  SPI.setSCK(PIN_LORA_SCK);
+  SPI.setMOSI(PIN_LORA_MOSI);
+  SPI.setMISO(PIN_LORA_MISO);
 }

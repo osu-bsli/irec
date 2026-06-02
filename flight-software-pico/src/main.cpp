@@ -36,6 +36,7 @@
 
 // Arduino
 #include <Arduino.h>
+#include <SPI.h>
 #include <Servo.h>
 #include <LoRa.h>
 #include <SD.h>
@@ -110,6 +111,11 @@ static AB_Settings ab_settings = AB_Default_Settings();
 STATIC_QUEUE_DECLARE_HELPER(airbrakes, 1, struct AirbrakesPacket);
 STATIC_QUEUE_DECLARE_HELPER(log, 100, log_packet_latest);
 STATIC_QUEUE_DECLARE_HELPER(radio_command_rx, 100, struct command_packet);
+
+QueueHandle_t get_radio_command_rx_queue_handle()
+{
+  return radio_command_rx_queue;
+}
 
 #define STATIC_QUEUE_INIT_HELPER(name) \
   name##_queue = xQueueCreateStatic(   \
@@ -409,7 +415,7 @@ static telemetry_packet fill_out_and_read_things_for_telemetry_packet(log_packet
 
 static void runtime_task(void *pvParameters)
 {
-  vTaskPreemptionDisable(NULL);
+  // vTaskPreemptionDisable(NULL);
 
   /* Sample and average the altitude at flight computer startup and call it the ground altitude */
   constexpr int pressure_samples_for_ground_pressure = 20;
@@ -682,9 +688,6 @@ static void lora_receive_packet_isr_callback(int packet_size);
 
 static void lora_setup()
 {
-  SPI.setSCK(PIN_LORA_SCK);
-  SPI.setMOSI(PIN_LORA_MOSI);
-  SPI.setMISO(PIN_LORA_MISO);
   LoRa.setSPI(SPI);
   LoRa.setPins(PIN_LORA_CS, PIN_LORA_RESET, PIN_LORA_IRQ_PIN0);
   if (!LoRa.begin(CONFIG_LORA_FREQUENCY_HZ_INITIAL))

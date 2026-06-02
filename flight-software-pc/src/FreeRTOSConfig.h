@@ -36,16 +36,15 @@
  * FreeRTOS API DOCUMENTATION AVAILABLE ON THE FreeRTOS.org WEB SITE.  See
  * https://www.FreeRTOS.org/a00110.html
  *----------------------------------------------------------*/
- 
  #define configUSE_PREEMPTION                       1
  #define configUSE_PORT_OPTIMISED_TASK_SELECTION    0
- #define configUSE_IDLE_HOOK                        1
- #define configUSE_TICK_HOOK                        1
- #define configUSE_DAEMON_TASK_STARTUP_HOOK         1
+ #define configUSE_IDLE_HOOK                        0
+ #define configUSE_TICK_HOOK                        0
+ #define configUSE_DAEMON_TASK_STARTUP_HOOK         0
  #define configTICK_RATE_HZ                         ( 1000 )                  /* In this non-real time simulated environment the tick frequency has to be at least a multiple of the Win32 tick frequency, and therefore very slow. */
  #define configMINIMAL_STACK_SIZE                   ( PTHREAD_STACK_MIN ) /* The stack size being passed is equal to the minimum stack size needed by pthread_create(). */
- #define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 65 * 1024 ) )
- #define configMAX_TASK_NAME_LEN                    ( 12 )
+ #define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 1024 * 1024 ) )
+ #define configMAX_TASK_NAME_LEN                    ( 120 )
  #define configUSE_TRACE_FACILITY                   1
  #define configUSE_16_BIT_TICKS                     0
  #define configIDLE_SHOULD_YIELD                    1
@@ -171,7 +170,7 @@
   * errors are present. */
      #define configASSERT( x )    if( ( x ) == 0 ) vAssertCalled( __FILE__, __LINE__ )
  
-     #define configUSE_MALLOC_FAILED_HOOK    1
+     #define configUSE_MALLOC_FAILED_HOOK    0
  
  /* Include the FreeRTOS+Trace FreeRTOS trace macro definitions. */
      #if( projENABLE_TRACING == 1 )
@@ -204,4 +203,7 @@
  #if ( ipconfigHAS_PRINTF == 1 )
      #define FreeRTOS_printf( X )    vLoggingPrintf X
  #endif
+
+ #define configKERNEL_PROVIDED_STATIC_MEMORY 1
+
  #endif /* FREERTOS_CONFIG_H */

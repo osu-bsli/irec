@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/brian/Git/irec/flight-software-pc/build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
