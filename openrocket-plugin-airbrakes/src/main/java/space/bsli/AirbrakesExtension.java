@@ -11,6 +11,7 @@ import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
 import info.openrocket.core.unit.UnitGroup;
 import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.Quaternion;
+import info.openrocket.core.util.WorldCoordinate;
 import com.fazecast.jSerialComm.*;
 
 import static space.bsli.AirbrakesConfig.AIRBRAKE_CONTROL_INTERVAL_S;
@@ -89,6 +90,86 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
         private double hitlTimeS = 0;
         Instant startInstant;
 
+        /* ---- Fake GPS state (FULL_HITL only) ----
+         * The most recently emitted fix is cached and re-sent unchanged between
+         * GPS updates so the flight computer sees a realistic low-rate GPS. */
+        private static final double R_EARTH_M = 6371000.0; // matches the FC's gps_compute_enu
+        private float gpsLatDeg = Float.NaN, gpsLngDeg = Float.NaN, gpsAltM = Float.NaN;
+        private float gpsSpeedMps = 0f;
+        private int gpsCourse = LogPacketV3.GPS_COURSE_NONE;
+        private int gpsNumSats = 0;
+        private float gpsUpdateTimer = 0f;
+        private boolean haveGpsFix = false;
+        private double prevGpsLatDeg = 0, prevGpsLngDeg = 0, prevGpsTimeS = 0;
+
+        /* Recomputes the cached fake GPS fix from the simulation at most once per
+         * GPS_UPDATE_INTERVAL_S. Speed/course are derived from the lat/lng delta
+         * since the previous fix so they stay self-consistent with position
+         * regardless of OpenRocket's axis conventions. */
+        private void updateFakeGps(SimulationStatus status, double dt) {
+            if (!AirbrakesConfig.FAKE_GPS_IN_HITL) {
+                gpsLatDeg = Float.NaN;
+                gpsLngDeg = Float.NaN;
+                gpsAltM = Float.NaN;
+                gpsSpeedMps = 0f;
+                gpsCourse = LogPacketV3.GPS_COURSE_NONE;
+                gpsNumSats = 0;
+                return;
+            }
+
+            gpsUpdateTimer += dt;
+            if (haveGpsFix && gpsUpdateTimer < AirbrakesConfig.GPS_UPDATE_INTERVAL_S) {
+                return; // hold previous fix; FC sees "no new GPS"
+            }
+            gpsUpdateTimer = 0f;
+
+            WorldCoordinate wc = status.getRocketWorldPosition();
+            double lat = wc.getLatitudeDeg();
+            double lng = wc.getLongitudeDeg();
+            double alt = wc.getAltitude();
+
+            if (AirbrakesConfig.GPS_HORIZONTAL_NOISE_M > 0) {
+                double latRad = Math.toRadians(lat);
+                lat += (r.nextGaussian() * AirbrakesConfig.GPS_HORIZONTAL_NOISE_M) / R_EARTH_M * (180.0 / Math.PI);
+                lng += (r.nextGaussian() * AirbrakesConfig.GPS_HORIZONTAL_NOISE_M) / (R_EARTH_M * Math.cos(latRad)) * (180.0 / Math.PI);
+            }
+            if (AirbrakesConfig.GPS_ALTITUDE_NOISE_M > 0) {
+                alt += r.nextGaussian() * AirbrakesConfig.GPS_ALTITUDE_NOISE_M;
+            }
+
+            double tNow = status.getSimulationTime();
+            if (haveGpsFix) {
+                double dtGps = tNow - prevGpsTimeS;
+                if (dtGps > 1e-3) {
+                    double latRad = Math.toRadians(lat);
+                    double dNorth = Math.toRadians(lat - prevGpsLatDeg) * R_EARTH_M;
+                    double dEast = Math.toRadians(lng - prevGpsLngDeg) * R_EARTH_M * Math.cos(latRad);
+                    double speed = Math.hypot(dEast, dNorth) / dtGps;
+                    if (speed >= AirbrakesConfig.GPS_MIN_SPEED_FOR_COURSE_MPS) {
+                        double courseDeg = Math.toDegrees(Math.atan2(dEast, dNorth));
+                        if (courseDeg < 0) courseDeg += 360.0;
+                        gpsCourse = (int) Math.round(courseDeg * 100.0);
+                    } else {
+                        gpsCourse = LogPacketV3.GPS_COURSE_NONE;
+                    }
+                    gpsSpeedMps = (float) speed;
+                }
+            } else {
+                gpsSpeedMps = 0f;
+                gpsCourse = LogPacketV3.GPS_COURSE_NONE;
+            }
+
+            gpsLatDeg = (float) lat;
+            gpsLngDeg = (float) lng;
+            gpsAltM = (float) alt;
+            gpsNumSats = AirbrakesConfig.GPS_NUM_SATS;
+
+            prevGpsLatDeg = lat;
+            prevGpsLngDeg = lng;
+            prevGpsTimeS = tNow;
+            haveGpsFix = true;
+        }
+
         @Override
         public void startSimulation(SimulationStatus status) throws SimulationException {
             if (mode == AirbrakesMode.FULL_HITL || mode == AirbrakesMode.HITL_CONTROL) {
@@ -109,6 +190,8 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             deploymentPctCommanded = 0;
             deploymentPctSimulatedDynamics = 0;
             hitlTimeS = 0;
+            haveGpsFix = false;
+            gpsUpdateTimer = 0f;
 
             /* Run filter on the rod for 2 simulated seconds so it can converge on the launch rod angle
                via the gravity vector before the rocket moves. */
@@ -120,6 +203,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 Coordinate sfBody = q.invRotate(new Coordinate(0, 0, G_CONST));
                 for (int i = 0; i < 200; i++) {
                     hitlTimeS += 0.010;
+                    /* Rocket is stationary on the rod: this locks the FC's GPS
+                       pad reference to the launch site before any motion. */
+                    updateFakeGps(status, 0.010);
                     byte[] packet = LogPacketV3.build(
                             0, (long) (hitlTimeS * 1000),
                             LogPacketV3.altitudeToPressMbar(altitude),
@@ -130,7 +216,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                             0f, 0f, 0f,
                             (float) (-sfBody.x / G_CONST),
                             (float) (-sfBody.y / G_CONST),
-                            (float) (sfBody.z / G_CONST));
+                            (float) (sfBody.z / G_CONST),
+                            gpsLatDeg, gpsLngDeg, gpsAltM, gpsSpeedMps,
+                            gpsCourse, gpsNumSats);
                     comPort.writeBytes(packet, packet.length);
                     byte[] buffer = new byte[1];
                     comPort.readBytes(buffer, 1, 0);
@@ -201,6 +289,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
                 if (mode == AirbrakesMode.FULL_HITL) {
                     hitlTimeS += dt;
+                    updateFakeGps(status, dt);
                     /* The swapped and flipped acceleration axes are to transform the accelerations
                        into sensor frame. The FC code then transforms them back into body frame. */
                     byte[] packet = LogPacketV3.build(
@@ -216,7 +305,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                             (float) (omegaBody.z * LogPacketV3.DEG_PER_RAD),
                             (float) (-sfBody.x / G_CONST),
                             (float) (-sfBody.y / G_CONST),
-                            (float) (sfBody.z / G_CONST));
+                            (float) (sfBody.z / G_CONST),
+                            gpsLatDeg, gpsLngDeg, gpsAltM, gpsSpeedMps,
+                            gpsCourse, gpsNumSats);
                     comPort.writeBytes(packet, packet.length);
 
                     byte[] buffer = new byte[1];

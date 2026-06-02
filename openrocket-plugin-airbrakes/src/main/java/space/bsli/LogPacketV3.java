@@ -10,6 +10,10 @@ final class LogPacketV3 {
     static final int   SIZE        = 98;
     static final float DEG_PER_RAD = (float)(180.0 / Math.PI);
 
+    /** Sentinel for gps_course meaning "no course available" (matches the C
+     *  flight software, which checks gps_course != -0x7FFFFFFF). */
+    static final int GPS_COURSE_NONE = -0x7FFFFFFF;
+
     private static final int CRC16_OFFSET = 10;
 
     /** ISA troposphere: altitude (m) → pressure (mbar). */
@@ -43,6 +47,13 @@ final class LogPacketV3 {
      * @param accelX_G … Z_G     BMI323 specific force in body frame (G)
      * @param gyroX_degps … Z    BMI323 angular rate in body frame (deg/s)
      * @param hgAccelX_G … Z_G   ADXL375 high-g accelerometer (G)
+     * @param gpsLatDeg          GPS latitude (deg), or NaN for "no fix"
+     * @param gpsLngDeg          GPS longitude (deg), or NaN for "no fix"
+     * @param gpsAltM            GPS altitude (m MSL), or NaN for "no fix"
+     * @param gpsSpeedMps        GPS ground speed (m/s)
+     * @param gpsCourse          GPS course in hundredths of a degree, or
+     *                           {@link #GPS_COURSE_NONE} when unavailable
+     * @param gpsNumSats         number of satellites in the fix
      */
     static byte[] build(
             int statusFlags,
@@ -50,7 +61,9 @@ final class LogPacketV3 {
             float pressureMbar, float temperatureC,
             float accelX_G,    float accelY_G,    float accelZ_G,
             float gyroX_degps, float gyroY_degps, float gyroZ_degps,
-            float hgAccelX_G,  float hgAccelY_G,  float hgAccelZ_G
+            float hgAccelX_G,  float hgAccelY_G,  float hgAccelZ_G,
+            float gpsLatDeg,   float gpsLngDeg,   float gpsAltM, float gpsSpeedMps,
+            int gpsCourse,     int gpsNumSats
     ) {
         ByteBuffer buf = ByteBuffer.allocate(SIZE).order(ByteOrder.LITTLE_ENDIAN);
         buf.put("COREYMAY3".getBytes(StandardCharsets.US_ASCII)); // magic[9]
@@ -72,13 +85,13 @@ final class LogPacketV3 {
         buf.putFloat(0f);                                          // bm1422_magn_x
         buf.putFloat(0f);                                          // bm1422_magn_y
         buf.putFloat(0f);                                          // bm1422_magn_z
-        buf.putFloat(0f);                                          // gps_lat_deg
-        buf.putFloat(0f);                                          // gps_lng_deg
-        buf.putFloat(0f);                                          // gps_alt_m
-        buf.putFloat(0f);                                          // gps_speed_mps
+        buf.putFloat(gpsLatDeg);                                   // gps_lat_deg
+        buf.putFloat(gpsLngDeg);                                   // gps_lng_deg
+        buf.putFloat(gpsAltM);                                     // gps_alt_m
+        buf.putFloat(gpsSpeedMps);                                 // gps_speed_mps
         buf.putFloat(0f);                                          // pt_volts
-        buf.putInt(0);                                             // gps_course
-        buf.put((byte) 0);                                         // gps_num_sats
+        buf.putInt(gpsCourse);                                     // gps_course
+        buf.put((byte) gpsNumSats);                                // gps_num_sats
 
         byte[] bytes = buf.array();
         int crc = crcModbus(bytes);

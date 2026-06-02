@@ -4,11 +4,11 @@
 set -e
 
 cd flight-software-pico
-uvx platformio run
+uvx --system-certs platformio run
 cd ..
 
 cd ground-computer-pico
-uvx platformio run
+uvx --system-certs platformio run
 cd ..
 
 cd flight-software-pico/pc-testing

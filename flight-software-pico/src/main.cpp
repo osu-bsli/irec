@@ -87,8 +87,9 @@ static struct fc_bm1422 bm1422;
 #define GPSSerial Serial1
 static TinyGPSPlus gps;
 
-// GPS reference point locked on the first valid fix with altitude.
-// All ENU position outputs are relative to this point.
+// GPS reference point, locked by gps_compute_enu() on the first valid fix.
+// All ENU position outputs are relative to this point. Works for both live
+// NMEA and serial-injected GPS (OpenRocket HITL).
 static bool   gps_has_reference = false;
 static double gps_ref_lat_deg   = 0.0;
 static double gps_ref_lng_deg   = 0.0;
@@ -301,16 +302,6 @@ FSError acquire_gps_data(log_packet_latest *log_p)
     log_p->gps_alt_m = gps.altitude.meters();
   }
 
-  /* Lock the pad reference point on the first iteration where both position
-     and altitude are valid.  Everything downstream uses ENU relative to this. */
-  if (!gps_has_reference && gps.location.isValid() && gps.altitude.isValid())
-  {
-    gps_ref_lat_deg   = gps.location.lat();
-    gps_ref_lng_deg   = gps.location.lng();
-    gps_ref_alt_m     = (float)gps.altitude.meters();
-    gps_has_reference = true;
-  }
-
   if (gps.speed.isValid())
   {
     log_p->gps_speed_mps = (float)gps.speed.mps();
@@ -338,18 +329,28 @@ FSError acquire_gps_data(log_packet_latest *log_p)
    GPS_Velocity_mps layout expected by AB_Filter_Inputs:
      x = East (m/s), y = North (m/s), z = Up (m/s)
 
-   Returns true when a valid conversion was possible (reference locked + fix valid).
-   On false, callers should fall back to setZero(). */
+   The pad reference point is locked on the first call with a valid (non-NaN)
+   fix.  This is driven entirely off the log packet's GPS fields, so it works
+   identically whether those fields came from live NMEA (real flight) or were
+   injected over serial by the OpenRocket HITL harness.
+
+   Returns true when a valid conversion was possible (reference locked + fix
+   valid).  On false, callers should fall back to setZero(). */
 static bool gps_compute_enu(const log_packet_latest &log_p,
                              float *east_m, float *north_m, float *up_m,
                              float *vel_east_mps, float *vel_north_mps)
 {
-  if (!gps_has_reference)
-    return false;
-
   /* Guard against blank-packet sentinels */
   if (isnan(log_p.gps_lat_deg) || isnan(log_p.gps_lng_deg) || isnan(log_p.gps_alt_m))
     return false;
+
+  if (!gps_has_reference)
+  {
+    gps_ref_lat_deg   = log_p.gps_lat_deg;
+    gps_ref_lng_deg   = log_p.gps_lng_deg;
+    gps_ref_alt_m     = log_p.gps_alt_m;
+    gps_has_reference = true;
+  }
 
   constexpr double R_EARTH_M = 6371000.0;
   const double ref_lat_rad = gps_ref_lat_deg * (M_PI / 180.0);
