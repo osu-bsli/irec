@@ -15,6 +15,7 @@
 #include "utility.h"
 #include "AB_Deployment.h"
 #include "AB_Filter_Main.h"
+#include "filter_inputs.h"
 
 #include "testing/nomad_test_flight_2026-4-11_cropped.logv3.h"
 #include "telemetry.h"
@@ -470,14 +471,8 @@ void ShowVisualizer()
 				log_packet_v3 log_p = ((log_packet_v3 *)log_cropped_logv3)[i];
 				float current_time_s = log_p.time_boot_ms / 1000.0f;
 
-				// Update sensor data in Master Struct
-				inputs.Accelerometer_mps2 << log_p.bmi323_accel_y_G * G_CONST, log_p.bmi323_accel_x_G * G_CONST, log_p.bmi323_accel_z_G * G_CONST;
-				inputs.AccelerometerHG_mps2 << -log_p.adxl375_accel_x_G * G_CONST, -log_p.adxl375_accel_y_G * G_CONST, log_p.adxl375_accel_z_G * G_CONST;
-				inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
-					log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
-					log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
+				log_packet_v3_fill_filter_inputs(log_p, inputs, pad_altitude_m);
 				float current_abs_alt = get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100.0f);
-				inputs.Barometer_m = current_abs_alt - pad_altitude_m;
 
 				// Calculate which GPS index to use
 				int gps_idx = 0; // Default to pad data (index 0)
@@ -589,12 +584,15 @@ void ShowVisualizer()
 				g_nav_quat_z[i] = f.AttState.Quaternion_Body_To_ENU.z();
 
 				time_s[i] = timeCurrent_s;
-				velocityHoriz_mps[i] = sqrt(f.HorizState.VelocityNorth_mps * f.HorizState.VelocityNorth_mps +
-											f.HorizState.VelocityEast_mps * f.HorizState.VelocityEast_mps);
-				zenith_rad[i] = atan2(velocityHoriz_mps[i], f.VertState.VelocityUp_mps);
-				altitude_m[i] = f.VertState.Altitude_m;
-				velocityZ_mps[i] = f.VertState.VelocityUp_mps;
-				thetaZ_rad[i] = zenith_rad[i];
+			{
+					apogeeIC ic = filter_to_apogee_ic(f);
+					altitude_m[i]   = ic.altitude_m;
+					velocityZ_mps[i] = ic.velocityZ_mps;
+					zenith_rad[i]   = ic.thetaZ_rad;
+					thetaZ_rad[i]   = ic.thetaZ_rad;
+					velocityHoriz_mps[i] = sqrtf(f.HorizState.VelocityNorth_mps * f.HorizState.VelocityNorth_mps +
+					                              f.HorizState.VelocityEast_mps  * f.HorizState.VelocityEast_mps);
+				}
 
 				if (altitude_m[i] > altitudeMax_m)
 					altitudeMax_m = altitude_m[i];

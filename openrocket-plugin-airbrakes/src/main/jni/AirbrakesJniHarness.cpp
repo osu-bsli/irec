@@ -82,15 +82,6 @@ JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_RunControllerAndGetD
 
     AB_Filter_Process(filter, inputs, settings);
 
-    float velocityHoriz_mps = sqrt(filter.HorizState.VelocityNorth_mps * filter.HorizState.VelocityNorth_mps +
-                    filter.HorizState.VelocityEast_mps * filter.HorizState.VelocityEast_mps);
-    apogeeIC ic = {
-        .altitude_m = filter.VertState.Altitude_m,
-        .velocityZ_mps = filter.VertState.VelocityUp_mps,
-        .thetaZ_rad = (float)(atan2(velocityHoriz_mps, filter.VertState.VelocityUp_mps)),
-        .airbrakeDeployment_pct = 0,
-    };
-
     int itersReqd = 0;
-    return PredictDeploymentPct(ic, &itersReqd, settings);
+    return PredictDeploymentPct(filter_to_apogee_ic(filter), &itersReqd, settings);
 }

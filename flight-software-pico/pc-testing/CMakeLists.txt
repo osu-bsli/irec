@@ -10,6 +10,7 @@ add_library(airbrakes
     ../src/Airbrakes/Filters/AB_Vertical_Filter.cpp
     ../src/Airbrakes/AB_Deployment.cpp
     ../src/Airbrakes/MathFunctions.cpp
+    ../src/Airbrakes/filter_inputs.cpp
 
     src/util.cpp
 )

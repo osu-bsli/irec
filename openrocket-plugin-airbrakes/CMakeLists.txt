@@ -12,6 +12,7 @@ add_library(airbrakes SHARED
     ${FSW_DIR}/src/Airbrakes/Filters/AB_Vertical_Filter.cpp
     ${FSW_DIR}/src/Airbrakes/AB_Deployment.cpp
     ${FSW_DIR}/src/Airbrakes/MathFunctions.cpp
+    ${FSW_DIR}/src/Airbrakes/filter_inputs.cpp
 
     src/main/jni/AirbrakesJniHarness.cpp
 )

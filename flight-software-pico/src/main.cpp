@@ -33,6 +33,7 @@
 #include "Filters/AB_Filter_Main.h"
 #include "AB_Struct_Storage.h"
 #include "AB_Deployment.h"
+#include "filter_inputs.h"
 
 // Pico
 #include <pico/stdlib.h>
@@ -85,6 +86,13 @@ static struct fc_bm1422 bm1422;
 
 #define GPSSerial Serial1
 static TinyGPSPlus gps;
+
+// GPS reference point locked on the first valid fix with altitude.
+// All ENU position outputs are relative to this point.
+static bool   gps_has_reference = false;
+static double gps_ref_lat_deg   = 0.0;
+static double gps_ref_lng_deg   = 0.0;
+static float  gps_ref_alt_m     = 0.0f;
 
 static Adafruit_ADS1115 pt_ads;
 
@@ -293,14 +301,24 @@ FSError acquire_gps_data(log_packet_latest *log_p)
     log_p->gps_alt_m = gps.altitude.meters();
   }
 
+  /* Lock the pad reference point on the first iteration where both position
+     and altitude are valid.  Everything downstream uses ENU relative to this. */
+  if (!gps_has_reference && gps.location.isValid() && gps.altitude.isValid())
+  {
+    gps_ref_lat_deg   = gps.location.lat();
+    gps_ref_lng_deg   = gps.location.lng();
+    gps_ref_alt_m     = (float)gps.altitude.meters();
+    gps_has_reference = true;
+  }
+
   if (gps.speed.isValid())
   {
-    log_p->gps_speed_mps = gps.speed.value();
+    log_p->gps_speed_mps = (float)gps.speed.mps();
   }
 
   if (gps.course.isValid())
   {
-    log_p->gps_course = gps.course.value();
+    log_p->gps_course = (int32_t)(gps.course.deg() * 100);
   }
 
   if (gps.satellites.isValid())
@@ -308,7 +326,52 @@ FSError acquire_gps_data(log_packet_latest *log_p)
     log_p->gps_num_sats = gps.satellites.value();
   }
 
-  return SUCCESS; // add gps knockout????? errror
+  return SUCCESS;
+}
+
+/* Convert log-packet GPS fields to ENU (East, North, Up) metres and horizontal
+   velocity in m/s, relative to the reference point captured at first valid fix.
+
+   GPS_Position_m layout expected by AB_Filter_Inputs:
+     x = East (m), y = North (m), z = Up (m)
+
+   GPS_Velocity_mps layout expected by AB_Filter_Inputs:
+     x = East (m/s), y = North (m/s), z = Up (m/s)
+
+   Returns true when a valid conversion was possible (reference locked + fix valid).
+   On false, callers should fall back to setZero(). */
+static bool gps_compute_enu(const log_packet_latest &log_p,
+                             float *east_m, float *north_m, float *up_m,
+                             float *vel_east_mps, float *vel_north_mps)
+{
+  if (!gps_has_reference)
+    return false;
+
+  /* Guard against blank-packet sentinels */
+  if (isnan(log_p.gps_lat_deg) || isnan(log_p.gps_lng_deg) || isnan(log_p.gps_alt_m))
+    return false;
+
+  constexpr double R_EARTH_M = 6371000.0;
+  const double ref_lat_rad = gps_ref_lat_deg * (M_PI / 180.0);
+
+  *north_m = (float)((log_p.gps_lat_deg - gps_ref_lat_deg) * (M_PI / 180.0) * R_EARTH_M);
+  *east_m  = (float)((log_p.gps_lng_deg - gps_ref_lng_deg) * (M_PI / 180.0) * R_EARTH_M * cos(ref_lat_rad));
+  *up_m    = log_p.gps_alt_m - gps_ref_alt_m;
+
+  /* Course is stored as hundredths of degrees; sentinel -0x7FFFFFFF means no data. */
+  if (!isnan(log_p.gps_speed_mps) && log_p.gps_course != -0x7FFFFFFF)
+  {
+    const float course_rad = (float)log_p.gps_course / 100.0f * (float)(M_PI / 180.0);
+    *vel_east_mps  = log_p.gps_speed_mps * sinf(course_rad);
+    *vel_north_mps = log_p.gps_speed_mps * cosf(course_rad);
+  }
+  else
+  {
+    *vel_east_mps  = 0.0f;
+    *vel_north_mps = 0.0f;
+  }
+
+  return true;
 }
 
 /// TODO probably add more sensor state for PT and GPS or something
@@ -603,46 +666,36 @@ static void runtime_task(void *pvParameters)
 
     AB_Filter_Inputs inputs;
 
-    calibrated_accel_readings cal = apply_accelerometer_calibrations(log_p);
+    // Sensor axes, calibration, unit conversion — shared with pc-testing visualizer.
+    log_packet_v3_fill_filter_inputs(log_p, inputs, pad_altitude_m);
 
-    // Convert log packet into airbrake filter inputs
-    inputs.Accelerometer_mps2 << cal.bmi323_y_cal * G_CONST,
-        cal.bmi323_x_cal * G_CONST,
-        cal.bmi323_z_cal * G_CONST;
-    inputs.AccelerometerHG_mps2 << -cal.adxl375_x_cal * G_CONST,
-        -cal.adxl375_y_cal * G_CONST,
-        cal.adxl375_z_cal * G_CONST;
-    inputs.Gyroscope_radps << log_p.bmi323_gyro_x_degps * (M_PI / 180.0f),
-        log_p.bmi323_gyro_y_degps * (M_PI / 180.0f),
-        log_p.bmi323_gyro_z_degps * (M_PI / 180.0f);
-    inputs.Magnetometer.setZero();
-    inputs.GPS_Position_m.setZero();
-    inputs.GPS_Velocity_mps.setZero();
-    float current_abs_alt = get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100.0f);
-    // inputs.Barometer_m = current_abs_alt - pad_altitude_m;
-    inputs.Barometer_m = current_abs_alt;
+    {
+      float east_m, north_m, up_m, vel_east_mps, vel_north_mps;
+      if (gps_compute_enu(log_p, &east_m, &north_m, &up_m, &vel_east_mps, &vel_north_mps))
+      {
+        inputs.GPS_Position_m  << east_m, north_m, up_m;
+        /* No vertical GPS velocity available from NMEA; set to zero so the
+           filter's vertical GPS update (guarded by z > 10 m/s) stays off. */
+        inputs.GPS_Velocity_mps << vel_east_mps, vel_north_mps, 0.0f;
+      }
+      else
+      {
+        inputs.GPS_Position_m.setZero();
+        inputs.GPS_Velocity_mps.setZero();
+      }
+    }
 
     /* We cannot use a fixed delta time in this code because OpenRocket
        refuses to give us fixed-size time steps for HITL testing.  */
     inputs.dt = delta_time_ms / 1000.0;
     inputs.IgnoreBaro = false;
 
-    // TODO: GPS integration
-
     AB_Filter_Process(filter, inputs, ab_settings);
 
     xQueueSend(log_queue, &log_p, 0);
 
     /* Generate packet for airbrake deployment task and send it off */
-    float velocityHoriz_mps = sqrt(filter.HorizState.VelocityNorth_mps * filter.HorizState.VelocityNorth_mps +
-                                   filter.HorizState.VelocityEast_mps * filter.HorizState.VelocityEast_mps);
-    struct AirbrakesPacket airbrakes_packet{.ic =
-                                                {
-                                                    .altitude_m = filter.VertState.Altitude_m,
-                                                    .velocityZ_mps = filter.VertState.VelocityUp_mps,
-                                                    .thetaZ_rad = (float)(atan2(velocityHoriz_mps, filter.VertState.VelocityUp_mps)),
-                                                    .airbrakeDeployment_pct = 0,
-                                                }};
+    struct AirbrakesPacket airbrakes_packet{.ic = filter_to_apogee_ic(filter)};
 
     // PredictDeploymentAngle_print_params(airbrakes_packet.ic);
     // print_sensor_data(log_p);

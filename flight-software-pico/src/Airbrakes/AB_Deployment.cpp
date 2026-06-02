@@ -135,3 +135,16 @@ float __not_in_flash_func(PredictApogee)(const struct apogeeIC ic, const float t
 
     return positionZ;
 }
+
+apogeeIC filter_to_apogee_ic(const AB_Filter &filter)
+{
+    const float velN = filter.HorizState.VelocityNorth_mps;
+    const float velE = filter.HorizState.VelocityEast_mps;
+    const float velHoriz_mps = sqrtf(velN * velN + velE * velE);
+    return {
+        .altitude_m             = filter.VertState.Altitude_m,
+        .velocityZ_mps          = filter.VertState.VelocityUp_mps,
+        .thetaZ_rad             = atan2f(velHoriz_mps, filter.VertState.VelocityUp_mps),
+        .airbrakeDeployment_pct = 0.0f,
+    };
+}
