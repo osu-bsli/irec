@@ -26,7 +26,7 @@ void feed_fake_data_to_flight_software_task(void *pvParameters)
 
     printf("[fake data] Sending SWITCH_TO_OPERATIONAL_MODE command...\n");
 
-    xQueueSend(get_radio_command_rx_queue_handle(), &p, NULL);
+    // xQueueSend(get_radio_command_rx_queue_handle(), &p, NULL);
 
     vTaskDelete(NULL);
 }

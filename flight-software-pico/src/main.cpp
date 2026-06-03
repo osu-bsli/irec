@@ -1013,6 +1013,8 @@ void pre_operational_mode_loop()
       LoRa.write((uint8_t *)&telemetry_p, sizeof(telemetry_p));
       LoRa.endPacket(false);
       LoRa.receive();
+
+      Serial.println("Pre-operational mode heartbeat");
     }
 
     delay(100);
@@ -1174,7 +1176,7 @@ void setup()
     }
   }
 
-  Serial.printf("Tasks and Queues initialized...\n\r");
+  Serial.printf("Operational mode entered. Tasks and Queues initialized...\n\r");
 
   // Keep the task alive
   while (true)
