@@ -1030,9 +1030,12 @@ void setup()
 
   Serial.begin(921600);
 
+  // No need to delay to allow for Serial connection if on PC
+#ifndef __unix__
   tone(PIN_BUZZER, 523, 100);
   delay(3000);
   tone(PIN_BUZZER, 523, 100);
+#endif
 
   STATIC_QUEUE_INIT_HELPER(airbrakes);
   STATIC_QUEUE_INIT_HELPER(log);
