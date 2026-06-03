@@ -1,3 +1,6 @@
+#include <cstdlib>
+#include <cstring>
+
 #include <Arduino.h>
 
 #include <SPI.h>

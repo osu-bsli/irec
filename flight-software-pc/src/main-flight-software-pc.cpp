@@ -12,21 +12,7 @@ extern "C" void vAssertCalled(const char *const pcFileName,
 #include "LoRa.h"
 #include "telemetry.h"
 
-void setup();
-void loop();
-
-void setup_task(void *pvParameters)
-{
-    setup();
-}
-
-void loop_task(void *pvParameters)
-{
-    while (true)
-    {
-        loop();
-    }
-}
+#include "shared.h"
 
 extern QueueHandle_t get_radio_command_rx_queue_handle();
 
@@ -49,20 +35,6 @@ int main()
 {
     printf("Starting flight-software-pc...\n");
 
-    xTaskCreate(setup_task,               /* The function that implements the task. */
-                "setup",                  /* The text name assigned to the task - for debug only as it is not used by the kernel. */
-                8192,                     /* The size of the stack to allocate to the task. */
-                NULL,                     /* The parameter passed to the task - not used in this simple case. */
-                configMAX_PRIORITIES - 1, /* The priority assigned to the task. */
-                NULL);                    /* The task handle is not required, so NULL is passed. */
-
-    xTaskCreate(loop_task,                /* The function that implements the task. */
-                "loop",                   /* The text name assigned to the task - for debug only as it is not used by the kernel. */
-                8192,                     /* The size of the stack to allocate to the task. */
-                NULL,                     /* The parameter passed to the task - not used in this simple case. */
-                configMAX_PRIORITIES - 1, /* The priority assigned to the task. */
-                NULL);                    /* The task handle is not required, so NULL is passed. */
-
     xTaskCreate(feed_fake_data_to_flight_software_task, /* The function that implements the task. */
                 "fake_data",                            /* The text name assigned to the task - for debug only as it is not used by the kernel. */
                 8192,                                   /* The size of the stack to allocate to the task. */
@@ -70,5 +42,5 @@ int main()
                 configMAX_PRIORITIES - 1,               /* The priority assigned to the task. */
                 NULL);                                  /* The task handle is not required, so NULL is passed. */
 
-    vTaskStartScheduler();
+    start_arduino_tasks();
 }
