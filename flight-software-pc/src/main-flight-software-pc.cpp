@@ -33,6 +33,8 @@ void feed_fake_data_to_flight_software_task(void *pvParameters)
 
 int main()
 {
+    LoRa.setClientOrServer(STUB_LORA_SOCKET_IS_SERVER);
+    
     printf("Starting flight-software-pc...\n");
 
     xTaskCreate(feed_fake_data_to_flight_software_task, /* The function that implements the task. */

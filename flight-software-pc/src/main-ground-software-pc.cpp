@@ -16,6 +16,8 @@ extern "C" void vAssertCalled(const char *const pcFileName,
 
 int main()
 {
+    LoRa.setClientOrServer(STUB_LORA_SOCKET_IS_CLIENT);
+
     printf("Starting ground-software-pc...\n");
     
     start_arduino_tasks();
