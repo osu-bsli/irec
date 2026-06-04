@@ -22,6 +22,7 @@ extern "C" void vAssertCalled(const char *const pcFileName, unsigned long ulLine
 
 /* Firmware entry points (flight-software-pico/src/main.cpp), C++ linkage. */
 extern QueueHandle_t get_radio_command_rx_queue_handle();
+extern void set_target_apogee_m(float meters);
 void setup();
 void loop();
 
@@ -94,6 +95,11 @@ extern "C" void fw_create(int instance_id)
     snprintf(g_suffix, sizeof(g_suffix), "-sitl-%d", instance_id);
     serial_channel_reset();
     pthread_create(&g_fw_thread, NULL, firmware_thread_main, NULL);
+}
+
+extern "C" void fw_set_target_apogee(float meters)
+{
+    set_target_apogee_m(meters);
 }
 
 extern "C" uint8_t fw_feed_packet(const uint8_t *logpacket_v3, size_t len)

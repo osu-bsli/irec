@@ -1,5 +1,6 @@
 import space.bsli.AirbrakesTestLib;
 import space.bsli.AirbrakesExtension;
+import space.bsli.AirbrakesConfig.AirbrakesMode;
 
 import info.openrocket.core.simulation.exception.SimulationException;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,6 +15,14 @@ public class AirbrakesJUnitTest {
     @BeforeAll
     static void beforeAll() {
         AirbrakesTestLib.initialize();
+        /* Drive each simulation through the real flight firmware running
+         * in-process as a deterministic SITL library (sensor acquire -> GNC
+         * filter -> deploy task), rather than the PC-side algorithm. Override
+         * with -Dairbrakes.mode=CLOSED_LOOP_SIM to compare against the
+         * PC-side algorithm. */
+        AirbrakesExtension.mode = AirbrakesMode.valueOf(
+                System.getProperty("airbrakes.mode", "FULL_SITL"));
+        System.out.println("[test] Airbrakes mode: " + AirbrakesExtension.mode);
     }
 
     @ParameterizedTest(name = "Targeting {0}m, launch rod angle {1}deg")

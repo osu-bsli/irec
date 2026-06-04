@@ -37,6 +37,10 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
     }
     public static AirbrakesMode mode = AirbrakesConfig.MODE;
 
+    /* Unique id per FULL_SITL instance so concurrent/sequential runs in one JVM
+     * don't collide on the firmware's emulated-radio Unix socket path. */
+    private static int sitlInstanceCounter = 0;
+
     public boolean isBypassFilter() {
         return bypassFilter;
     }
@@ -71,6 +75,13 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
      * sensor frame (the same bytes FULL_HITL sends over serial) and returns the
      * commanded deployment percentage. SitlDestroy tears the instance down. */
     public static native void SitlCreate(int instanceId);
+
+    /* Set the firmware's GNC target apogee (metres) for the current instance. */
+    public static native void SitlSetTargetApogee(float meters);
+
+    /* Read back the target apogee previously set via SetRocketMass/SetTargetApogee
+     * so it can be forwarded into the firmware. */
+    public static native float GetTargetApogee();
 
     public static native int SitlFeedPacket(byte[] logPacketV3);
 
@@ -209,8 +220,13 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             }
 
             if (mode == AirbrakesMode.FULL_SITL) {
-                /* Boot the in-process firmware library for this simulation run. */
-                SitlCreate(0);
+                /* Boot the in-process firmware library for this simulation run.
+                 * A unique instance id keeps each run's emulated-radio socket
+                 * distinct when several simulations run in one JVM. */
+                SitlCreate(sitlInstanceCounter++);
+                /* Forward the test's target apogee into the firmware (the flight
+                 * build otherwise uses its compiled-in config.h target). */
+                SitlSetTargetApogee(GetTargetApogee());
             }
 
             InitController();

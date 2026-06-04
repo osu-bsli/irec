@@ -119,6 +119,13 @@ QueueHandle_t get_radio_command_rx_queue_handle()
   return radio_command_rx_queue;
 }
 
+/* Lets the SITL host set the GNC target apogee at runtime (the flight build
+ * uses CONFIG_AIRBRAKES_TARGET_APOGEE_METERS from config.h). */
+void set_target_apogee_m(float meters)
+{
+  ab_settings.TargetApogee_m = meters;
+}
+
 #define STATIC_QUEUE_INIT_HELPER(name) \
   name##_queue = xQueueCreateStatic(   \
       name##_queue_len,                \

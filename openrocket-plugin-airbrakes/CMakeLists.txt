@@ -26,23 +26,27 @@ target_include_directories(airbrakes PUBLIC
     ../airbrakes-gnc-tuning-gui/src/pico-stub
 )
 
-target_compile_options(airbrakes PUBLIC 
+# AddressSanitizer fights dlmopen-ing a separately-built (non-ASAN) library
+# inside the JVM, so it must be OFF for FULL_SITL (the gradle build configures
+# -DAIRBRAKES_ASAN=OFF). Left available for debugging the algorithm directly.
+option(AIRBRAKES_ASAN "Build the JNI library with AddressSanitizer" OFF)
+set(AIRBRAKES_ASAN_FLAGS "")
+if(AIRBRAKES_ASAN AND NOT WIN32)
+    set(AIRBRAKES_ASAN_FLAGS -fsanitize=address)
+endif()
+
+target_compile_options(airbrakes PUBLIC
     $<$<PLATFORM_ID:Windows>:/MP /std:c++20 /DEBUG>
-    $<$<PLATFORM_ID:Linux>:-O3 -ggdb -fsanitize=address -Wall -fno-omit-frame-pointer>
+    $<$<PLATFORM_ID:Linux>:-O3 -ggdb -Wall -fno-omit-frame-pointer ${AIRBRAKES_ASAN_FLAGS}>
 )
 
 target_link_options(airbrakes PUBLIC
-    $<$<PLATFORM_ID:Linux>:-O3 -ggdb -fsanitize=address -Wall>
+    $<$<PLATFORM_ID:Linux>:-O3 -ggdb -Wall ${AIRBRAKES_ASAN_FLAGS}>
 )
 
 # FULL_SITL dlmopen's the firmware library (libflight-firmware-sitl.so) at
 # runtime, so the JNI library needs libdl.
 target_link_libraries(airbrakes PUBLIC ${CMAKE_DL_LIBS})
-
-# NOTE: this library is built with AddressSanitizer, which does not play well
-# with dlmopen-ing a separately-built (non-ASAN) library inside the JVM. For
-# FULL_SITL use, build this plugin without -fsanitize=address (the firmware
-# library is already built without it).
 
 # jvm
 find_package(Java REQUIRED)

@@ -22,6 +22,7 @@ static AB_Settings settings = AB_Default_Settings();
  * the FW_SITL_LIB environment variable, defaulting to the bare soname. */
 static void *g_fw_handle = nullptr;
 static void (*g_fw_create)(int) = nullptr;
+static void (*g_fw_set_target)(float) = nullptr;
 static uint8_t (*g_fw_feed)(const uint8_t *, size_t) = nullptr;
 static void (*g_fw_destroy)(void) = nullptr;
 
@@ -36,15 +37,26 @@ JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlCreate
         return;
     }
 
-    g_fw_create  = (void (*)(int)) dlsym(g_fw_handle, "fw_create");
-    g_fw_feed    = (uint8_t (*)(const uint8_t *, size_t)) dlsym(g_fw_handle, "fw_feed_packet");
-    g_fw_destroy = (void (*)(void)) dlsym(g_fw_handle, "fw_destroy");
-    if (g_fw_create == nullptr || g_fw_feed == nullptr || g_fw_destroy == nullptr) {
+    g_fw_create     = (void (*)(int)) dlsym(g_fw_handle, "fw_create");
+    g_fw_set_target = (void (*)(float)) dlsym(g_fw_handle, "fw_set_target_apogee");
+    g_fw_feed       = (uint8_t (*)(const uint8_t *, size_t)) dlsym(g_fw_handle, "fw_feed_packet");
+    g_fw_destroy    = (void (*)(void)) dlsym(g_fw_handle, "fw_destroy");
+    if (g_fw_create == nullptr || g_fw_set_target == nullptr || g_fw_feed == nullptr || g_fw_destroy == nullptr) {
         fprintf(stderr, "[SITL] dlsym failed: %s\n", dlerror());
         return;
     }
 
     g_fw_create((int) instance_id);
+}
+
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetTargetApogee
+  (JNIEnv *env, jclass c, jfloat meters) {
+    if (g_fw_set_target != nullptr) g_fw_set_target((float) meters);
+}
+
+JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_GetTargetApogee
+  (JNIEnv *env, jclass c) {
+    return settings.TargetApogee_m;
 }
 
 JNIEXPORT jint JNICALL Java_space_bsli_AirbrakesExtension_SitlFeedPacket

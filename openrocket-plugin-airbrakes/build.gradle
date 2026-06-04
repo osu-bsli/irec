@@ -32,19 +32,46 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// ---- Firmware SITL library (full flight firmware as a deterministic .so) ----
+// Built from the separate flight-software-pc CMake project; the JUnit tests
+// dlmopen it via the JNI bridge to run the real firmware in the loop.
+def firmwarePcDir = file("../flight-software-pc")
+def firmwareBuildDir = file("../flight-software-pc/build")
+def firmwareSitlLib = file("../flight-software-pc/build/libflight-firmware-sitl.so")
+
+tasks.register('firmwareSitlConfigure', Exec) {
+    commandLine 'cmake', '-S', firmwarePcDir.absolutePath,
+                '-B', firmwareBuildDir.absolutePath,
+                '-GNinja', '-DCMAKE_BUILD_TYPE=Release'
+}
+
+tasks.register('firmwareSitlBuild', Exec) {
+    dependsOn 'firmwareSitlConfigure'
+    commandLine 'cmake', '--build', firmwareBuildDir.absolutePath,
+                '--target', 'flight-firmware-sitl'
+}
+
 tasks.named('test', Test) {
     useJUnitPlatform()
 
-    dependsOn tasks.cmakeBuild
+    dependsOn tasks.cmakeBuild, tasks.firmwareSitlBuild
     workingDir = projectDir
     systemProperty "java.library.path", file("cmake-build/Release").absolutePath
-    // environment("LD_PRELOAD", "/usr/lib/gcc/x86_64-linux-gnu/14/libasan.so")
-    
+
+    // FULL_SITL: where to dlmopen the firmware, and a runtime dir for its
+    // emulated-radio Unix socket (needs a trailing slash).
+    environment "FW_SITL_LIB", firmwareSitlLib.absolutePath
+    environment "XDG_RUNTIME_DIR", "/tmp/"
+
+    // Forward -Dairbrakes.mode (default FULL_SITL) to the test JVM so the mode
+    // can be switched, e.g. ./gradlew test -Dairbrakes.mode=CLOSED_LOOP_SIM.
+    systemProperty "airbrakes.mode", System.getProperty("airbrakes.mode", "FULL_SITL")
 
     maxHeapSize = '1G'
 
     testLogging {
-        events "passed"
+        events "passed", "failed", "skipped"
+        showStandardStreams = true
     }
 }
 

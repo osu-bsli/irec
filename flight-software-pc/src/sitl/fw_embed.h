@@ -29,6 +29,10 @@ extern "C" {
  */
 void fw_create(int instance_id);
 
+/* Set the GNC target apogee (metres) for this instance. Call after fw_create()
+ * and before feeding frames. */
+void fw_set_target_apogee(float meters);
+
 /*
  * Feed one LogPacketV3 sensor frame and return the firmware's commanded
  * deployment percentage (0-100). Blocks until the firmware replies.
