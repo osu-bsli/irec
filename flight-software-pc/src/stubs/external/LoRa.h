@@ -25,6 +25,14 @@
 
 static void socket_monitor_task(void *pvParameters);
 
+/*
+ * Per-instance suffix appended to the Unix socket path. Default is empty (the
+ * standalone flight/ground pair share "flight-software-pc.sock"). The SITL
+ * embedding (fw_embed.cpp) overrides this so multiple dlmopen'd firmware
+ * instances in one process don't collide on the same socket file.
+ */
+extern "C" const char *stub_lora_socket_suffix(void);
+
 class LoRaClass
 {
 private:
@@ -79,7 +87,7 @@ public:
 
             memset(&_sockaddr, 0, sizeof(struct sockaddr_un));
             _sockaddr.sun_family = AF_UNIX;
-            snprintf(_sockaddr.sun_path, sizeof(_sockaddr.sun_path), "%sflight-software-pc.sock", runtime_dir);
+            snprintf(_sockaddr.sun_path, sizeof(_sockaddr.sun_path), "%sflight-software-pc%s.sock", runtime_dir, stub_lora_socket_suffix());
 
             if (_isClientOrServer == STUB_LORA_SOCKET_IS_SERVER)
             {

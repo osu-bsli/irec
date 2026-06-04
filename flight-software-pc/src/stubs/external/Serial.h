@@ -9,6 +9,12 @@
 #include <termios.h>
 #include <unistd.h>
 
+#ifdef STUB_SERIAL_IN_MEMORY
+#include "serial_channel.h"
+#include <FreeRTOS.h>
+#include <task.h>
+#endif
+
 class SerialClass {
 public:
     void begin();
@@ -16,6 +22,12 @@ public:
 
     int available()
     {
+#ifdef STUB_SERIAL_IN_MEMORY
+        /* Blocks until the host feeds the next frame (see serial_channel.cpp),
+         * so the firmware's `while (!Serial.available()) {}` HITL read loop
+         * becomes a single deterministic rendezvous rather than a busy-wait. */
+        return serial_channel_in_available();
+#else
         int bytes_available = 0;
 
         if (ioctl(0, FIONREAD, &bytes_available) == -1) {
@@ -23,6 +35,7 @@ public:
         }
 
         return bytes_available;
+#endif
     }
 
     int peek()
@@ -62,13 +75,23 @@ public:
 
     int write(uint8_t val)
     {
+#ifdef STUB_SERIAL_IN_MEMORY
+        /* The HITL deployment-% reply byte goes back to the host. */
+        serial_channel_out_write(val);
+        return 1;
+#else
         putc(val, stdout);
         return 1;
+#endif
     }
 
     int read()
     {
-        return getchar(); 
+#ifdef STUB_SERIAL_IN_MEMORY
+        return serial_channel_in_read();
+#else
+        return getchar();
+#endif
     }
 };
 

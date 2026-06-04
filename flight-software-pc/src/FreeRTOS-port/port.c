@@ -77,8 +77,6 @@
 #include "utils/wait_for_event.h"
 /*-----------------------------------------------------------*/
 
-#define SIG_RESUME    SIGUSR1
-
 typedef struct THREAD
 {
     pthread_t pthread;
@@ -108,20 +106,23 @@ static sigset_t xSchedulerOriginalSignalMask;
 static pthread_t hMainThread = ( pthread_t ) NULL;
 static volatile BaseType_t uxCriticalNesting;
 static BaseType_t xSchedulerEnd = pdFALSE;
-static pthread_t hTimerTickThread;
-static bool xTimerTickThreadShouldRun;
-static uint64_t prvStartTimeNs;
 static pthread_key_t xThreadKey = 0;
+
+/*
+ * Scheduler-end gate. The thread that calls vTaskStartScheduler() parks on this
+ * condition variable until vPortEndScheduler() is called, replacing the previous
+ * SIGUSR1/sigwait mechanism so the port uses no asynchronous signals.
+ */
+static pthread_mutex_t xSchedulerEndMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  xSchedulerEndCond = PTHREAD_COND_INITIALIZER;
 /*-----------------------------------------------------------*/
 
 static void prvSetupSignalsAndSchedulerPolicy( void );
-static void prvSetupTimerInterrupt( void );
 static void * prvWaitForStart( void * pvParams );
 static void prvSwitchThread( Thread_t * xThreadToResume,
                              Thread_t * xThreadToSuspend );
 static void prvSuspendSelf( Thread_t * thread );
 static void prvResumeThread( Thread_t * xThreadId );
-static void vPortSystemTickHandler( int sig );
 static void vPortStartFirstTask( void );
 static void prvPortYieldFromISR( void );
 static void prvThreadKeyDestructor( void * pvData );
@@ -269,33 +270,28 @@ void vPortStartFirstTask( void )
  */
 BaseType_t xPortStartScheduler( void )
 {
-    int iSignal;
-    sigset_t xSignals;
-
     hMainThread = pthread_self();
     prvPortSetCurrentThreadName( "Scheduler" );
 
-    /* Start the timer that generates the tick ISR(SIGALRM).
-     * Interrupts are disabled here already. */
-    prvSetupTimerInterrupt();
-
     /*
-     * Block SIG_RESUME before starting any tasks so the main thread can sigwait on it.
-     * To sigwait on an unblocked signal is undefined.
-     * https://pubs.opengroup.org/onlinepubs/009604499/functions/sigwait.html
+     * There is no wall-clock tick interrupt in this port. Virtual time is
+     * advanced deterministically by the idle task via
+     * vPortSuppressTicksAndSleep() (tickless idle), so the schedule depends only
+     * on the program's own kernel calls.
      */
-    sigemptyset( &xSignals );
-    sigaddset( &xSignals, SIG_RESUME );
-    ( void ) pthread_sigmask( SIG_BLOCK, &xSignals, NULL );
 
     /* Start the first task. */
     vPortStartFirstTask();
 
-    /* Wait until signaled by vPortEndScheduler(). */
+    /* Park here until vPortEndScheduler() is called (no signals involved). */
+    pthread_mutex_lock( &xSchedulerEndMutex );
+
     while( xSchedulerEnd != pdTRUE )
     {
-        sigwait( &xSignals, &iSignal );
+        pthread_cond_wait( &xSchedulerEndCond, &xSchedulerEndMutex );
     }
+
+    pthread_mutex_unlock( &xSchedulerEndMutex );
 
     /*
      * clear out the variable that is used to end the scheduler, otherwise
@@ -327,18 +323,16 @@ void vPortEndScheduler( void )
     Thread_t * pxCurrentThread;
     BaseType_t xIsFreeRTOSThread;
 
-    /* Stop the timer tick thread. */
-    xTimerTickThreadShouldRun = false;
-    pthread_join( hTimerTickThread, NULL );
-
     /* Check whether the current thread is a FreeRTOS thread.
      * This has to happen before the scheduler is signaled to exit
      * its loop to prevent data races on the thread key. */
     xIsFreeRTOSThread = prvIsFreeRTOSThread();
 
-    /* Signal the scheduler to exit its loop. */
+    /* Signal the scheduler thread to exit its wait loop (no signals used). */
+    pthread_mutex_lock( &xSchedulerEndMutex );
     xSchedulerEnd = pdTRUE;
-    ( void ) pthread_kill( hMainThread, SIG_RESUME );
+    pthread_cond_signal( &xSchedulerEndCond );
+    pthread_mutex_unlock( &xSchedulerEndMutex );
 
     /* Waiting to be deleted here. */
     if( xIsFreeRTOSThread == pdTRUE )
@@ -435,85 +429,62 @@ void vPortClearInterruptMask( UBaseType_t uxMask )
 }
 /*-----------------------------------------------------------*/
 
-static uint64_t prvGetTimeNs( void )
+/*
+ * Deterministic virtual time.
+ *
+ * This port has no tick interrupt. The idle task calls
+ * vPortSuppressTicksAndSleep() (tickless idle) whenever every application task
+ * is blocked, and we advance the kernel tick straight to the next scheduled
+ * wake-up. Time therefore only moves at well-defined points and by exact
+ * amounts, so a given sequence of kernel calls always produces the same
+ * schedule regardless of host speed.
+ *
+ * Pacing (running the standalone desktop demo at wall-clock speed, or letting a
+ * SITL host gate progress) is delegated to xPortIdleAdvance(), which the
+ * application may override. It lives outside the kernel and can never make
+ * scheduling non-deterministic: it only chooses how many of the
+ * already-decided idle ticks to advance now.
+ */
+__attribute__( ( weak ) ) TickType_t xPortIdleAdvance( TickType_t xExpectedIdleTime )
 {
-    struct timespec t;
-
-    clock_gettime( CLOCK_MONOTONIC, &t );
-
-    return ( uint64_t ) t.tv_sec * ( uint64_t ) 1000000000UL + ( uint64_t ) t.tv_nsec;
+    /* Default: advance as fast as possible (no real-time pacing). */
+    return xExpectedIdleTime;
 }
 /*-----------------------------------------------------------*/
 
-/* commented as part of the code below in vPortSystemTickHandler,
- * to adjust timing according to full demo requirements */
-/* static uint64_t prvTickCount; */
-
-static void * prvTimerTickHandler( void * arg )
+void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime )
 {
-    ( void ) arg;
+    /* Called by the idle task with the scheduler suspended. */
+    eSleepModeStatus eStatus = eTaskConfirmSleepModeStatus();
 
-    prvMarkAsFreeRTOSThread();
-
-    prvPortSetCurrentThreadName( "Scheduler timer" );
-
-    while( xTimerTickThreadShouldRun )
+    if( eStatus == eAbortSleep )
     {
-        /*
-         * signal to the active task to cause tick handling or
-         * preemption (if enabled)
-         */
-        Thread_t * thread = prvGetThreadFromTask( xTaskGetCurrentTaskHandle() );
-        pthread_kill( thread->pthread, SIGALRM );
-        usleep( portTICK_RATE_MICROSECONDS );
+        /* A task became ready since the idle time was sampled; resume without
+         * advancing time. */
+        return;
     }
 
-    return NULL;
-}
-/*-----------------------------------------------------------*/
-
-/*
- * Setup the systick timer to generate the tick interrupts at the required
- * frequency.
- */
-void prvSetupTimerInterrupt( void )
-{
-    xTimerTickThreadShouldRun = true;
-    pthread_create( &hTimerTickThread, NULL, prvTimerTickHandler, NULL );
-
-    prvStartTimeNs = prvGetTimeNs();
-}
-/*-----------------------------------------------------------*/
-
-static void vPortSystemTickHandler( int sig )
-{
-    if( prvIsFreeRTOSThread() == pdTRUE )
+    if( eStatus == eStandardSleep )
     {
-        Thread_t * pxThreadToSuspend;
-        Thread_t * pxThreadToResume;
+        TickType_t xTicksToAdvance = xPortIdleAdvance( xExpectedIdleTime );
 
-        ( void ) sig;
-
-        uxCriticalNesting++; /* Signals are blocked in this signal handler. */
-
-        pxThreadToSuspend = prvGetThreadFromTask( xTaskGetCurrentTaskHandle() );
-
-        if( xTaskIncrementTick() != pdFALSE )
+        if( xTicksToAdvance > xExpectedIdleTime )
         {
-            /* Select Next Task. */
-            vTaskSwitchContext();
-
-            pxThreadToResume = prvGetThreadFromTask( xTaskGetCurrentTaskHandle() );
-
-            prvSwitchThread( pxThreadToResume, pxThreadToSuspend );
+            xTicksToAdvance = xExpectedIdleTime;
         }
 
-        uxCriticalNesting--;
+        if( xTicksToAdvance > ( TickType_t ) 0 )
+        {
+            /* Jump virtual time to the next scheduled wake-up. The final tick is
+             * processed by xTaskResumeAll() when the idle task resumes the
+             * scheduler, which moves the due task(s) onto the ready list. */
+            vTaskStepTick( xTicksToAdvance );
+        }
     }
-    else
-    {
-        fprintf( stderr, "vPortSystemTickHandler called from non-FreeRTOS thread\n" );
-    }
+
+    /* eNoTasksWaitingTimeout: no task is waiting on a finite timeout, so there
+     * is nothing to advance time to. The system stays idle until an external
+     * event (e.g. SITL host input) readies a task. */
 }
 /*-----------------------------------------------------------*/
 
@@ -633,9 +604,6 @@ static void prvResumeThread( Thread_t * xThreadId )
 
 static void prvSetupSignalsAndSchedulerPolicy( void )
 {
-    struct sigaction sigtick;
-    int iRet;
-
     hMainThread = pthread_self();
 
     /* Initialise common signal masks. */
@@ -656,25 +624,18 @@ static void prvSetupSignalsAndSchedulerPolicy( void )
                               &xAllSignals,
                               &xSchedulerOriginalSignalMask );
 
-    sigtick.sa_flags = 0;
-    sigtick.sa_handler = vPortSystemTickHandler;
-    sigfillset( &sigtick.sa_mask );
-
-    iRet = sigaction( SIGALRM, &sigtick, NULL );
-
-    if( iRet == -1 )
-    {
-        prvFatalError( "sigaction", errno );
-    }
+    /* No tick/resume signal handlers are installed: this port uses no
+     * asynchronous signals, which keeps the schedule deterministic and avoids
+     * clashing with a host process's signal handling (e.g. the JVM under SITL). */
 }
 /*-----------------------------------------------------------*/
 
+/*
+ * Run-time stats counter. Backed by the deterministic kernel tick rather than
+ * host CPU time so that, like everything else in this port, it is reproducible.
+ */
 uint32_t ulPortGetRunTime( void )
 {
-    struct tms xTimes;
-
-    times( &xTimes );
-
-    return ( uint32_t ) xTimes.tms_utime;
+    return ( uint32_t ) xTaskGetTickCount();
 }
 /*-----------------------------------------------------------*/

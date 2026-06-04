@@ -77,7 +77,9 @@ static float  gps_ref_alt_m     = 0.0f;
 #define AIRBRAKE_STOWED_ANGLE 91
 #define AIRBRAKE_DEPLOYED_ANGLE 33
 static Servo AirBrakeServo;
-static uint8_t g_airbrake_pct = 0;
+/* Not static: the HITL/SITL sensor path (sensors.cpp / sitl_sensors.cpp) writes
+ * this commanded deployment percentage back to the test host. */
+uint8_t g_airbrake_pct = 0;
 
 static volatile uint16_t g_servo_current_ma = 0;
 

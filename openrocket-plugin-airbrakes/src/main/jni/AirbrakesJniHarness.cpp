@@ -5,7 +5,69 @@
 #include "AB_Deployment.h"
 #include "AB_Filter_Main.h"
 
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+
 static AB_Settings settings = AB_Default_Settings();
+
+/* ---- FULL_SITL: drive the real firmware running in-process as a library ----
+ *
+ * The firmware is built separately as libflight-firmware-sitl.so (see
+ * flight-software-pc). We load it into a fresh dlmopen namespace so its global
+ * state (FreeRTOS kernel, statics) is isolated, then forward sensor frames to
+ * its C ABI (fw_create / fw_feed_packet / fw_destroy). The path is taken from
+ * the FW_SITL_LIB environment variable, defaulting to the bare soname. */
+static void *g_fw_handle = nullptr;
+static void (*g_fw_create)(int) = nullptr;
+static uint8_t (*g_fw_feed)(const uint8_t *, size_t) = nullptr;
+static void (*g_fw_destroy)(void) = nullptr;
+
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlCreate
+  (JNIEnv *env, jclass c, jint instance_id) {
+    const char *path = getenv("FW_SITL_LIB");
+    if (path == nullptr) path = "libflight-firmware-sitl.so";
+
+    g_fw_handle = dlmopen(LM_ID_NEWLM, path, RTLD_NOW | RTLD_LOCAL);
+    if (g_fw_handle == nullptr) {
+        fprintf(stderr, "[SITL] dlmopen(%s) failed: %s\n", path, dlerror());
+        return;
+    }
+
+    g_fw_create  = (void (*)(int)) dlsym(g_fw_handle, "fw_create");
+    g_fw_feed    = (uint8_t (*)(const uint8_t *, size_t)) dlsym(g_fw_handle, "fw_feed_packet");
+    g_fw_destroy = (void (*)(void)) dlsym(g_fw_handle, "fw_destroy");
+    if (g_fw_create == nullptr || g_fw_feed == nullptr || g_fw_destroy == nullptr) {
+        fprintf(stderr, "[SITL] dlsym failed: %s\n", dlerror());
+        return;
+    }
+
+    g_fw_create((int) instance_id);
+}
+
+JNIEXPORT jint JNICALL Java_space_bsli_AirbrakesExtension_SitlFeedPacket
+  (JNIEnv *env, jclass c, jbyteArray packet) {
+    if (g_fw_feed == nullptr) return 0;
+
+    jsize len = env->GetArrayLength(packet);
+    jbyte *bytes = env->GetByteArrayElements(packet, nullptr);
+    uint8_t reply = g_fw_feed((const uint8_t *) bytes, (size_t) len);
+    env->ReleaseByteArrayElements(packet, bytes, JNI_ABORT);
+    return (jint) reply;
+}
+
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlDestroy
+  (JNIEnv *env, jclass c) {
+    if (g_fw_destroy != nullptr) g_fw_destroy();
+    /* Not dlclose-ing: the firmware's FreeRTOS threads are still running
+     * (clean teardown for reuse across runs is future work). */
+    g_fw_handle = nullptr;
+    g_fw_create = nullptr;
+    g_fw_feed = nullptr;
+    g_fw_destroy = nullptr;
+}
 
 JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SetRocketMass
   (JNIEnv *env, jclass c, float mass_kg) {

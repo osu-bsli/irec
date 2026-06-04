@@ -83,6 +83,15 @@ extern void vPortYield( void );
 
 #define portYIELD()                vPortYield()
 
+/* Tickless idle: deterministic virtual-time advance (no wall-clock tick). */
+extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime );
+#define portSUPPRESS_TICKS_AND_SLEEP( xExpectedIdleTime ) \
+    vPortSuppressTicksAndSleep( xExpectedIdleTime )
+
+/* Application-overridable pacing hook (see port.c). Default advances as fast as
+ * possible; override to pace to wall-clock or to gate progress from a host. */
+extern TickType_t xPortIdleAdvance( TickType_t xExpectedIdleTime );
+
 #define portEND_SWITCHING_ISR( xSwitchRequired ) \
     do                                           \
     {                                            \

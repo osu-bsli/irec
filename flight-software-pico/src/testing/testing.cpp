@@ -1,6 +1,8 @@
 #include "testing.h"
 #include "nomad_test_flight_2026-4-11_cropped.logv3.h"
 
+#include <cstring>
+
 #include <SerialUSB.h>
 
 // check that length of log evenly divides by log packet size

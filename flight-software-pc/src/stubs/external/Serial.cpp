@@ -8,7 +8,12 @@ static void reset_terminal() {
 }
 
 void SerialClass::begin() {
-    /* 
+#ifdef STUB_SERIAL_IN_MEMORY
+    /* In the embedded SITL build, "serial" is an in-memory channel (see
+     * serial_channel.cpp); there is no terminal to configure. */
+    return;
+#endif
+    /*
      * Make terminal feel like Arduino serial:
      * - Disable ICANON: Terminal will process input character-by-character.
      * - Disable ECHO: Terminal will not echo characters.

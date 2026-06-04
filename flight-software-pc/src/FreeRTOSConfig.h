@@ -36,7 +36,16 @@
  * FreeRTOS API DOCUMENTATION AVAILABLE ON THE FreeRTOS.org WEB SITE.  See
  * https://www.FreeRTOS.org/a00110.html
  *----------------------------------------------------------*/
- #define configUSE_PREEMPTION                       1
+ /*
+  * Determinism: the desktop/SITL build runs FreeRTOS cooperatively with a
+  * virtual clock that only advances on the idle task (tickless idle). There is
+  * no wall-clock tick interrupt, so task switches happen only at well-defined
+  * blocking/yield points and the schedule is a deterministic function of the
+  * program's own kernel calls. See FreeRTOS-port/port.c (vPortSuppressTicksAndSleep).
+  */
+ #define configUSE_PREEMPTION                       0
+ #define configUSE_TIME_SLICING                     0
+ #define configUSE_TICKLESS_IDLE                    1
  #define configUSE_PORT_OPTIMISED_TASK_SELECTION    0
  #define configUSE_IDLE_HOOK                        0
  #define configUSE_TICK_HOOK                        0

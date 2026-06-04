@@ -31,9 +31,18 @@ target_compile_options(airbrakes PUBLIC
     $<$<PLATFORM_ID:Linux>:-O3 -ggdb -fsanitize=address -Wall -fno-omit-frame-pointer>
 )
 
-target_link_options(airbrakes PUBLIC 
+target_link_options(airbrakes PUBLIC
     $<$<PLATFORM_ID:Linux>:-O3 -ggdb -fsanitize=address -Wall>
 )
+
+# FULL_SITL dlmopen's the firmware library (libflight-firmware-sitl.so) at
+# runtime, so the JNI library needs libdl.
+target_link_libraries(airbrakes PUBLIC ${CMAKE_DL_LIBS})
+
+# NOTE: this library is built with AddressSanitizer, which does not play well
+# with dlmopen-ing a separately-built (non-ASAN) library inside the JVM. For
+# FULL_SITL use, build this plugin without -fsanitize=address (the firmware
+# library is already built without it).
 
 # jvm
 find_package(Java REQUIRED)

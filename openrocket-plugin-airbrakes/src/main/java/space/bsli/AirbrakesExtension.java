@@ -65,6 +65,32 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
     public static native float RunControllerRawAndGetDeploymentPct(float velocityX_mps, float velocityY_mps, float velocityZ_mps, float altitude_m);
 
+    /* ---- FULL_SITL: the real firmware running in-process as a library ----
+     * SitlCreate loads libflight-firmware-sitl.so into a fresh dlmopen namespace
+     * and starts its FreeRTOS task graph. SitlFeedPacket feeds one LogPacketV3
+     * sensor frame (the same bytes FULL_HITL sends over serial) and returns the
+     * commanded deployment percentage. SitlDestroy tears the instance down. */
+    public static native void SitlCreate(int instanceId);
+
+    public static native int SitlFeedPacket(byte[] logPacketV3);
+
+    public static native void SitlDestroy();
+
+    /* Send one sensor frame to the flight computer and return its commanded
+     * deployment percentage. FULL_HITL goes over serial to real hardware;
+     * FULL_SITL goes to the in-process firmware library. */
+    private int sendFrameGetDeployment(byte[] packet) {
+        if (mode == AirbrakesMode.FULL_SITL) {
+            return SitlFeedPacket(packet) & 0xFF;
+        }
+        comPort.writeBytes(packet, packet.length);
+        byte[] buffer = new byte[1];
+        if (1 != comPort.readBytes(buffer, 1, 0)) {
+            throw new RuntimeException();
+        }
+        return buffer[0] & 0xFF;
+    }
+
     @Override
     public String getName() {
         return "BSLI IREC Airbrakes";
@@ -182,6 +208,11 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 comPort.flushIOBuffers();
             }
 
+            if (mode == AirbrakesMode.FULL_SITL) {
+                /* Boot the in-process firmware library for this simulation run. */
+                SitlCreate(0);
+            }
+
             InitController();
             previousVelocity = status.getRocketVelocity();
             previousTime = status.getSimulationTime();
@@ -198,8 +229,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             Quaternion q = status.getRocketOrientationQuaternion();
             float altitude = (float) status.getRocketPosition().z;
 
-            if (mode == AirbrakesMode.FULL_HITL) {
-                /* Send on-rod sensor packets to the FC in real time so its filter converges before launch. */
+            if (mode == AirbrakesMode.FULL_HITL || mode == AirbrakesMode.FULL_SITL) {
+                /* Send on-rod sensor packets to the FC so its filter converges before launch.
+                   (Real time for HITL hardware; as-fast-as-possible for in-process SITL.) */
                 Coordinate sfBody = q.invRotate(new Coordinate(0, 0, G_CONST));
                 for (int i = 0; i < 200; i++) {
                     hitlTimeS += 0.010;
@@ -219,16 +251,23 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                             (float) (sfBody.z / G_CONST),
                             gpsLatDeg, gpsLngDeg, gpsAltM, gpsSpeedMps,
                             gpsCourse, gpsNumSats);
-                    comPort.writeBytes(packet, packet.length);
-                    byte[] buffer = new byte[1];
-                    comPort.readBytes(buffer, 1, 0);
-                    try { Thread.sleep(10); } catch (InterruptedException e) { throw new RuntimeException(e); }
+                    sendFrameGetDeployment(packet); /* reply ignored during convergence */
+                    if (mode == AirbrakesMode.FULL_HITL) {
+                        try { Thread.sleep(10); } catch (InterruptedException e) { throw new RuntimeException(e); }
+                    }
                 }
             } else {
                 Coordinate accel = q.invRotate(new Coordinate(0, 0, 1));
                 for (int i = 0; i < 200; i++) {
                     RunControllerAndGetDeploymentPct((float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, (float) accel.x * G_CONST, (float) accel.y * G_CONST, (float) accel.z * G_CONST, 0, 0, 0, altitude, 0.01f);
                 }
+            }
+        }
+
+        @Override
+        public void endSimulation(SimulationStatus status, SimulationException exception) {
+            if (mode == AirbrakesMode.FULL_SITL) {
+                SitlDestroy();
             }
         }
 
@@ -287,7 +326,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 Coordinate sfBody = q.invRotate(new Coordinate(ax, ay, az));
                 Coordinate omegaBody = q.invRotate(rotVel);
 
-                if (mode == AirbrakesMode.FULL_HITL) {
+                if (mode == AirbrakesMode.FULL_HITL || mode == AirbrakesMode.FULL_SITL) {
                     hitlTimeS += dt;
                     updateFakeGps(status, dt);
                     /* The swapped and flipped acceleration axes are to transform the accelerations
@@ -308,13 +347,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                             (float) (sfBody.z / G_CONST),
                             gpsLatDeg, gpsLngDeg, gpsAltM, gpsSpeedMps,
                             gpsCourse, gpsNumSats);
-                    comPort.writeBytes(packet, packet.length);
-
-                    byte[] buffer = new byte[1];
-                    if (1 != comPort.readBytes(buffer, 1, 0)) {
-                        throw new RuntimeException();
-                    }
-                    deploymentPctCommanded = buffer[0];
+                    deploymentPctCommanded = sendFrameGetDeployment(packet);
                 } else if (bypassFilter) {
                     deploymentPctCommanded = RunControllerRawAndGetDeploymentPct((float) vel.x, (float) vel.y, (float) vel.z, distortedAltitude);
                 } else {

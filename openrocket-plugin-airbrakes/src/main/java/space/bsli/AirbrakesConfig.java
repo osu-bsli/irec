@@ -7,7 +7,8 @@ public class AirbrakesConfig
         /* Closed-loop simulation with no hardware in the loop. */
         CLOSED_LOOP_SIM, /* The real-world airbrakes will move based on the deployment percentage the closed-loop simulation commands. */
         HITL_CONTROL, /* The airbrakes algorithm runs on the flight computer instead of on the PC. */
-        FULL_HITL
+        FULL_HITL, /* Real flight-computer hardware over serial runs the full firmware. */
+        FULL_SITL /* The full firmware runs in-process as a library (no hardware); deterministic. */
     }
 
     public static final float AIRBRAKE_CONTROL_INTERVAL_S = 0.1f; // 10 Hz, 100 ms period
