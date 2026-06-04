@@ -151,8 +151,15 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 
 	if (GPS_updated == true)
 	{
-		/* Use GPS for attitude filter when GPS reports velocity greater than 10 m/s */
-		if (inputs.GPS_Velocity_mps.norm() > 10.0f)
+		/* The GPS attitude update treats the GPS velocity vector as the rocket's
+		 * nose direction (assuming velocity is along the body axis). That is only
+		 * valid for a genuine 3D velocity. NMEA GPS reports no vertical velocity
+		 * (z is forced to 0 upstream), so the vector would be purely horizontal
+		 * and would wrongly pull the attitude toward horizontal during ascent,
+		 * inflating the predicted zenith angle and causing apogee overshoot.
+		 * Require a real vertical component, matching the vertical filter's GPS
+		 * guard. */
+		if (inputs.GPS_Velocity_mps.norm() > 10.0f && fabs(inputs.GPS_Velocity_mps.z()) > 1.0f)
 		{
 			AB_Attitude_State_Update_GPS(filter.AttState, inputs, filter.AB_Att_Pred);
 		}
@@ -247,7 +254,12 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 		}
 	}
 
-	if (GPS_updated == false && abs(filter.VertState.VelocityUp_mps) > 10.0f)
+	/* Re-align the horizontal velocity to the (robust, gyro/accel-driven)
+	 * attitude estimate. This is what keeps the predicted zenith angle honest;
+	 * it must run whether or not GPS updated this step (previously it was gated
+	 * on GPS being absent, so enabling GPS removed the correction and let the
+	 * zenith angle drift). */
+	if (abs(filter.VertState.VelocityUp_mps) > 10.0f)
 	{
 		float velN, velE;
 		Estimate_Horizontal_Velocity(filter.AttState, filter.VertState, filter.HorizState, velN, velE);

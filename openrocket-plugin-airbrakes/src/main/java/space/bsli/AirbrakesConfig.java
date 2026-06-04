@@ -22,7 +22,7 @@ public class AirbrakesConfig
      * the flight computer, exercising the FC's GPS->ENU and navigation-filter
      * GPS update paths. When disabled, GPS fields are sent as NaN ("no fix")
      * and the FC ignores them. */
-    public static final boolean FAKE_GPS_IN_HITL = false;
+    public static final boolean FAKE_GPS_IN_HITL = true;
     /* Realistic receivers update at a few Hz, not at the 100 Hz sensor rate.
      * Between updates the previous fix is re-sent unchanged, which the FC's
      * change-detection treats as "no new GPS" (matching real behaviour). */

@@ -9,6 +9,7 @@ void AB_Horizontal_State_Initialization(
 	sN.Position_North = 0.0f; //TODO - replace with initial gps reading
 	sN.VelocityEast_mps = 0.0f; //TODO - replace with initial gps reading
 	sN.VelocityNorth_mps = 0.0f; //TODO - replace with initial gps reading
+	sN.C.setZero(); // process noise accumulates into this each prediction step
 }
 
 //Takes the calculation variables, current state, and new accelerometer data from the sensor struct and 
@@ -21,7 +22,6 @@ void AB_Horizontal_State_Prediction(
 )
 {
 	Matrix<float, 4, 4> F;
-	Matrix<float, 4, 4> C;
 	Matrix<float, 4, 4> Q;
 	float dt;
 	float accelE;
@@ -29,7 +29,6 @@ void AB_Horizontal_State_Prediction(
 	float oldEVel;
 	float oldNVel;
 	F.setIdentity();
-	C.setIdentity();
 	Q.setZero();
 	Q(0, 0) = 0.001f;
 	Q(1, 1) = 0.001f;
@@ -69,7 +68,7 @@ void AB_Horizontal_State_Prediction(
 	F.setIdentity();
 	F(0, 2) = dt; //derivative of pos wrt velocity is dt
 	F(1, 3) = dt; //derivative of pos wrt velocity is dt
-	C = F * C * F.transpose() + Q; //updating covariance
+	sN.C = F * sN.C * F.transpose() + Q; //updating covariance (was a discarded local; now the state covariance, matching the vertical filter)
 }
 
 //Takes the calculation variables, current state, and new gps data from the sensor struct and computes 
