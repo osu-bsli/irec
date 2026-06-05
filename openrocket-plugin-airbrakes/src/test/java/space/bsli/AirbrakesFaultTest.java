@@ -8,8 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Firmware model-error robustness and the baro-pressure-drop / GPS scenarios.
- * (8 simulations: 4 single-run model-error tests + 2 two-run GPS comparisons.)
+ * Firmware model-error robustness and the baro-pressure-drop / piston-effect /
+ * GPS scenarios. (11 simulations, comfortably under the ~15-namespace cap of a
+ * single forked JVM.)
  */
 public class AirbrakesFaultTest extends AirbrakesSitlTestBase {
 
@@ -100,5 +101,44 @@ public class AirbrakesFaultTest extends AirbrakesSitlTestBase {
         assertTrue(errRecover < errNever,
                 String.format("GPS recovery should beat permanent loss under baro error "
                         + "(recover err=%.1f m, never err=%.1f m)", errRecover, errNever));
+    }
+
+    // ---- Piston-effect scenarios: a transient baro disturbance during actuator motion ----
+
+    /**
+     * The moving airbrakes pump the avionics bay, injecting a control-correlated
+     * baro disturbance every time they slew. With GPS fusing an independent
+     * altitude, the firmware should still hold apogee close to target.
+     */
+    @Test
+    void pistonEffectControlHolds() throws SimulationException {
+        AirbrakesExtension.airbrakeDeployment.pistonEffectMPerPctPerSec = PISTON_EFFECT_M_PER_PCT_PER_SEC;
+        assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
+    }
+
+    /**
+     * Under the piston effect, GPS supplies an independent altitude reference the
+     * GNC filter can fuse, so targeting should be more accurate with GPS than
+     * with GPS absent for the whole flight.
+     */
+    @Test
+    void gpsImprovesEstimationUnderPistonEffect() throws SimulationException {
+        final float target = 8000, rod = 5;
+
+        AirbrakesExtension.resetScenario();
+        AirbrakesExtension.airbrakeDeployment.pistonEffectMPerPctPerSec = PISTON_EFFECT_M_PER_PCT_PER_SEC;
+        float errWithGps = Math.abs(runApogee(target, rod) - target);
+
+        // Same piston disturbance, but GPS never available (drops at t=0, never recovers).
+        AirbrakesExtension.resetScenario();
+        AirbrakesExtension.airbrakeDeployment.pistonEffectMPerPctPerSec = PISTON_EFFECT_M_PER_PCT_PER_SEC;
+        AirbrakesExtension.fakeGps.dropoutAtS = 0.0;
+        float errWithoutGps = Math.abs(runApogee(target, rod) - target);
+
+        System.out.printf("[piston] apogee err: with GPS=%.1f m, without GPS=%.1f m%n",
+                errWithGps, errWithoutGps);
+        assertTrue(errWithGps < errWithoutGps,
+                String.format("GPS should improve estimation under the piston effect "
+                        + "(with GPS err=%.1f m, without GPS err=%.1f m)", errWithGps, errWithoutGps));
     }
 }

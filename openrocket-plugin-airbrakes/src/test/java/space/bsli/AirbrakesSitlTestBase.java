@@ -34,6 +34,11 @@ abstract class AirbrakesSitlTestBase {
      * deployment-correlated baro error meaningfully degrades baro-only control. */
     static final double BARO_PRESSURE_DROP_M_PER_MPS = 0.5;
 
+    /* Transient piston-effect baro error (metres per %/s of actuator motion). At
+     * the actuator slew rate (~78 %/s) this is a ~40 m control-correlated baro
+     * disturbance during every deployment change. */
+    static final double PISTON_EFFECT_M_PER_PCT_PER_SEC = 0.5;
+
     @BeforeAll
     static void beforeAll() {
         AirbrakesTestLib.initialize();

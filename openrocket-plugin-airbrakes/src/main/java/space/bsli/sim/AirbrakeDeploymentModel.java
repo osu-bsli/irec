@@ -8,12 +8,19 @@ import static space.bsli.AirbrakesConfig.DEPLOYMENT_PCT_PER_SEC;
  * reached instantly, so the actual ("simulated dynamics") deployment slews
  * toward the commanded value at a fixed rate.
  *
- * Open brakes also create an aerodynamic static-pressure drop (suction) in the
- * avionics bay: airflow disturbed by the deployed brakes lowers the pressure
- * the barometer sees, so it reads a higher-than-true altitude. The drop grows
- * with airspeed for a given deployment angle. The resulting altitude error is
- * exposed via {@link #altitudeDistortionM()} so the harness can corrupt the
- * baro frames it feeds the flight computer.
+ * The open brakes disturb the avionics-bay barometer two ways, both exposed via
+ * {@link #altitudeDistortionM()} so the harness can corrupt the baro frames it
+ * feeds the flight computer:
+ *
+ *  - A steady aerodynamic static-pressure drop (suction) while the brakes are
+ *    open: airflow disturbed by the deployed brakes lowers the pressure the
+ *    barometer sees, so it reads high. Grows with airspeed and deployment.
+ *
+ *  - A transient "piston" effect while the brakes are physically moving: the
+ *    actuator pumps the bay, suction as it drives outward (reads high) and
+ *    compression as it retracts inward (reads low), proportional to the
+ *    actuator's speed and vanishing once the brakes settle. This is the
+ *    control-correlated disturbance the firmware's baro logic worries about.
  */
 public final class AirbrakeDeploymentModel {
     /* Avionics-bay barometric error from open-brake aerodynamics: metres of
@@ -22,12 +29,19 @@ public final class AirbrakeDeploymentModel {
        (Sign is positive because a pressure drop reads as a higher altitude.) */
     public double baroPressureDropMPerMps = 0.0;
 
+    /* Transient piston-effect baro error: metres of altitude error per (%/s) of
+       actuator motion. Positive while deploying (outward suction -> reads high),
+       negative while retracting (inward compression -> reads low), zero once the
+       brakes are settled. 0 = no piston effect. */
+    public double pistonEffectMPerPctPerSec = 0.0;
+
     private float deploymentPct = 0f;
     private float altitudeDistortionM = 0f;
 
-    /** Restores the (test-configured) aerodynamic baro error to "off". */
+    /** Restores the (test-configured) baro-error terms to "off". */
     public void resetConfig() {
         baroPressureDropMPerMps = 0.0;
+        pistonEffectMPerPctPerSec = 0.0;
     }
 
     /** Resets the actuator to fully stowed at the start of a simulation run. */
@@ -45,20 +59,30 @@ public final class AirbrakeDeploymentModel {
         final float marginPct = (float) (dt * DEPLOYMENT_PCT_PER_SEC);
 
         // The airbrakes take time to physically reach the commanded deployment.
+        // Track the signed actuator velocity (%/s) for the piston effect.
+        float deploymentRatePctPerSec = 0f;
         if (deploymentPct < commandedPct - marginPct) {
             deploymentPct += (float) (dt * DEPLOYMENT_PCT_PER_SEC);
+            deploymentRatePctPerSec = (float) DEPLOYMENT_PCT_PER_SEC;   // deploying (outward)
         } else if (deploymentPct > commandedPct + marginPct) {
             deploymentPct -= (float) (dt * DEPLOYMENT_PCT_PER_SEC);
+            deploymentRatePctPerSec = -(float) DEPLOYMENT_PCT_PER_SEC;  // retracting (inward)
         }
 
         if (deploymentPct < 0) deploymentPct = 0;
         if (deploymentPct > 100) deploymentPct = 100;
 
-        /* Aerodynamic pressure drop in the avionics bay while the brakes are
-           open: proportional to airspeed for a given deployment angle, and to
-           the deployment fraction. Reads as a positive altitude error. */
-        altitudeDistortionM = (float) (baroPressureDropMPerMps
-                * (deploymentPct / 100.0) * airspeedMps);
+        /* Steady aerodynamic pressure drop while the brakes are open: proportional
+           to airspeed for a given deployment angle, and to the deployment
+           fraction. Reads as a positive altitude error. */
+        double aeroM = baroPressureDropMPerMps * (deploymentPct / 100.0) * airspeedMps;
+
+        /* Transient piston effect while the actuator moves: positive (suction)
+           deploying outward, negative (compression) retracting inward, zero once
+           settled. */
+        double pistonM = pistonEffectMPerPctPerSec * deploymentRatePctPerSec;
+
+        altitudeDistortionM = (float) (aeroM + pistonM);
     }
 
     /** The current simulated (physically achieved) deployment percentage. */
