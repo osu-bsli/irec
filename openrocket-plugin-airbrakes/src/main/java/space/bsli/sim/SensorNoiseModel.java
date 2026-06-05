@@ -1,11 +1,11 @@
-package space.bsli;
+package space.bsli.sim;
 
 import java.util.Random;
 
 /**
  * Simulates accelerometer/gyroscope/barometer sensor imperfections — Gaussian
  * noise and constant biases — applied to the clean sensor values produced by
- * the OpenRocket simulation before they are packed into a {@link LogPacketV3}
+ * the OpenRocket simulation before they are packed into a {@link space.bsli.LogPacketV3}
  * for the flight computer.
  *
  * All perturbations default to "none"; {@link #reset()} restores that state

@@ -1,4 +1,4 @@
-package space.bsli;
+package space.bsli.sim;
 
 import static space.bsli.AirbrakesConfig.DEPLOYMENT_PCT_PER_SEC;
 

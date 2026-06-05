@@ -5,24 +5,24 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /** Builds a packed log_packet_v3 byte array matching the C struct in telemetry.h. */
-final class LogPacketV3 {
+public final class LogPacketV3 {
 
-    static final int   SIZE        = 98;
-    static final float DEG_PER_RAD = (float)(180.0 / Math.PI);
+    private static final int SIZE = 98;
+    public static final float DEG_PER_RAD = (float)(180.0 / Math.PI);
 
     /** Sentinel for gps_course meaning "no course available" (matches the C
      *  flight software, which checks gps_course != -0x7FFFFFFF). */
-    static final int GPS_COURSE_NONE = -0x7FFFFFFF;
+    public static final int GPS_COURSE_NONE = -0x7FFFFFFF;
 
     private static final int CRC16_OFFSET = 10;
 
     /** ISA troposphere: altitude (m) → pressure (mbar). */
-    static float altitudeToPressMbar(float alt_m) {
+    public static float altitudeToPressMbar(float alt_m) {
         return 1013.25f * (float) Math.pow(1.0 - 2.25577e-5 * alt_m, 5.25588);
     }
 
     /** ISA troposphere: altitude (m) → temperature (°C). */
-    static float altitudeToTempC(float alt_m) {
+    public static float altitudeToTempC(float alt_m) {
         return 14.85f - 0.0065f * alt_m;
     }
 
@@ -55,7 +55,7 @@ final class LogPacketV3 {
      *                           {@link #GPS_COURSE_NONE} when unavailable
      * @param gpsNumSats         number of satellites in the fix
      */
-    static byte[] build(
+    public static byte[] build(
             int statusFlags,
             long timeBootMs,
             float pressureMbar, float temperatureC,

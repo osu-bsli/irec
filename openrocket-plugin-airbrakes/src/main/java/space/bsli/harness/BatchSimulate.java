@@ -1,4 +1,6 @@
-package space.bsli;
+package space.bsli.harness;
+
+import space.bsli.AirbrakesExtension;
 
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;

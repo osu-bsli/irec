@@ -1,4 +1,4 @@
-package space.bsli;
+package space.bsli.harness;
 
 import space.bsli.AirbrakesExtension;
 import space.bsli.AirbrakesConfig.AirbrakesMode;

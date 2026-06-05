@@ -1,5 +1,6 @@
-import space.bsli.AirbrakesTestLib;
-import space.bsli.AirbrakesExtension;
+package space.bsli;
+
+import space.bsli.harness.AirbrakesTestLib;
 import space.bsli.AirbrakesConfig.AirbrakesMode;
 
 import info.openrocket.core.document.Simulation;

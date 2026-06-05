@@ -1,4 +1,7 @@
-package space.bsli;
+package space.bsli.sim;
+
+import space.bsli.AirbrakesConfig;
+import space.bsli.LogPacketV3;
 
 import info.openrocket.core.simulation.SimulationStatus;
 import info.openrocket.core.util.WorldCoordinate;

@@ -1,4 +1,4 @@
-package space.bsli;
+package space.bsli.harness;
 
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
