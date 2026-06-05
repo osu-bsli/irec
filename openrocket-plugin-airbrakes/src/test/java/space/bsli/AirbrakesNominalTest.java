@@ -11,6 +11,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Nominal flights and sensor-noise/dropout robustness, driven through the real
  * firmware running in-process as a deterministic SITL library. (8 simulations.)
+ *
+ * Every flight here already carries the datasheet-derived accelerometer noise
+ * applied by default (see {@link space.bsli.sim.SensorNoiseModel}), so the
+ * nominal cases double as a "robust to realistic sensor noise" check.
  */
 public class AirbrakesNominalTest extends AirbrakesSitlTestBase {
 
@@ -36,7 +40,10 @@ public class AirbrakesNominalTest extends AirbrakesSitlTestBase {
 
     @Test
     void accelerometerNoise() throws SimulationException {
-        AirbrakesExtension.sensorNoise.accelNoiseStdG = 0.1; // realistic vibration/sensor noise
+        // Stress both accelerometers well beyond the realistic datasheet baseline
+        // they already carry, to confirm control margin under heavy vibration.
+        AirbrakesExtension.sensorNoise.bmiAccelNoiseStdG = 0.2;
+        AirbrakesExtension.sensorNoise.adxlAccelNoiseStdG = 0.2;
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 

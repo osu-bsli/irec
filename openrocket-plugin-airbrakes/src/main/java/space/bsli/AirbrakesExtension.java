@@ -166,12 +166,12 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             float pressMbar = LogPacketV3.altitudeToPressMbar(altBaro);
             float tempC = sensorNoise.biasTempC(LogPacketV3.altitudeToTempC(altitudeM));
 
-            bmiAccelXg = sensorNoise.perturbAccelG(bmiAccelXg, r);
-            bmiAccelYg = sensorNoise.perturbAccelG(bmiAccelYg, r);
-            bmiAccelZg = sensorNoise.perturbAccelG(bmiAccelZg, r);
-            adxlXg = sensorNoise.perturbAccelG(adxlXg, r);
-            adxlYg = sensorNoise.perturbAccelG(adxlYg, r);
-            adxlZg = sensorNoise.perturbAccelG(adxlZg, r);
+            bmiAccelXg = sensorNoise.perturbBmiAccelG(bmiAccelXg, r);
+            bmiAccelYg = sensorNoise.perturbBmiAccelG(bmiAccelYg, r);
+            bmiAccelZg = sensorNoise.perturbBmiAccelG(bmiAccelZg, r);
+            adxlXg = sensorNoise.perturbAdxlAccelG(adxlXg, r);
+            adxlYg = sensorNoise.perturbAdxlAccelG(adxlYg, r);
+            adxlZg = sensorNoise.perturbAdxlAccelG(adxlZg, r);
 
             gyroXdps = sensorNoise.perturbGyroDps(gyroXdps, r);
             gyroYdps = sensorNoise.perturbGyroDps(gyroYdps, r);

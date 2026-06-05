@@ -1,5 +1,7 @@
 package space.bsli.sim;
 
+import space.bsli.AirbrakesConfig;
+
 import java.util.Random;
 
 /**
@@ -8,19 +10,24 @@ import java.util.Random;
  * the OpenRocket simulation before they are packed into a {@link space.bsli.LogPacketV3}
  * for the flight computer.
  *
- * All perturbations default to "none"; {@link #reset()} restores that state
- * between robustness-test scenarios. Noise is drawn from a caller-supplied
- * {@link Random} so an entire run stays deterministic for a given seed.
+ * Accelerometer noise is modeled per sensor (the BMI323 low-g and ADXL375
+ * high-g have very different noise), defaulting to the datasheet-derived
+ * standard deviations so every SITL flight carries realistic accelerometer
+ * noise. The bias terms default to "none". {@link #reset()} restores those
+ * defaults between robustness-test scenarios. Noise is drawn from a
+ * caller-supplied {@link Random} so an entire run stays deterministic.
  */
 public final class SensorNoiseModel {
-    public double accelNoiseStdG = 0.0;  // gaussian, per accelerometer axis (g)
+    public double bmiAccelNoiseStdG = AirbrakesConfig.BMI323_ACCEL_NOISE_STD_G;  // BMI323 low-g, per axis (g)
+    public double adxlAccelNoiseStdG = AirbrakesConfig.ADXL375_ACCEL_NOISE_STD_G; // ADXL375 high-g, per axis (g)
     public double gyroNoiseStdDps = 0.0; // gaussian, per gyro axis (deg/s)
     public double baroBiasM = 0.0;       // constant altitude offset in the baro
     public double baroNoiseStdM = 0.0;   // gaussian altitude noise in the baro
     public double tempBiasC = 0.0;       // temperature offset (degrees C)
 
     public void reset() {
-        accelNoiseStdG = 0.0;
+        bmiAccelNoiseStdG = AirbrakesConfig.BMI323_ACCEL_NOISE_STD_G;
+        adxlAccelNoiseStdG = AirbrakesConfig.ADXL375_ACCEL_NOISE_STD_G;
         gyroNoiseStdDps = 0.0;
         baroBiasM = 0.0;
         baroNoiseStdM = 0.0;
@@ -34,9 +41,15 @@ public final class SensorNoiseModel {
         return altBaro;
     }
 
-    /** Adds one axis of Gaussian accelerometer noise (g). */
-    public float perturbAccelG(float accelG, Random r) {
-        if (accelNoiseStdG > 0) accelG += (float) (r.nextGaussian() * accelNoiseStdG);
+    /** Adds one axis of Gaussian BMI323 (low-g) accelerometer noise (g). */
+    public float perturbBmiAccelG(float accelG, Random r) {
+        if (bmiAccelNoiseStdG > 0) accelG += (float) (r.nextGaussian() * bmiAccelNoiseStdG);
+        return accelG;
+    }
+
+    /** Adds one axis of Gaussian ADXL375 (high-g) accelerometer noise (g). */
+    public float perturbAdxlAccelG(float accelG, Random r) {
+        if (adxlAccelNoiseStdG > 0) accelG += (float) (r.nextGaussian() * adxlAccelNoiseStdG);
         return accelG;
     }
 
