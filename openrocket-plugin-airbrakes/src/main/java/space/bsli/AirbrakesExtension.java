@@ -11,12 +11,9 @@ import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
 import info.openrocket.core.unit.UnitGroup;
 import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.Quaternion;
-import info.openrocket.core.util.WorldCoordinate;
 import com.fazecast.jSerialComm.*;
 
 import static space.bsli.AirbrakesConfig.AIRBRAKE_CONTROL_INTERVAL_S;
-import static space.bsli.AirbrakesConfig.DEPLOYMENT_TIME_S;
-import static space.bsli.AirbrakesConfig.DEPLOYMENT_PCT_PER_SEC;
 import static space.bsli.AirbrakesConfig.MODE;
 
 import space.bsli.AirbrakesConfig.AirbrakesMode;
@@ -95,29 +92,20 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
     /* ---- SITL scenario perturbations (for robustness tests) ----
      * All default to "no perturbation"; reset between tests via resetScenario().
-     * Sensor noise/bias are applied to the injected LogPacketV3 frames; the
-     * firmware model errors are pushed into the firmware after SitlCreate. */
-    public static double accelNoiseStdG = 0.0;     // gaussian, per accelerometer axis (g)
-    public static double gyroNoiseStdDps = 0.0;    // gaussian, per gyro axis (deg/s)
-    public static double baroBiasM = 0.0;          // constant altitude offset in the baro
-    public static double baroNoiseStdM = 0.0;      // gaussian altitude noise in the baro
-    public static double tempBiasC = 0.0;          // temperature offset (degrees C)
-    public static double gpsHorizNoiseM = AirbrakesConfig.GPS_HORIZONTAL_NOISE_M;
-    public static double gpsAltNoiseM = AirbrakesConfig.GPS_ALTITUDE_NOISE_M;
-    public static double gpsDropoutAtS = Double.POSITIVE_INFINITY; // GPS stops reporting after this sim time
+     * The simulated phenomena (sensor noise/bias, fake GPS, airbrake actuator
+     * dynamics) live in their own model classes; the firmware model errors
+     * below are pushed into the firmware after SitlCreate. */
+    public static final SensorNoiseModel sensorNoise = new SensorNoiseModel();
+    public static final FakeGpsModel fakeGps = new FakeGpsModel();
+    public static final AirbrakeDeploymentModel airbrakeDeployment = new AirbrakeDeploymentModel();
+
     public static double firmwareMassKg = 0.0;     // 0 = leave firmware default; else override
     public static double firmwareDragScale = 1.0;  // firmware modeled-drag scale
     public static long noiseSeed = 12345L;         // fixed seed -> deterministic noise
 
     public static void resetScenario() {
-        accelNoiseStdG = 0.0;
-        gyroNoiseStdDps = 0.0;
-        baroBiasM = 0.0;
-        baroNoiseStdM = 0.0;
-        tempBiasC = 0.0;
-        gpsHorizNoiseM = AirbrakesConfig.GPS_HORIZONTAL_NOISE_M;
-        gpsAltNoiseM = AirbrakesConfig.GPS_ALTITUDE_NOISE_M;
-        gpsDropoutAtS = Double.POSITIVE_INFINITY;
+        sensorNoise.reset();
+        fakeGps.resetConfig();
         firmwareMassKg = 0.0;
         firmwareDragScale = 1.0;
         noiseSeed = 12345L;
@@ -155,7 +143,6 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
         private FlightConditions flightConditions = null;
         private float deploymentPctCommanded = 0;
-        private float deploymentPctSimulatedDynamics = 0;
         private Coordinate previousVelocity = null;
         private double previousTime = 0;
         /* Monotonic clock for HITL packet timestamps. Spans on-rod and postStep phases so the FC's
@@ -163,128 +150,35 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
         private double hitlTimeS = 0;
         Instant startInstant;
 
-        /* ---- Fake GPS state (FULL_HITL only) ----
-         * The most recently emitted fix is cached and re-sent unchanged between
-         * GPS updates so the flight computer sees a realistic low-rate GPS. */
-        private static final double R_EARTH_M = 6371000.0; // matches the FC's gps_compute_enu
-        private float gpsLatDeg = Float.NaN, gpsLngDeg = Float.NaN, gpsAltM = Float.NaN;
-        private float gpsSpeedMps = 0f;
-        private int gpsCourse = LogPacketV3.GPS_COURSE_NONE;
-        private int gpsNumSats = 0;
-        private float gpsUpdateTimer = 0f;
-        private boolean haveGpsFix = false;
-        private double prevGpsLatDeg = 0, prevGpsLngDeg = 0, prevGpsTimeS = 0;
-
-        /* Recomputes the cached fake GPS fix from the simulation at most once per
-         * GPS_UPDATE_INTERVAL_S. Speed/course are derived from the lat/lng delta
-         * since the previous fix so they stay self-consistent with position
-         * regardless of OpenRocket's axis conventions. */
-        private void updateFakeGps(SimulationStatus status, double dt) {
-            // No GPS if fake GPS is disabled, or after a configured dropout time.
-            if (!AirbrakesConfig.FAKE_GPS_IN_HITL || status.getSimulationTime() >= gpsDropoutAtS) {
-                gpsLatDeg = Float.NaN;
-                gpsLngDeg = Float.NaN;
-                gpsAltM = Float.NaN;
-                gpsSpeedMps = 0f;
-                gpsCourse = LogPacketV3.GPS_COURSE_NONE;
-                gpsNumSats = 0;
-                haveGpsFix = false; // a re-acquired fix after dropout must re-init velocity baseline
-                return;
-            }
-
-            gpsUpdateTimer += dt;
-            if (haveGpsFix && gpsUpdateTimer < AirbrakesConfig.GPS_UPDATE_INTERVAL_S) {
-                return; // hold previous fix; FC sees "no new GPS"
-            }
-            gpsUpdateTimer = 0f;
-
-            WorldCoordinate wc = status.getRocketWorldPosition();
-            double cleanLat = wc.getLatitudeDeg();
-            double cleanLng = wc.getLongitudeDeg();
-            double cleanAlt = wc.getAltitude();
-
-            double tNow = status.getSimulationTime();
-
-            /* Speed/course are derived from CLEAN positions and reported like a
-             * receiver's Doppler velocity, which is independent of position
-             * noise. (Differentiating the noisy reported position instead would
-             * amplify a few metres of position noise into tens of m/s of bogus
-             * velocity.) */
-            if (haveGpsFix) {
-                double dtGps = tNow - prevGpsTimeS;
-                if (dtGps > 1e-3) {
-                    double latRad = Math.toRadians(cleanLat);
-                    double dNorth = Math.toRadians(cleanLat - prevGpsLatDeg) * R_EARTH_M;
-                    double dEast = Math.toRadians(cleanLng - prevGpsLngDeg) * R_EARTH_M * Math.cos(latRad);
-                    double speed = Math.hypot(dEast, dNorth) / dtGps;
-                    if (speed >= AirbrakesConfig.GPS_MIN_SPEED_FOR_COURSE_MPS) {
-                        double courseDeg = Math.toDegrees(Math.atan2(dEast, dNorth));
-                        if (courseDeg < 0) courseDeg += 360.0;
-                        gpsCourse = (int) Math.round(courseDeg * 100.0);
-                    } else {
-                        gpsCourse = LogPacketV3.GPS_COURSE_NONE;
-                    }
-                    gpsSpeedMps = (float) speed;
-                }
-            } else {
-                gpsSpeedMps = 0f;
-                gpsCourse = LogPacketV3.GPS_COURSE_NONE;
-            }
-
-            /* Reported position carries the position noise. */
-            double lat = cleanLat, lng = cleanLng, alt = cleanAlt;
-            if (gpsHorizNoiseM > 0) {
-                double latRad = Math.toRadians(cleanLat);
-                lat += (r.nextGaussian() * gpsHorizNoiseM) / R_EARTH_M * (180.0 / Math.PI);
-                lng += (r.nextGaussian() * gpsHorizNoiseM) / (R_EARTH_M * Math.cos(latRad)) * (180.0 / Math.PI);
-            }
-            if (gpsAltNoiseM > 0) {
-                alt += r.nextGaussian() * gpsAltNoiseM;
-            }
-
-            gpsLatDeg = (float) lat;
-            gpsLngDeg = (float) lng;
-            gpsAltM = (float) alt;
-            gpsNumSats = AirbrakesConfig.GPS_NUM_SATS;
-
-            prevGpsLatDeg = cleanLat;
-            prevGpsLngDeg = cleanLng;
-            prevGpsTimeS = tNow;
-            haveGpsFix = true;
-        }
-
         /* Builds a LogPacketV3 from the given (already body->sensor mapped) sensor
-         * values and the current fake-GPS fix, applying any configured scenario
-         * perturbations (sensor noise/bias). Noise is drawn from the seeded
-         * Random so runs are deterministic. */
+         * values and the current fake-GPS fix, applying the configured sensor
+         * noise/bias. Noise is drawn from the seeded Random so runs are
+         * deterministic; the draw order here must stay stable for that. */
         private byte[] buildPerturbedPacket(long timeMs, float altitudeM,
                 float bmiAccelXg, float bmiAccelYg, float bmiAccelZg,
                 float gyroXdps, float gyroYdps, float gyroZdps,
                 float adxlXg, float adxlYg, float adxlZg) {
-            float altBaro = altitudeM + (float) baroBiasM;
-            if (baroNoiseStdM > 0) altBaro += (float) (r.nextGaussian() * baroNoiseStdM);
+            float altBaro = sensorNoise.distortBaroAltitudeM(altitudeM, r);
             float pressMbar = LogPacketV3.altitudeToPressMbar(altBaro);
-            float tempC = LogPacketV3.altitudeToTempC(altitudeM) + (float) tempBiasC;
+            float tempC = sensorNoise.biasTempC(LogPacketV3.altitudeToTempC(altitudeM));
 
-            if (accelNoiseStdG > 0) {
-                bmiAccelXg += (float) (r.nextGaussian() * accelNoiseStdG);
-                bmiAccelYg += (float) (r.nextGaussian() * accelNoiseStdG);
-                bmiAccelZg += (float) (r.nextGaussian() * accelNoiseStdG);
-                adxlXg += (float) (r.nextGaussian() * accelNoiseStdG);
-                adxlYg += (float) (r.nextGaussian() * accelNoiseStdG);
-                adxlZg += (float) (r.nextGaussian() * accelNoiseStdG);
-            }
-            if (gyroNoiseStdDps > 0) {
-                gyroXdps += (float) (r.nextGaussian() * gyroNoiseStdDps);
-                gyroYdps += (float) (r.nextGaussian() * gyroNoiseStdDps);
-                gyroZdps += (float) (r.nextGaussian() * gyroNoiseStdDps);
-            }
+            bmiAccelXg = sensorNoise.perturbAccelG(bmiAccelXg, r);
+            bmiAccelYg = sensorNoise.perturbAccelG(bmiAccelYg, r);
+            bmiAccelZg = sensorNoise.perturbAccelG(bmiAccelZg, r);
+            adxlXg = sensorNoise.perturbAccelG(adxlXg, r);
+            adxlYg = sensorNoise.perturbAccelG(adxlYg, r);
+            adxlZg = sensorNoise.perturbAccelG(adxlZg, r);
+
+            gyroXdps = sensorNoise.perturbGyroDps(gyroXdps, r);
+            gyroYdps = sensorNoise.perturbGyroDps(gyroYdps, r);
+            gyroZdps = sensorNoise.perturbGyroDps(gyroZdps, r);
 
             return LogPacketV3.build(0, timeMs, pressMbar, tempC,
                     bmiAccelXg, bmiAccelYg, bmiAccelZg,
                     gyroXdps, gyroYdps, gyroZdps,
                     adxlXg, adxlYg, adxlZg,
-                    gpsLatDeg, gpsLngDeg, gpsAltM, gpsSpeedMps, gpsCourse, gpsNumSats);
+                    fakeGps.latDeg(), fakeGps.lngDeg(), fakeGps.altM(),
+                    fakeGps.speedMps(), fakeGps.course(), fakeGps.numSats());
         }
 
         @Override
@@ -320,10 +214,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             startInstant = Instant.now();
             airbrake_control_interval_timer = 0f;
             deploymentPctCommanded = 0;
-            deploymentPctSimulatedDynamics = 0;
+            airbrakeDeployment.start();
             hitlTimeS = 0;
-            haveGpsFix = false;
-            gpsUpdateTimer = 0f;
+            fakeGps.start();
 
             /* Run filter on the rod for 2 simulated seconds so it can converge on the launch rod angle
                via the gravity vector before the rocket moves. */
@@ -338,7 +231,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                     hitlTimeS += 0.010;
                     /* Rocket is stationary on the rod: this locks the FC's GPS
                        pad reference to the launch site before any motion. */
-                    updateFakeGps(status, 0.010);
+                    fakeGps.update(status, 0.010, r);
                     byte[] packet = buildPerturbedPacket(
                             (long) (hitlTimeS * 1000), altitude,
                             (float) (sfBody.y / G_CONST),
@@ -387,30 +280,10 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             double dt = currentTime - previousTime;
             Coordinate vel = status.getRocketVelocity();
 
-            float distortedAltitude = (float) status.getRocketPosition().z;
-
-            /* Simulate dynamics of airbrakes deployment */
-
-            final float MARGIN_PCT = (float) (dt * DEPLOYMENT_PCT_PER_SEC);
-            final float ALTITUDE_DISTORTION_M = 0; // TODO
-
-            // Simulate the fact that the airbrakes actually take time to move
-            if (deploymentPctSimulatedDynamics < deploymentPctCommanded - MARGIN_PCT) {
-                deploymentPctSimulatedDynamics += (float) (dt * DEPLOYMENT_PCT_PER_SEC);
-                // Simulate piston suction effect of airbrakes outward motion on barometer
-                distortedAltitude += ALTITUDE_DISTORTION_M;
-            } else if (deploymentPctSimulatedDynamics > deploymentPctCommanded + MARGIN_PCT) {
-                deploymentPctSimulatedDynamics -= (float) (dt * DEPLOYMENT_PCT_PER_SEC);
-                // Simulate piston compression effect of airbrakes inward motion on barometer
-                distortedAltitude -= ALTITUDE_DISTORTION_M;
-            }
-
-            if (deploymentPctSimulatedDynamics < 0) deploymentPctSimulatedDynamics = 0;
-            if (deploymentPctSimulatedDynamics > 100) deploymentPctSimulatedDynamics = 100;
-
-            // Suction/compression effect numbers sloppily empirically determined from Nomad 4/11/26 test flight
-
-            /* End dynamics simulation */
+            /* Simulate the airbrake actuator dynamics: the brakes take time to
+               reach the commanded deployment, and their motion disturbs the baro. */
+            airbrakeDeployment.step(deploymentPctCommanded, dt);
+            float distortedAltitude = (float) status.getRocketPosition().z + airbrakeDeployment.altitudeDistortionM();
 
             if (dt > 0 && previousVelocity != null) {
                 Quaternion q = status.getRocketOrientationQuaternion();
@@ -425,7 +298,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
 
                 if (mode == AirbrakesMode.FULL_HITL || mode == AirbrakesMode.FULL_SITL) {
                     hitlTimeS += dt;
-                    updateFakeGps(status, dt);
+                    fakeGps.update(status, dt, r);
                     /* The swapped and flipped acceleration axes are to transform the accelerations
                        into sensor frame. The FC code then transforms them back into body frame. */
                     byte[] packet = buildPerturbedPacket(
@@ -482,7 +355,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 }
             }
 
-            status.getFlightDataBranch().setValue(fdtDeploymentPctSimulatedDynamics, deploymentPctSimulatedDynamics);
+            status.getFlightDataBranch().setValue(fdtDeploymentPctSimulatedDynamics, airbrakeDeployment.deploymentPct());
 
             previousVelocity = vel;
             previousTime = currentTime;
@@ -502,7 +375,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
                 double altitude_m = status.getRocketWorldPosition().getAltitude();
                 double density = flightConditions.getAtmosphericConditions().getDensity();
 
-                double dragForce = DragForce(deploymentPctSimulatedDynamics, (float) velocityTotal_mps, (float) altitude_m);
+                double dragForce = DragForce(airbrakeDeployment.deploymentPct(), (float) velocityTotal_mps, (float) altitude_m);
 
                 if (velocityTotal_mps > 0.1) {
                     double refArea = flightConditions.getRefArea();

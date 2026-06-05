@@ -70,39 +70,39 @@ public class AirbrakesJUnitTest {
 
     @Test
     void gpsDropoutMidFlight() throws SimulationException {
-        AirbrakesExtension.gpsDropoutAtS = 4.0; // lose GPS during boost/coast
+        AirbrakesExtension.fakeGps.dropoutAtS = 4.0; // lose GPS during boost/coast
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 
     @Test
     void accelerometerNoise() throws SimulationException {
-        AirbrakesExtension.accelNoiseStdG = 0.1; // realistic vibration/sensor noise
+        AirbrakesExtension.sensorNoise.accelNoiseStdG = 0.1; // realistic vibration/sensor noise
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 
     @Test
     void gyroscopeNoise() throws SimulationException {
-        AirbrakesExtension.gyroNoiseStdDps = 5.0; // realistic gyro noise
+        AirbrakesExtension.sensorNoise.gyroNoiseStdDps = 5.0; // realistic gyro noise
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 
     @Test
     void gpsNoise() throws SimulationException {
-        AirbrakesExtension.gpsHorizNoiseM = 5.0; // ~consumer GPS horizontal noise
-        AirbrakesExtension.gpsAltNoiseM = 10.0;
+        AirbrakesExtension.fakeGps.horizNoiseM = 5.0; // ~consumer GPS horizontal noise
+        AirbrakesExtension.fakeGps.altNoiseM = 10.0;
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 
     @Test
     void temperatureBias() throws SimulationException {
-        AirbrakesExtension.tempBiasC = 30.0; // baro temperature reading way off
+        AirbrakesExtension.sensorNoise.tempBiasC = 30.0; // baro temperature reading way off
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 
     @Test
     void altitudeBias() throws SimulationException {
         // A constant baro offset should cancel via the pad-altitude reference.
-        AirbrakesExtension.baroBiasM = 100.0;
+        AirbrakesExtension.sensorNoise.baroBiasM = 100.0;
         assertEquals(8000, runApogee(8000, 5), SENSOR_FAULT_TOL_M);
     }
 
