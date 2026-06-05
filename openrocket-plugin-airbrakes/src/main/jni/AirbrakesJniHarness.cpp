@@ -10,16 +10,19 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <string>
 
 static AB_Settings settings = AB_Default_Settings();
 
 /* ---- FULL_SITL: drive the real firmware running in-process as a library ----
  *
- * The firmware is built separately as libflight-firmware-sitl.so (see
- * flight-software-pc). We load it into a fresh dlmopen namespace so its global
- * state (FreeRTOS kernel, statics) is isolated, then forward sensor frames to
- * its C ABI (fw_create / fw_feed_packet / fw_destroy). The path is taken from
- * the FW_SITL_LIB environment variable, defaulting to the bare soname. */
+ * The firmware is built alongside this JNI library as
+ * libflight-firmware-sitl.so. We load it into a fresh dlmopen namespace so its
+ * global state (FreeRTOS kernel, statics) is isolated, then forward sensor
+ * frames to its C ABI (fw_create / fw_feed_packet / fw_destroy). The library is
+ * located next to this one (found via dladdr), so nothing has to be passed in
+ * via environment variables. */
 static void *g_fw_handle = nullptr;
 static void (*g_fw_create)(int) = nullptr;
 static void (*g_fw_set_target)(float) = nullptr;
@@ -28,14 +31,24 @@ static void (*g_fw_set_drag_scale)(float) = nullptr;
 static uint8_t (*g_fw_feed)(const uint8_t *, size_t) = nullptr;
 static void (*g_fw_destroy)(void) = nullptr;
 
+/* Absolute path to libflight-firmware-sitl.so sitting next to this JNI library. */
+static std::string firmware_sitl_lib_path() {
+    Dl_info info;
+    std::string dir = ".";
+    if (dladdr((void *) &firmware_sitl_lib_path, &info) && info.dli_fname != nullptr) {
+        const char *slash = strrchr(info.dli_fname, '/');
+        if (slash != nullptr) dir.assign(info.dli_fname, slash - info.dli_fname);
+    }
+    return dir + "/libflight-firmware-sitl.so";
+}
+
 JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlCreate
   (JNIEnv *env, jclass c, jint instance_id) {
-    const char *path = getenv("FW_SITL_LIB");
-    if (path == nullptr) path = "libflight-firmware-sitl.so";
+    std::string path = firmware_sitl_lib_path();
 
-    g_fw_handle = dlmopen(LM_ID_NEWLM, path, RTLD_NOW | RTLD_LOCAL);
+    g_fw_handle = dlmopen(LM_ID_NEWLM, path.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (g_fw_handle == nullptr) {
-        fprintf(stderr, "[SITL] dlmopen(%s) failed: %s\n", path, dlerror());
+        fprintf(stderr, "[SITL] dlmopen(%s) failed: %s\n", path.c_str(), dlerror());
         return;
     }
 

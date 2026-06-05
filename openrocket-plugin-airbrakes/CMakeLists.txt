@@ -44,9 +44,12 @@ target_link_options(airbrakes PUBLIC
     $<$<PLATFORM_ID:Linux>:-O3 -ggdb -Wall ${AIRBRAKES_ASAN_FLAGS}>
 )
 
-# FULL_SITL dlmopen's the firmware library (libflight-firmware-sitl.so) at
-# runtime, so the JNI library needs libdl.
+# FULL_SITL dlmopen's the firmware library at runtime and locates it relative
+# to this JNI library via dladdr, so the JNI library needs libdl.
 target_link_libraries(airbrakes PUBLIC ${CMAKE_DL_LIBS})
+
+# The GNC relies on zero-initialized Eigen matrices.
+target_compile_definitions(airbrakes PUBLIC EIGEN_INITIALIZE_MATRICES_BY_ZERO)
 
 # jvm
 find_package(Java REQUIRED)
@@ -55,6 +58,12 @@ set(JAVA_AWT_LIBRARY NotNeeded)
 set(JAVA_JVM_LIBRARY NotNeeded)
 find_package(JNI REQUIRED)
 
-include_directories(${JNI_INCLUDE_DIRS})
+target_include_directories(airbrakes PUBLIC ${JNI_INCLUDE_DIRS})
 
-add_compile_options(-DEIGEN_INITIALIZE_MATRICES_BY_ZERO)
+# Build the firmware SITL library here (same output directory as the JNI
+# library, so it can be found as a sibling at runtime). The build recipe is
+# shared with flight-software-pc via sitl_firmware.cmake — no duplicated source
+# list, and no dependency on a library built in another project's tree.
+include(${CMAKE_SOURCE_DIR}/../flight-software-pc/sitl_firmware.cmake)
+add_flight_firmware_sitl(flight-firmware-sitl)
+add_dependencies(airbrakes flight-firmware-sitl)

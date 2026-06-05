@@ -114,82 +114,12 @@ target_include_directories(ground-software-pc PUBLIC
 
 
 # ============================================================================
-# SITL: the flight firmware compiled as an embeddable shared library.
-#
-# Kept separate from `shared` because it must NOT use AddressSanitizer (it is
-# loaded via dlmopen, including under the JVM) and needs SITL-specific compile
-# definitions. It runs the real FreeRTOS task graph under the deterministic
-# port and is driven one LogPacketV3 sensor frame at a time (see src/sitl/).
+# SITL: the flight firmware compiled as an embeddable shared library. The build
+# recipe lives in sitl_firmware.cmake so the OpenRocket plugin can build the
+# same library from its own CMakeLists without duplicating the source list.
 # ============================================================================
-add_library(flight-firmware-sitl SHARED
-    src/FreeRTOS-port/port.c
-    src/FreeRTOS-port/utils/wait_for_event.c
-
-    src/stubs/external/Servo.cpp
-    src/stubs/external/SD.cpp
-    src/stubs/external/Serial.cpp
-    src/stubs/external/LoRa.cpp
-    src/stubs/external/serial_channel.cpp
-
-    src/stubs/internal/gps.cpp
-    src/stubs/internal/hardware.cpp
-    src/stubs/internal/instrumentation.cpp
-    src/stubs/internal/logging.cpp
-    # NB: stubs/internal/sensors.cpp is replaced by the SITL sensor adapter
-    # (src/sitl/sitl_sensors.cpp), which injects frames over the serial channel.
-
-    src/FreeRTOS/FreeRTOS-Kernel/list.c
-    src/FreeRTOS/FreeRTOS-Kernel/queue.c
-    src/FreeRTOS/FreeRTOS-Kernel/tasks.c
-    src/FreeRTOS/FreeRTOS-Kernel/timers.c
-    src/FreeRTOS/FreeRTOS-Kernel/portable/MemMang/heap_3.c
-
-    ${FS}/src/telemetry.cpp
-    ${FS}/src/crc16.c
-    ${FS}/src/testing/testing.cpp
-
-    ${FS}/src/Airbrakes/Filters/AB_Attitude_Filter.cpp
-    ${FS}/src/Airbrakes/Filters/AB_Filter_Main.cpp
-    ${FS}/src/Airbrakes/Filters/AB_Horizontal_Filter.cpp
-    ${FS}/src/Airbrakes/Filters/AB_Vertical_Filter.cpp
-    ${FS}/src/Airbrakes/AB_Deployment.cpp
-    ${FS}/src/Airbrakes/MathFunctions.cpp
-    ${FS}/src/Airbrakes/filter_inputs.cpp
-
-    ${FS}/src/main.cpp
-
-    src/sitl/fw_embed.cpp
-    src/sitl/sitl_sensors.cpp
-)
-
-target_compile_options(flight-firmware-sitl PRIVATE
-    -O2 -g -Wall -fdiagnostics-color=always
-)
-
-target_compile_definitions(flight-firmware-sitl PRIVATE
-    projCOVERAGE_TEST=0
-    projENABLE_TRACING=0
-    CONFIG_TEST_AIRBRAKES_HITL_FULL
-    STUB_SERIAL_IN_MEMORY
-)
-
-target_include_directories(flight-firmware-sitl PRIVATE
-    src/
-    src/sitl/
-    src/FreeRTOS-port/
-    src/FreeRTOS-port/utils/
-    src/FreeRTOS/FreeRTOS-Kernel/include/
-    src/stubs/external
-    src/stubs/internal
-
-    ${FS}/include/
-    ${FS}/src/
-    ${FS}/src/Airbrakes
-    ${FS}/src/Airbrakes/Filters
-    ${FS}/src/Eigen
-)
-
-target_link_libraries(flight-firmware-sitl PRIVATE pthread)
+include(${CMAKE_CURRENT_LIST_DIR}/sitl_firmware.cmake)
+add_flight_firmware_sitl(flight-firmware-sitl)
 
 # SITL verification harness: loads the library via dlmopen and feeds frames.
 add_executable(sitl-test-harness src/sitl/sitl_test_harness.cpp)

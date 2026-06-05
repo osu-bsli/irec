@@ -84,10 +84,12 @@ public:
                 return false;
 
             const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+            if (runtime_dir == nullptr)
+                runtime_dir = "/tmp/"; /* sensible default when not on a desktop session */
 
             memset(&_sockaddr, 0, sizeof(struct sockaddr_un));
             _sockaddr.sun_family = AF_UNIX;
-            snprintf(_sockaddr.sun_path, sizeof(_sockaddr.sun_path), "%sflight-software-pc%s.sock", runtime_dir, stub_lora_socket_suffix());
+            snprintf(_sockaddr.sun_path, sizeof(_sockaddr.sun_path), "%s/flight-software-pc%s.sock", runtime_dir, stub_lora_socket_suffix());
 
             if (_isClientOrServer == STUB_LORA_SOCKET_IS_SERVER)
             {
@@ -167,7 +169,7 @@ public:
         }
         else
         {
-            stub_println("Packet sent into socket");
+            // stub_println("Packet sent into socket");
         }
         return len;
     }
