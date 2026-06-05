@@ -135,6 +135,9 @@ int LoRaClass::begin(long frequency)
   // set frequency
   setFrequency(frequency);
 
+  // set bandwith to 41.7 kHz by default
+  setSignalBandwidth(41.7E3);
+
   // set base addresses
   writeRegister(REG_FIFO_TX_BASE_ADDR, 0);
   writeRegister(REG_FIFO_RX_BASE_ADDR, 0);
