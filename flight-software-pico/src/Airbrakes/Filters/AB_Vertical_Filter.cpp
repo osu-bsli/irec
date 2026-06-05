@@ -81,44 +81,39 @@ void AB_Vertical_State_Update_Baro(
 	sN.C = (I - K * H) * sN.C;
 }
 
-//Takes the calculation variables, current state, and new gps data from the sensor struct and computes 
-//the update step
+//Takes the calculation variables, current state, and new gps data from the sensor struct and computes
+//the update step.
+//
+//Position-only GPS update: the NMEA receiver provides no vertical velocity
+//(main.cpp forces GPS_Velocity_mps.z() to 0), so we fuse ONLY the GPS altitude
+//and let the EKF infer the velocity (and baro-bias) corrections through the
+//altitude/velocity/bias covariance coupling. This anchors the altitude estimate
+//to GPS even when the barometer is corrupted (e.g. by the airbrakes' aerodynamic
+//pressure drop), which a baro-only filter cannot recover from.
 void AB_Vertical_State_Update_GPS(
 	AB_Vertical_State& sN,
 	const AB_Filter_Inputs inputs,
 	const AB_Settings settings
 )
 {
-	Matrix<float, 2, 1> d;
-	Matrix<float, 2, 1> y;
-	Matrix<float, 2, 3> H;
-	Matrix<float, 3, 2> K;
-	Matrix<float, 3, 1> sE;
-	Matrix<float, 3, 3> I;
-
-	//Same here, everthing to zero except for the GPS, for the position we trust +- 5m, 
-	//and velocity +- 0.2
-	d.setZero();
-	y.setZero();
-	H.setZero();
-	K.setZero();
-	sE.setZero();
-	I.setIdentity();
-
 	//difference between GPS altitude and altitude in the state
-	y << (inputs.GPS_Position_m.z() - sN.Altitude_m), (inputs.GPS_Velocity_mps.z() - sN.VelocityUp_mps);
+	float y = inputs.GPS_Position_m.z() - sN.Altitude_m;
 
-	//Now we find out H, or how the state effects the measurement
+	//Now we find out H, or how the state affects the measurement
 	//[dGPS/dAlt, dGPS/dvel, dGPS/dBaroBias] depends on altitude only
-	H.setZero();
-	H(0, 0) = 1.0f;
-	H(1, 1) = 1.0f;
+	Matrix<float, 1, 3> H;
+	H << 1.0f, 0.0f, 0.0f;
 
-	//Now we find the kalman gain, K
-	K = sN.C * H.transpose() * (H * sN.C * H.transpose() + settings.VertGpsR).inverse();
+	//GPS altitude measurement variance (reuse the position entry of VertGpsR)
+	Matrix<float, 1, 1> R;
+	R(0, 0) = settings.VertGpsR(0, 0);
 
-	//We also find the error state
-	sE = K * y;
+	//Now we find the kalman gain, K (scalar innovation covariance)
+	Matrix<float, 3, 1> K = sN.C * H.transpose() * (H * sN.C * H.transpose() + R).inverse();
+
+	//We also find the error state. The covariance cross-terms let a pure
+	//altitude residual also correct velocity and baro bias.
+	Matrix<float, 3, 1> sE = K * y;
 
 	//we add those corrections to the nominal state
 	sN.Altitude_m += sE(0, 0);
@@ -126,5 +121,7 @@ void AB_Vertical_State_Update_GPS(
 	sN.Baro_Bias += sE(2, 0);
 
 	//finally, we update the covariance
+	Matrix<float, 3, 3> I;
+	I.setIdentity();
 	sN.C = (I - K * H) * sN.C;
 }

@@ -100,11 +100,18 @@ JNIEXPORT jint JNICALL Java_space_bsli_AirbrakesExtension_SitlFeedPacket
 
 JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlDestroy
   (JNIEnv *env, jclass c) {
+    /* fw_destroy() now does a cooperative teardown (stops the firmware's
+     * FreeRTOS tasks and scheduler), so by the time it returns no firmware
+     * thread is executing code from the dlmopen namespace and we can unload it.
+     * Reclaiming the namespace is essential: glibc caps live dlmopen namespaces
+     * (DL_NNS == 16), so leaking one per run exhausts them after ~15 runs. */
     if (g_fw_destroy != nullptr) g_fw_destroy();
-    /* Not dlclose-ing: the firmware's FreeRTOS threads are still running
-     * (clean teardown for reuse across runs is future work). */
+    if (g_fw_handle != nullptr) dlclose(g_fw_handle);
     g_fw_handle = nullptr;
     g_fw_create = nullptr;
+    g_fw_set_target = nullptr;
+    g_fw_set_mass = nullptr;
+    g_fw_set_drag_scale = nullptr;
     g_fw_feed = nullptr;
     g_fw_destroy = nullptr;
 }

@@ -3,19 +3,32 @@ package space.bsli;
 import static space.bsli.AirbrakesConfig.DEPLOYMENT_PCT_PER_SEC;
 
 /**
- * Simulates the physical airbrake actuator. The deployment percentage the
- * firmware commands cannot be reached instantly, so the actual ("simulated
- * dynamics") deployment slews toward the commanded value at a fixed rate. The
- * moving brakes also cause a small barometer pressure disturbance (piston
- * suction/compression), exposed as an altitude offset.
+ * Simulates the physical airbrake actuator and the barometric disturbance the
+ * open brakes cause. The deployment percentage the firmware commands cannot be
+ * reached instantly, so the actual ("simulated dynamics") deployment slews
+ * toward the commanded value at a fixed rate.
+ *
+ * Open brakes also create an aerodynamic static-pressure drop (suction) in the
+ * avionics bay: airflow disturbed by the deployed brakes lowers the pressure
+ * the barometer sees, so it reads a higher-than-true altitude. The drop grows
+ * with airspeed for a given deployment angle. The resulting altitude error is
+ * exposed via {@link #altitudeDistortionM()} so the harness can corrupt the
+ * baro frames it feeds the flight computer.
  */
 public final class AirbrakeDeploymentModel {
-    /* Suction/compression effect numbers sloppily empirically determined from
-       Nomad 4/11/26 test flight. */
-    private static final float ALTITUDE_DISTORTION_M = 0; // TODO
+    /* Avionics-bay barometric error from open-brake aerodynamics: metres of
+       (positive) altitude error per m/s of airspeed at full deployment. Scaled
+       linearly by the deployment fraction. 0 = no aerodynamic baro error.
+       (Sign is positive because a pressure drop reads as a higher altitude.) */
+    public double baroPressureDropMPerMps = 0.0;
 
     private float deploymentPct = 0f;
     private float altitudeDistortionM = 0f;
+
+    /** Restores the (test-configured) aerodynamic baro error to "off". */
+    public void resetConfig() {
+        baroPressureDropMPerMps = 0.0;
+    }
 
     /** Resets the actuator to fully stowed at the start of a simulation run. */
     public void start() {
@@ -25,25 +38,27 @@ public final class AirbrakeDeploymentModel {
 
     /**
      * Advances the simulated actuator one step toward {@code commandedPct} and
-     * records the resulting barometer altitude disturbance for this step.
+     * recomputes the avionics-bay barometric altitude error for the current
+     * deployment and {@code airspeedMps}.
      */
-    public void step(float commandedPct, double dt) {
+    public void step(float commandedPct, double dt, double airspeedMps) {
         final float marginPct = (float) (dt * DEPLOYMENT_PCT_PER_SEC);
-        altitudeDistortionM = 0f;
 
-        // Simulate the fact that the airbrakes actually take time to move
+        // The airbrakes take time to physically reach the commanded deployment.
         if (deploymentPct < commandedPct - marginPct) {
             deploymentPct += (float) (dt * DEPLOYMENT_PCT_PER_SEC);
-            // Simulate piston suction effect of airbrakes outward motion on barometer
-            altitudeDistortionM = ALTITUDE_DISTORTION_M;
         } else if (deploymentPct > commandedPct + marginPct) {
             deploymentPct -= (float) (dt * DEPLOYMENT_PCT_PER_SEC);
-            // Simulate piston compression effect of airbrakes inward motion on barometer
-            altitudeDistortionM = -ALTITUDE_DISTORTION_M;
         }
 
         if (deploymentPct < 0) deploymentPct = 0;
         if (deploymentPct > 100) deploymentPct = 100;
+
+        /* Aerodynamic pressure drop in the avionics bay while the brakes are
+           open: proportional to airspeed for a given deployment angle, and to
+           the deployment fraction. Reads as a positive altitude error. */
+        altitudeDistortionM = (float) (baroPressureDropMPerMps
+                * (deploymentPct / 100.0) * airspeedMps);
     }
 
     /** The current simulated (physically achieved) deployment percentage. */
@@ -51,7 +66,7 @@ public final class AirbrakeDeploymentModel {
         return deploymentPct;
     }
 
-    /** Barometer altitude disturbance (m) caused by actuator motion this step. */
+    /** Barometer altitude error (m) from open-brake aerodynamics this step. */
     public float altitudeDistortionM() {
         return altitudeDistortionM;
     }

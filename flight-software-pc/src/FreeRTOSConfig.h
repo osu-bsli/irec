@@ -215,4 +215,23 @@
 
  #define configKERNEL_PROVIDED_STATIC_MEMORY 1
 
+ /* SITL teardown support: when the firmware is built as the embeddable SITL
+  * library (FW_SITL_TEARDOWN_TRACE defined by sitl_firmware.cmake), record each
+  * task's pthread as it is created/deleted so the host can cancel+join them all
+  * at shutdown and the dlmopen namespace can be fully reclaimed. The hooks are
+  * defined in fw_embed.cpp; other firmware builds don't define the macro and so
+  * pull in no extra symbols. */
+ #ifdef FW_SITL_TEARDOWN_TRACE
+     #ifdef __cplusplus
+         extern "C" {
+     #endif
+     void fw_record_task_create( void * tcb );
+     void fw_record_task_delete( void * tcb );
+     #ifdef __cplusplus
+         }
+     #endif
+     #define traceTASK_CREATE( pxNewTCB )    fw_record_task_create( ( void * ) ( pxNewTCB ) )
+     #define traceTASK_DELETE( pxTaskTCB )   fw_record_task_delete( ( void * ) ( pxTaskTCB ) )
+ #endif /* FW_SITL_TEARDOWN_TRACE */
+
  #endif /* FREERTOS_CONFIG_H */

@@ -61,6 +61,10 @@ function(add_flight_firmware_sitl TARGET)
         projENABLE_TRACING=0
         CONFIG_TEST_AIRBRAKES_HITL_FULL
         STUB_SERIAL_IN_MEMORY
+        # Record task pthreads (traceTASK_CREATE/DELETE) so fw_destroy can cancel
+        # and join every firmware thread, letting dlclose fully reclaim the
+        # instance's dlmopen namespace and static TLS.
+        FW_SITL_TEARDOWN_TRACE
         # The GNC relies on zero-initialized Eigen matrices (matching the plugin
         # and tuning-GUI builds); without it the filter covariances are garbage.
         EIGEN_INITIALIZE_MATRICES_BY_ZERO

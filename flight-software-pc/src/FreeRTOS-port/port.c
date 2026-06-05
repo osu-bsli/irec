@@ -513,6 +513,17 @@ void vPortCancelThread( void * pxTaskToDelete )
 }
 /*-----------------------------------------------------------*/
 
+/*
+ * Expose a task's underlying pthread so an embedding host (e.g. the SITL
+ * library loader) can cancel and join every FreeRTOS thread after the scheduler
+ * has been stopped, allowing the whole instance to be torn down cleanly.
+ */
+pthread_t xPortGetTaskPthread( void * pxTask )
+{
+    return prvGetThreadFromTask( pxTask )->pthread;
+}
+/*-----------------------------------------------------------*/
+
 static void * prvWaitForStart( void * pvParams )
 {
     Thread_t * pxThread = pvParams;

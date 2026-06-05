@@ -46,6 +46,19 @@ tasks.named('test', Test) {
     // can be switched, e.g. ./gradlew test -Dairbrakes.mode=CLOSED_LOOP_SIM.
     systemProperty "airbrakes.mode", System.getProperty("airbrakes.mode", "FULL_SITL")
 
+    // Each FULL_SITL simulation dlmopen()s the firmware into a fresh namespace.
+    // glibc caps a process at DL_NNS (~15) such namespaces and never reclaims a
+    // slot on dlclose, and it also draws each namespace's libc initial-exec TLS
+    // from a fixed static-TLS surplus that dlclose likewise won't return. Both
+    // are process-lifetime limits independent of our (clean) firmware teardown.
+    //
+    // forkEvery = 1 gives every test class its own JVM, so each class's handful
+    // of simulations starts from a fresh namespace/TLS budget — the split into
+    // AirbrakesNominalTest / AirbrakesFaultTest keeps each well under the caps.
+    // The enlarged static-TLS surplus is extra headroom should a class grow.
+    forkEvery = 1
+    environment "GLIBC_TUNABLES", "glibc.rtld.optional_static_tls=524288"
+
     maxHeapSize = '1G'
 
     testLogging {

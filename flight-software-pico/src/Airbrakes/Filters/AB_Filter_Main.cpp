@@ -222,8 +222,13 @@ void AB_Filter_Process(AB_Filter &filter, const AB_Filter_Inputs inputs, const A
 
 	if (GPS_updated == true)
 	{
-		/* Only trust GPS if vertical GPS velocity is greater than 10 m/s */
-		if (inputs.GPS_Velocity_mps.z() > 10.0f)
+		/* Position-only vertical GPS update: fuse the GPS altitude (no vertical
+		   GPS velocity is available) and let the EKF infer the velocity/baro-bias
+		   corrections. This is what lets GPS rescue the altitude estimate when the
+		   barometer is corrupted (e.g. airbrake-induced pressure drop). Skip when
+		   there is no fix: the GPS position is zeroed upstream on dropout, so a
+		   norm of 0 means "no fix" and must not yank the altitude toward the pad. */
+		if (inputs.GPS_Position_m.norm() > 0.0f)
 		{
 			AB_Vertical_State_Update_GPS(filter.VertState, inputs, settings);
 		}

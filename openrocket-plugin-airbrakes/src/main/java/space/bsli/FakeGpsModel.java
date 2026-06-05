@@ -12,9 +12,9 @@ import java.util.Random;
  * realistic GPS rate, with optional Gaussian position noise and a configurable
  * mid-flight dropout.
  *
- * Configuration ({@link #horizNoiseM}, {@link #altNoiseM}, {@link #dropoutAtS})
- * persists across a run and is restored between scenarios by
- * {@link #resetConfig()}; per-run fix state is cleared by {@link #start()}.
+ * Configuration ({@link #horizNoiseM}, {@link #altNoiseM}, {@link #dropoutAtS},
+ * {@link #recoverAtS}) persists across a run and is restored between scenarios
+ * by {@link #resetConfig()}; per-run fix state is cleared by {@link #start()}.
  */
 public final class FakeGpsModel {
     private static final double R_EARTH_M = 6371000.0; // matches the FC's gps_compute_enu
@@ -22,7 +22,10 @@ public final class FakeGpsModel {
     // ---- scenario configuration ----
     public double horizNoiseM = AirbrakesConfig.GPS_HORIZONTAL_NOISE_M;
     public double altNoiseM = AirbrakesConfig.GPS_ALTITUDE_NOISE_M;
-    public double dropoutAtS = Double.POSITIVE_INFINITY; // GPS stops reporting after this sim time
+    /* GPS reports no fix while dropoutAtS <= simTime < recoverAtS, modelling a
+     * mid-flight outage that may (recoverAtS finite) or may not (infinite) end. */
+    public double dropoutAtS = Double.POSITIVE_INFINITY;
+    public double recoverAtS = Double.POSITIVE_INFINITY;
 
     // ---- most recently emitted fix ----
     private float latDeg = Float.NaN, lngDeg = Float.NaN, altM = Float.NaN;
@@ -39,6 +42,7 @@ public final class FakeGpsModel {
         horizNoiseM = AirbrakesConfig.GPS_HORIZONTAL_NOISE_M;
         altNoiseM = AirbrakesConfig.GPS_ALTITUDE_NOISE_M;
         dropoutAtS = Double.POSITIVE_INFINITY;
+        recoverAtS = Double.POSITIVE_INFINITY;
     }
 
     /** Clears the cached fix and timers at the start of a simulation run. */
@@ -67,8 +71,10 @@ public final class FakeGpsModel {
      * the supplied {@link Random} for determinism.
      */
     public void update(SimulationStatus status, double dt, Random r) {
-        // No GPS if fake GPS is disabled, or after a configured dropout time.
-        if (!AirbrakesConfig.FAKE_GPS_IN_HITL || status.getSimulationTime() >= dropoutAtS) {
+        // No GPS if fake GPS is disabled, or during a configured outage window.
+        double now = status.getSimulationTime();
+        boolean inOutage = now >= dropoutAtS && now < recoverAtS;
+        if (!AirbrakesConfig.FAKE_GPS_IN_HITL || inOutage) {
             latDeg = Float.NaN;
             lngDeg = Float.NaN;
             altM = Float.NaN;

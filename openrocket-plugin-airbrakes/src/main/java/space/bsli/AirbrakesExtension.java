@@ -106,6 +106,7 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
     public static void resetScenario() {
         sensorNoise.reset();
         fakeGps.resetConfig();
+        airbrakeDeployment.resetConfig();
         firmwareMassKg = 0.0;
         firmwareDragScale = 1.0;
         noiseSeed = 12345L;
@@ -281,8 +282,9 @@ public class AirbrakesExtension extends AbstractSimulationExtension {
             Coordinate vel = status.getRocketVelocity();
 
             /* Simulate the airbrake actuator dynamics: the brakes take time to
-               reach the commanded deployment, and their motion disturbs the baro. */
-            airbrakeDeployment.step(deploymentPctCommanded, dt);
+               reach the commanded deployment, and the open brakes drop the
+               avionics-bay pressure (airspeed-dependent), distorting the baro. */
+            airbrakeDeployment.step(deploymentPctCommanded, dt, vel.length());
             float distortedAltitude = (float) status.getRocketPosition().z + airbrakeDeployment.altitudeDistortionM();
 
             if (dt > 0 && previousVelocity != null) {
