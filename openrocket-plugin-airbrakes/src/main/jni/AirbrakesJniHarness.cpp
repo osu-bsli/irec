@@ -23,6 +23,8 @@ static AB_Settings settings = AB_Default_Settings();
 static void *g_fw_handle = nullptr;
 static void (*g_fw_create)(int) = nullptr;
 static void (*g_fw_set_target)(float) = nullptr;
+static void (*g_fw_set_mass)(float) = nullptr;
+static void (*g_fw_set_drag_scale)(float) = nullptr;
 static uint8_t (*g_fw_feed)(const uint8_t *, size_t) = nullptr;
 static void (*g_fw_destroy)(void) = nullptr;
 
@@ -37,11 +39,14 @@ JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlCreate
         return;
     }
 
-    g_fw_create     = (void (*)(int)) dlsym(g_fw_handle, "fw_create");
-    g_fw_set_target = (void (*)(float)) dlsym(g_fw_handle, "fw_set_target_apogee");
-    g_fw_feed       = (uint8_t (*)(const uint8_t *, size_t)) dlsym(g_fw_handle, "fw_feed_packet");
-    g_fw_destroy    = (void (*)(void)) dlsym(g_fw_handle, "fw_destroy");
-    if (g_fw_create == nullptr || g_fw_set_target == nullptr || g_fw_feed == nullptr || g_fw_destroy == nullptr) {
+    g_fw_create       = (void (*)(int)) dlsym(g_fw_handle, "fw_create");
+    g_fw_set_target   = (void (*)(float)) dlsym(g_fw_handle, "fw_set_target_apogee");
+    g_fw_set_mass     = (void (*)(float)) dlsym(g_fw_handle, "fw_set_mass");
+    g_fw_set_drag_scale = (void (*)(float)) dlsym(g_fw_handle, "fw_set_drag_scale");
+    g_fw_feed         = (uint8_t (*)(const uint8_t *, size_t)) dlsym(g_fw_handle, "fw_feed_packet");
+    g_fw_destroy      = (void (*)(void)) dlsym(g_fw_handle, "fw_destroy");
+    if (g_fw_create == nullptr || g_fw_set_target == nullptr || g_fw_set_mass == nullptr ||
+        g_fw_set_drag_scale == nullptr || g_fw_feed == nullptr || g_fw_destroy == nullptr) {
         fprintf(stderr, "[SITL] dlsym failed: %s\n", dlerror());
         return;
     }
@@ -52,6 +57,16 @@ JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlCreate
 JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetTargetApogee
   (JNIEnv *env, jclass c, jfloat meters) {
     if (g_fw_set_target != nullptr) g_fw_set_target((float) meters);
+}
+
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetMass
+  (JNIEnv *env, jclass c, jfloat kg) {
+    if (g_fw_set_mass != nullptr) g_fw_set_mass((float) kg);
+}
+
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetDragScale
+  (JNIEnv *env, jclass c, jfloat scale) {
+    if (g_fw_set_drag_scale != nullptr) g_fw_set_drag_scale((float) scale);
 }
 
 JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_GetTargetApogee

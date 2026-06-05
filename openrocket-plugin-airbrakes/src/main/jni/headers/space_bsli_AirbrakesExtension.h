@@ -81,6 +81,22 @@ JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_GetTargetApogee
 
 /*
  * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlSetMass
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetMass
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlSetDragScale
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetDragScale
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
  * Method:    SitlFeedPacket
  * Signature: ([B)I
  */

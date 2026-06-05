@@ -23,6 +23,8 @@ extern "C" void vAssertCalled(const char *const pcFileName, unsigned long ulLine
 /* Firmware entry points (flight-software-pico/src/main.cpp), C++ linkage. */
 extern QueueHandle_t get_radio_command_rx_queue_handle();
 extern void set_target_apogee_m(float meters);
+extern void set_rocket_mass_kg(float kg);
+extern void set_drag_scale(float scale);
 void setup();
 void loop();
 
@@ -100,6 +102,16 @@ extern "C" void fw_create(int instance_id)
 extern "C" void fw_set_target_apogee(float meters)
 {
     set_target_apogee_m(meters);
+}
+
+extern "C" void fw_set_mass(float kg)
+{
+    set_rocket_mass_kg(kg);
+}
+
+extern "C" void fw_set_drag_scale(float scale)
+{
+    set_drag_scale(scale);
 }
 
 extern "C" uint8_t fw_feed_packet(const uint8_t *logpacket_v3, size_t len)

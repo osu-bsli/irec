@@ -126,6 +126,18 @@ void set_target_apogee_m(float meters)
   ab_settings.TargetApogee_m = meters;
 }
 
+/* SITL model-error injection: override the GNC's assumed rocket mass and the
+ * scale of its modeled airbrake drag (1.0 = nominal). */
+void set_rocket_mass_kg(float kg)
+{
+  ab_settings.Mass_kg = kg;
+}
+
+void set_drag_scale(float scale)
+{
+  ab_settings.DragScale = scale;
+}
+
 #define STATIC_QUEUE_INIT_HELPER(name) \
   name##_queue = xQueueCreateStatic(   \
       name##_queue_len,                \

@@ -33,6 +33,11 @@ void fw_create(int instance_id);
  * and before feeding frames. */
 void fw_set_target_apogee(float meters);
 
+/* SITL model-error injection: override the GNC's assumed rocket mass (kg) and
+ * the scale applied to its modeled airbrake drag (1.0 = nominal). */
+void fw_set_mass(float kg);
+void fw_set_drag_scale(float scale);
+
 /*
  * Feed one LogPacketV3 sensor frame and return the firmware's commanded
  * deployment percentage (0-100). Blocks until the firmware replies.

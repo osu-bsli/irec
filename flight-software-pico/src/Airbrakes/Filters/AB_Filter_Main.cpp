@@ -329,6 +329,7 @@ const AB_Settings AB_Default_Settings()
 	s.GroundTemp_C = 35.0f;
 	s.DeploymentRate_pctPerS = 100.0f / 1.28333333f;
 	s.TargetApogee_m = CONFIG_AIRBRAKES_TARGET_APOGEE_METERS;
+	s.DragScale = 1.0f;
 
 	return s;
 }

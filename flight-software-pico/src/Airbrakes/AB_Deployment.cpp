@@ -17,7 +17,7 @@ static inline float clamp_speed(float v)
 float AB_drag_force(float deployment_pct, float vTotal_mps, float altitude_m, const AB_Settings& settings)
 {
     float rho = rho_kg_per_m3(altitude_m);
-    return 0.5f * rho * drag_coeff(deployment_pct, vTotal_mps, altitude_m, settings.GroundTemp_C) * surfaceA(deployment_pct) * (vTotal_mps * vTotal_mps);
+    return settings.DragScale * 0.5f * rho * drag_coeff(deployment_pct, vTotal_mps, altitude_m, settings.GroundTemp_C) * surfaceA(deployment_pct) * (vTotal_mps * vTotal_mps);
 }
 
 float AB_drag_accel(float deployment_pct, float vTotal_mps, float altitude_m, const AB_Settings& settings)
@@ -138,13 +138,22 @@ float __not_in_flash_func(PredictApogee)(const struct apogeeIC ic, const float t
 
 apogeeIC filter_to_apogee_ic(const AB_Filter &filter)
 {
-    const float velN = filter.HorizState.VelocityNorth_mps;
-    const float velE = filter.HorizState.VelocityEast_mps;
-    const float velHoriz_mps = sqrtf(velN * velN + velE * velE);
+    /* Zenith angle from the attitude estimate (nose direction in ENU), not the
+     * horizontal-velocity filter. The attitude is gyro+accel driven (GPS
+     * attitude updates are gated off for NMEA), so the apogee prediction stays
+     * robust to GPS position/velocity noise that corrupts the horizontal filter.
+     * Assumes velocity is along the body axis (small angle of attack during
+     * coast), the same assumption Estimate_Horizontal_Velocity makes. */
+    const auto &q = filter.AttState.Quaternion_Body_To_ENU;
+    const float nose_north = 2.0f * (q.x() * q.z() + q.w() * q.y());
+    const float nose_east  = 2.0f * (q.y() * q.z() - q.w() * q.x());
+    const float nose_up    = 1.0f - 2.0f * (q.x() * q.x() + q.y() * q.y());
+    const float nose_horiz = sqrtf(nose_north * nose_north + nose_east * nose_east);
+
     return {
         .altitude_m             = filter.VertState.Altitude_m,
         .velocityZ_mps          = filter.VertState.VelocityUp_mps,
-        .thetaZ_rad             = atan2f(velHoriz_mps, filter.VertState.VelocityUp_mps),
+        .thetaZ_rad             = atan2f(nose_horiz, nose_up),
         .airbrakeDeployment_pct = 0.0f,
     };
 }

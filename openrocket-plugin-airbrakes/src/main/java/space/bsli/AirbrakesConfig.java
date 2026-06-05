@@ -23,10 +23,10 @@ public class AirbrakesConfig
      * GPS update paths. When disabled, GPS fields are sent as NaN ("no fix")
      * and the FC ignores them. */
     public static final boolean FAKE_GPS_IN_HITL = true;
-    /* Realistic receivers update at a few Hz, not at the 100 Hz sensor rate.
-     * Between updates the previous fix is re-sent unchanged, which the FC's
+    /* GPS fix rate. Basic receivers report at 1 Hz, far below the 100 Hz sensor
+     * rate. Between updates the previous fix is re-sent unchanged, which the FC's
      * change-detection treats as "no new GPS" (matching real behaviour). */
-    public static final float GPS_UPDATE_INTERVAL_S = 0.1f; // 10 Hz
+    public static final float GPS_UPDATE_INTERVAL_S = 1.0f; // 1 Hz
     /* Below this ground speed, no course is reported (sentinel), like a real
      * GPS that cannot determine heading while stationary. */
     public static final float GPS_MIN_SPEED_FOR_COURSE_MPS = 0.5f;

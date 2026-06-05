@@ -4,6 +4,11 @@ project(flight-software-pc)
 set(FS ${CMAKE_SOURCE_DIR}/../flight-software-pico/)
 set(GS ${CMAKE_SOURCE_DIR}/../ground-computer-pico/)
 
+# The airbrakes GNC relies on zero-initialized Eigen matrices (the OpenRocket
+# plugin and tuning-GUI builds both define this). Without it the filter
+# covariances start as garbage, which can produce NaNs. Apply to all targets.
+add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_ZERO)
+
 add_library(shared INTERFACE)
 
 target_sources(shared INTERFACE
