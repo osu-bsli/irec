@@ -441,17 +441,29 @@ static void runtime_task(void *pvParameters)
   /* Sample and average the altitude at flight computer startup and call it the ground altitude */
   constexpr int pressure_samples_for_ground_pressure = 20;
   float altitude_accumulator = 0;
+  int valid_pressure_samples = 0;
   uint32_t last_time_boot_ms = 0;
   for (int i = 0; i < pressure_samples_for_ground_pressure; i++)
   {
     log_packet_latest log_p = get_blank_log_packet();
     acquire_sensor_data(&log_p);
-    altitude_accumulator += get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100);
+    /* A failed/degraded barometer leaves pressure as NAN. Accumulating that would
+       poison pad_altitude_m with NAN, which then poisons Barometer_m for the entire
+       flight. Only average samples that produced a finite pressure reading. */
+    if (isfinite(log_p.ms5607_pressure_mbar))
+    {
+      altitude_accumulator += get_altitude_from_pressure_pa(log_p.ms5607_pressure_mbar * 100);
+      valid_pressure_samples++;
+    }
     last_time_boot_ms = log_p.time_boot_ms;
     vTaskDelay(RUNTIME_INTERVAL_MS);
   }
 
-  const float pad_altitude_m = altitude_accumulator / pressure_samples_for_ground_pressure;
+  /* Fall back to 0 m (treat first baro reading as the reference) if no valid pad
+     sample was obtained, rather than dividing by zero / propagating NAN. */
+  const float pad_altitude_m = (valid_pressure_samples > 0)
+                                   ? (altitude_accumulator / valid_pressure_samples)
+                                   : 0.0f;
 
   AB_Filter filter;
   AB_Filter_Initialize(filter);
@@ -504,7 +516,18 @@ static void runtime_task(void *pvParameters)
 
     /* We cannot use a fixed delta time in this code because OpenRocket
        refuses to give us fixed-size time steps for HITL testing.  */
-    inputs.dt = delta_time_ms / 1000.0;
+    /* Guard the EKF timestep: a duplicate timestamp (dt == 0) or a non-monotonic
+       / wrapped timestamp (huge unsigned delta) would otherwise destabilize the
+       filter. Fall back to the nominal interval on a zero delta and clamp the
+       upper bound to a physically sane step. */
+    if (delta_time_ms == 0 || delta_time_ms > 1000)
+    {
+      inputs.dt = RUNTIME_INTERVAL_MS / 1000.0;
+    }
+    else
+    {
+      inputs.dt = delta_time_ms / 1000.0;
+    }
     inputs.IgnoreBaro = false;
 
     AB_Filter_Process(filter, inputs, ab_settings);
@@ -1011,7 +1034,12 @@ void pre_operational_mode_loop()
       }
       else if (p.command_byte == RADIO_COMMAND_SET_LORA_BANDWIDTH)
       {
-        LoRa.setSignalBandwidth(p.command_arg);
+        /* Reject bandwidths below the usable minimum: shrinking the bandwidth too
+           far degrades the link and could leave no way to command it back. */
+        if (p.command_arg >= CONFIG_LORA_FREQUENCY_BANDWIDTH_HZ_MIN)
+        {
+          LoRa.setSignalBandwidth(p.command_arg);
+        }
       }
 
       tone(PIN_BUZZER, 261, 70);
@@ -1019,7 +1047,8 @@ void pre_operational_mode_loop()
       tone(PIN_BUZZER, 261, 70);
     }
 
-    tone(PIN_BUZZER, 1000, 10);
+    /* Heartbeat blip */
+    // tone(PIN_BUZZER, 1000, 10);
 
     log_packet_latest log_p = get_blank_log_packet();
     log_p.status_flags = get_status_flags();

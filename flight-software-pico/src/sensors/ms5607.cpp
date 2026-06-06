@@ -229,7 +229,7 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
         const FSError prom_read_status = i2c_write_no_reg(I2C_ADDRESS, &command, 1);
         if (prom_read_status != SUCCESS)
         {
-            device->is_in_degraded_state;
+            device->is_in_degraded_state = true;
             return MS5607_PROM_READ_COMMAND_FAILURE;
         }
 
@@ -237,7 +237,7 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
         const FSError data_read_status = i2c_read_no_reg(I2C_ADDRESS, data, 2);
         if (data_read_status != SUCCESS)
         {
-            device->is_in_degraded_state;
+            device->is_in_degraded_state = true;
             return MS5607_PROM_READ_DATA_FAILURE;
         }
 
@@ -256,7 +256,7 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
     const FSError start_temp_status = start_temperature_conversion();
     if (start_temp_status != SUCCESS)
     {
-        device->is_in_degraded_state;
+        device->is_in_degraded_state = true;
         return START_TEMPERATURE_CONVERSION_FAILURE;
     }
 
@@ -265,14 +265,14 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
     const FSError read_temp_status = read_temperature_data(device);
     if (read_temp_status != SUCCESS)
     {
-        device->is_in_degraded_state;
+        device->is_in_degraded_state = true;
         return READ_TEMPERATURE_DATA_FAILURE;
     }
 
     const FSError start_press_status = start_pressure_conversion();
     if (start_press_status != SUCCESS)
     {
-        device->is_in_degraded_state;
+        device->is_in_degraded_state = true;
         return START_PRESSURE_CONVERSION_FAILURE;
     }
 
@@ -281,7 +281,7 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
     const FSError read_press_status = read_pressure_data(device);
     if (read_press_status != SUCCESS)
     {
-        device->is_in_degraded_state;
+        device->is_in_degraded_state = true;
         return READ_PRESSURE_DATA_FAILURE;
     }
 
@@ -291,7 +291,7 @@ FSError fc_ms5607_initialize(struct fc_ms5607 *device)
     const FSError start_temp_status2 = start_temperature_conversion();
     if (start_temp_status2 != SUCCESS)
     {
-        device->is_in_degraded_state;
+        device->is_in_degraded_state = true;
         return START_TEMPERATURE_CONVERSION_FAILURE;
     }
     device->conversion_started_ms = xTaskGetTickCount();
