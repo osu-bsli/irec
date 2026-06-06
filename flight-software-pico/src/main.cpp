@@ -1019,33 +1019,28 @@ void pre_operational_mode_loop()
       tone(PIN_BUZZER, 261, 70);
     }
 
-    if (time >= heartbeat_timer)
-    {
-      heartbeat_timer += HEARTBEAT_INTERVAL_MS;
+    tone(PIN_BUZZER, 1000, 10);
 
-      tone(PIN_BUZZER, 1000, 10);
+    log_packet_latest log_p = get_blank_log_packet();
+    log_p.status_flags = get_status_flags();
+    log_p.time_boot_ms = xTaskGetTickCount();
 
-      log_packet_latest log_p = get_blank_log_packet();
-      log_p.status_flags = get_status_flags();
-      log_p.time_boot_ms = xTaskGetTickCount();
+    // Acquire step
+    FSError sensor_acquire_status = acquire_sensor_data(&log_p);
+    FSError gps_acquire_status = acquire_gps_data(&log_p);
 
-      // Acquire step
-      FSError sensor_acquire_status = acquire_sensor_data(&log_p);
-      FSError gps_acquire_status = acquire_gps_data(&log_p);
+    telemetry_packet telemetry_p = fill_out_and_read_things_for_telemetry_packet(log_p, 0);
+    telemetry_p.is_in_operational_mode = 0;
+    telemetry_packet_make_header(&telemetry_p);
 
-      telemetry_packet telemetry_p = fill_out_and_read_things_for_telemetry_packet(log_p, 0);
-      telemetry_p.is_in_operational_mode = 0;
-      telemetry_packet_make_header(&telemetry_p);
+    LoRa.beginPacket();
+    LoRa.write((uint8_t *)&telemetry_p, sizeof(telemetry_p));
+    LoRa.endPacket(false);
+    LoRa.receive();
 
-      LoRa.beginPacket();
-      LoRa.write((uint8_t *)&telemetry_p, sizeof(telemetry_p));
-      LoRa.endPacket(false);
-      LoRa.receive();
+    Serial.println("Pre-operational mode heartbeat");
 
-      Serial.println("Pre-operational mode heartbeat");
-    }
-
-    delay(100);
+    delay(1000);
   }
 
   tone(PIN_BUZZER, 261, 100);

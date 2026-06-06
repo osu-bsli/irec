@@ -147,6 +147,23 @@ static void send_command(uint8_t command_byte, uint32_t command_arg)
     p.command_arg = command_arg;
     p.crc16 = crc_modbus((const unsigned char *)&p, sizeof(command_packet));
 
+    /*
+     * Wait for packet to be received - this indicates that the flight computer
+     * has just finished transmitting a telemetry packet and that the channel
+     * is now clear to send a command.
+     */
+    Serial.printf("Waiting for channel to be clear..." CRLF);
+    packet_recvd_isr_flag = false;
+    TickType_t start_time = xTaskGetTickCount();
+    while (!packet_recvd_isr_flag)
+    {
+        if (xTaskGetTickCount() - start_time > 5000)
+        {
+            Serial.printf("Timed out, sending command anyway." CRLF);
+            break;
+        }
+    }
+
     /* endPacket() is blocking — radio is done transmitting before we restore RX */
     LoRa.beginPacket();
     LoRa.write((uint8_t *)&p, sizeof(command_packet));
@@ -256,10 +273,7 @@ static void prompt_switch_to_operational()
     else if (strcmp(buf, SWITCH_CONFIRMATION) == 0)
     {
         Serial.print("Confirmation accepted. Sending command..." CRLF);
-        for (int i = 0; i < 10; i++)
-        {
-            send_command(RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE);
-        }
+        send_command(RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE);
         Serial.print("SWITCH_TO_OPERATIONAL_MODE sent." CRLF);
     }
     else
@@ -340,8 +354,7 @@ static void prompt_set_lora_frequency()
     if (freq_hz > CONFIG_LORA_FREQUENCY_HZ_MIN && freq_hz < CONFIG_LORA_FREQUENCY_HZ_MAX)
     {
         Serial.printf("Confirmed. Sending command (%lu Hz)..." CRLF, (unsigned long)freq_hz);
-        for (int i = 0; i < 10; i++)
-            send_command(RADIO_COMMAND_SET_LORA_FREQUENCY, freq_hz);
+        send_command(RADIO_COMMAND_SET_LORA_FREQUENCY, freq_hz);
 
         /* Retune ourselves to match the rocket so we keep receiving telemetry. */
         LoRa.setFrequency(freq_hz);
@@ -362,15 +375,22 @@ static void prompt_set_lora_bandwidth()
     if (!prompt_lora_value("SET LoRa BANDWIDTH", "125000 for 125 kHz", &bw_hz))
         return;
 
-    Serial.printf("Confirmed. Sending command (%lu Hz)..." CRLF, (unsigned long)bw_hz);
-    for (int i = 0; i < 10; i++)
+    if (bw_hz >= CONFIG_LORA_FREQUENCY_BANDWIDTH_HZ_MIN)
+    {
+        Serial.printf("Confirmed. Sending command (%lu Hz)..." CRLF, (unsigned long)bw_hz);
         send_command(RADIO_COMMAND_SET_LORA_BANDWIDTH, bw_hz);
 
-    /* Retune ourselves to match the rocket so we keep receiving telemetry. */
-    LoRa.setSignalBandwidth(bw_hz);
-    LoRa.receive();
-    Serial.printf("SET_LORA_BANDWIDTH sent. Ground computer now at %lu Hz." CRLF,
-                  (unsigned long)bw_hz);
+        /* Retune ourselves to match the rocket so we keep receiving telemetry. */
+        LoRa.setSignalBandwidth(bw_hz);
+        LoRa.receive();
+        Serial.printf("SET_LORA_BANDWIDTH sent. Ground computer now at %lu Hz." CRLF,
+                      (unsigned long)bw_hz);
+    }
+    else
+    {
+        Serial.printf("Entered bandwidth is out of range. Valid bandwidths are greater than or equal to %d Hz, as set in config.h. Command not sent." CRLF,
+                CONFIG_LORA_FREQUENCY_BANDWIDTH_HZ_MIN);
+    }
 }
 
 // ---------------------------------------------------------------------------
