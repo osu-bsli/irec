@@ -1048,7 +1048,7 @@ void pre_operational_mode_loop()
     }
 
     /* Heartbeat blip */
-    // tone(PIN_BUZZER, 1000, 10);
+    tone(PIN_BUZZER, 1000, 10);
 
     log_packet_latest log_p = get_blank_log_packet();
     log_p.status_flags = get_status_flags();
