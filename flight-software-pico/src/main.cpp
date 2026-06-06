@@ -1004,12 +1004,19 @@ void pre_operational_mode_loop()
       }
       else if (p.command_byte == RADIO_COMMAND_SET_LORA_FREQUENCY)
       {
-        LoRa.setFrequency(p.command_arg);
+        if (p.command_arg > CONFIG_LORA_FREQUENCY_HZ_MIN && p.command_arg < CONFIG_LORA_FREQUENCY_HZ_MAX)
+        {
+          LoRa.setFrequency(p.command_arg);
+        }
       }
       else if (p.command_byte == RADIO_COMMAND_SET_LORA_BANDWIDTH)
       {
         LoRa.setSignalBandwidth(p.command_arg);
       }
+
+      tone(PIN_BUZZER, 261, 70);
+      delay(100);
+      tone(PIN_BUZZER, 261, 70);
     }
 
     if (time >= heartbeat_timer)

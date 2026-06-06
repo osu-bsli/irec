@@ -98,6 +98,7 @@ public:
   void setSPIFrequency(uint32_t frequency);
 
   void dumpRegisters(Stream& out);
+  long getSignalBandwidth();
 
 private:
   void explicitHeaderMode();
@@ -107,7 +108,6 @@ private:
   bool isTransmitting();
 
   int getSpreadingFactor();
-  long getSignalBandwidth();
 
   void setLdoFlag();
   void setLdoFlagForced(const boolean);

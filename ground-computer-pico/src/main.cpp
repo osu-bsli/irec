@@ -23,7 +23,7 @@ static void print_formatted_telemetry_to_serial(const telemetry_packet &p);
 static void send_command(uint8_t command_byte, uint32_t command_arg = 0);
 
 #define CRLF "\r\n"
-#define SEP  "================================================================================" CRLF
+#define SEP "================================================================================" CRLF
 
 // ---------------------------------------------------------------------------
 // LoRa
@@ -57,7 +57,8 @@ static void lora_receive_packet_isr_callback(int packet_size)
     for (int i = 0; i < (int)sizeof(telemetry_packet); i++)
     {
         int b = LoRa.read();
-        if (b == -1) return;
+        if (b == -1)
+            return;
         buf[i] = b;
     }
 
@@ -117,7 +118,7 @@ static void print_formatted_telemetry_to_serial(const telemetry_packet &p)
         (unsigned long)p.time_boot_ms,
         p.ms5607_pressure_mbar,
         p.ms5607_temperature_c,
-        p.bmi323_accel_magnitude_milliG,  p.bmi323_accel_magnitude_cal_milliG,
+        p.bmi323_accel_magnitude_milliG, p.bmi323_accel_magnitude_cal_milliG,
         p.adxl375_accel_magnitude_milliG, p.adxl375_accel_magnitude_cal_milliG,
         p.commanded_airbrake_deploy_pct,
         p.altitude_angle_mrad,
@@ -125,27 +126,26 @@ static void print_formatted_telemetry_to_serial(const telemetry_packet &p)
         p.battery_mV,
         p.is_in_operational_mode,
         (unsigned)p.status_flags,
-        p.runtime_task_iter_us,          p.runtime_task_iter_max_us,
-        p.deploy_task_iter_us,           p.deploy_task_iter_max_us,
+        p.runtime_task_iter_us, p.runtime_task_iter_max_us,
+        p.deploy_task_iter_us, p.deploy_task_iter_max_us,
         p.servo_overcurrent_task_iter_us, p.servo_overcurrent_task_iter_max_us,
-        p.sdcard_write_task_iter_us,     p.sdcard_write_task_iter_max_us,
+        p.sdcard_write_task_iter_us, p.sdcard_write_task_iter_max_us,
         p.gps_lat_deg,
         p.gps_lng_deg,
         p.gps_alt_m,
-        p.gps_num_sats
-    );
+        p.gps_num_sats);
 }
 
 static void send_command(uint8_t command_byte, uint32_t command_arg)
 {
     command_packet p;
     memcpy(p.magic, COMMAND_PACKET_MAGIC, sizeof(p.magic));
-    p.size         = sizeof(command_packet);
-    p.crc16        = 0;
+    p.size = sizeof(command_packet);
+    p.crc16 = 0;
     memcpy(p.cmd, "CMD", sizeof(p.cmd));
     p.command_byte = command_byte;
-    p.command_arg  = command_arg;
-    p.crc16        = crc_modbus((const unsigned char *)&p, sizeof(command_packet));
+    p.command_arg = command_arg;
+    p.crc16 = crc_modbus((const unsigned char *)&p, sizeof(command_packet));
 
     /* endPacket() is blocking — radio is done transmitting before we restore RX */
     LoRa.beginPacket();
@@ -162,17 +162,14 @@ static void print_main_menu()
 {
     Serial.print(
         CRLF SEP
-        "  BSLI GROUND COMPUTER" CRLF
-        SEP
+        "  BSLI GROUND COMPUTER" CRLF SEP
         "  [M]  Monitor telemetry" CRLF
         "  [S]  Switch to operational mode" CRLF
         "  [D]  Deploy airbrakes" CRLF
         "  [A]  Stow airbrakes" CRLF
         "  [F]  Set LoRa frequency" CRLF
-        "  [B]  Set LoRa bandwidth" CRLF
-        SEP
-        "> "
-    );
+        "  [B]  Set LoRa bandwidth" CRLF SEP
+        "> ");
 }
 
 static void monitor_telemetry()
@@ -180,8 +177,7 @@ static void monitor_telemetry()
     Serial.print(
         CRLF SEP
         "  TELEMETRY MONITOR  (press any key to return to menu)" CRLF
-        SEP CRLF
-    );
+            SEP CRLF);
 
     while (!Serial.available())
     {
@@ -189,12 +185,14 @@ static void monitor_telemetry()
         if (try_recv_telemetry(&p))
         {
             Serial.print("---" CRLF);
-            Serial.printf("[LoRa RSSI]: %ld dBm" CRLF, LoRa.packetRssi());
-            Serial.printf("[LoRa freq]: %ld Hz" CRLF, LoRa.getFrequency());
+            Serial.printf("[LoRa RSSI]:      %ld dBm" CRLF, LoRa.packetRssi());
+            Serial.printf("[LoRa freq]:      %ld Hz" CRLF, LoRa.getFrequency());
+            Serial.printf("[LoRa bandwidth]: %ld Hz" CRLF, LoRa.getSignalBandwidth());
             print_formatted_telemetry_to_serial(p);
         }
     }
-    while (Serial.available()) Serial.read();
+    while (Serial.available())
+        Serial.read();
     Serial.print(CRLF "Returning to menu..." CRLF);
 }
 
@@ -206,7 +204,8 @@ static void read_line(char *buf, int buf_size)
     memset(buf, 0, buf_size);
     while (true)
     {
-        if (!Serial.available()) continue;
+        if (!Serial.available())
+            continue;
         int c = Serial.read();
         if (c == '\r' || c == '\n')
         {
@@ -225,7 +224,7 @@ static void read_line(char *buf, int buf_size)
         else if (c >= 32 && i < buf_size - 1)
         {
             buf[i++] = (char)c;
-            buf[i]   = '\0';
+            buf[i] = '\0';
             Serial.write((uint8_t)c);
         }
     }
@@ -239,17 +238,13 @@ static void prompt_switch_to_operational()
 {
     Serial.print(
         CRLF SEP
-        "  !!! SWITCH TO OPERATIONAL MODE !!!" CRLF
-        SEP
+        "  !!! SWITCH TO OPERATIONAL MODE !!!" CRLF SEP
         "  This action is IRREVERSIBLE without a physical reboot." CRLF
-        "  The flight computer will arm and begin active airbrake control." CRLF
-        CRLF
-        "  Type the following EXACTLY then press Enter. Empty line cancels." CRLF
-        CRLF
+        "  The flight computer will arm and begin active airbrake control." CRLF CRLF
+        "  Type the following EXACTLY then press Enter. Empty line cancels." CRLF CRLF
         "    \"Switch to operational mode. I understand this is irreversible without a reboot!\"" CRLF
-        CRLF SEP
-        "> "
-    );
+            CRLF SEP
+        "> ");
 
     char buf[128];
     read_line(buf, sizeof(buf));
@@ -261,7 +256,7 @@ static void prompt_switch_to_operational()
     else if (strcmp(buf, SWITCH_CONFIRMATION) == 0)
     {
         Serial.print("Confirmation accepted. Sending command..." CRLF);
-        for (int i = 0; i < 10; i++ ) 
+        for (int i = 0; i < 10; i++)
         {
             send_command(RADIO_COMMAND_SWITCH_TO_OPERATIONAL_MODE);
         }
@@ -282,7 +277,8 @@ static void prompt_airbrake_command(const char *title, uint8_t cmd)
     Serial.printf("  Send the %s command to the rocket?" CRLF, title);
     Serial.print(CRLF "  Press Y to confirm, any other key to cancel." CRLF CRLF "> ");
 
-    while (!Serial.available());
+    while (!Serial.available())
+        ;
     int c = Serial.read();
     Serial.print(CRLF CRLF);
 
@@ -311,9 +307,8 @@ static bool prompt_lora_value(const char *title, const char *example, uint32_t *
         CRLF
         "  NOTE: the ground computer is also retuned to match so the link is" CRLF
         "  preserved. If the rocket misses this command the link will desync." CRLF
-        CRLF SEP
-        "> "
-    );
+            CRLF SEP
+        "> ");
 
     char buf[32];
     read_line(buf, sizeof(buf));
@@ -342,15 +337,23 @@ static void prompt_set_lora_frequency()
     if (!prompt_lora_value("SET LoRa FREQUENCY", "905000000 for 905 MHz", &freq_hz))
         return;
 
-    Serial.printf("Confirmed. Sending command (%lu Hz)..." CRLF, (unsigned long)freq_hz);
-    for (int i = 0; i < 10; i++)
-        send_command(RADIO_COMMAND_SET_LORA_FREQUENCY, freq_hz);
+    if (freq_hz > CONFIG_LORA_FREQUENCY_HZ_MIN && freq_hz < CONFIG_LORA_FREQUENCY_HZ_MAX)
+    {
+        Serial.printf("Confirmed. Sending command (%lu Hz)..." CRLF, (unsigned long)freq_hz);
+        for (int i = 0; i < 10; i++)
+            send_command(RADIO_COMMAND_SET_LORA_FREQUENCY, freq_hz);
 
-    /* Retune ourselves to match the rocket so we keep receiving telemetry. */
-    LoRa.setFrequency(freq_hz);
-    LoRa.receive();
-    Serial.printf("SET_LORA_FREQUENCY sent. Ground computer now on %d Hz." CRLF,
-                  LoRa.getFrequency());
+        /* Retune ourselves to match the rocket so we keep receiving telemetry. */
+        LoRa.setFrequency(freq_hz);
+        LoRa.receive();
+        Serial.printf("SET_LORA_FREQUENCY sent. Ground computer now on %d Hz." CRLF,
+                      LoRa.getFrequency());
+    }
+    else
+    {
+        Serial.printf("Entered frequency is out of range. Valid frequencies are between %d and %d Hz, as set in config.h. Command not sent." CRLF,
+                      CONFIG_LORA_FREQUENCY_HZ_MIN, CONFIG_LORA_FREQUENCY_HZ_MAX);
+    }
 }
 
 static void prompt_set_lora_bandwidth()
@@ -390,17 +393,37 @@ void loop()
 {
     print_main_menu();
 
-    while (!Serial.available());
+    while (!Serial.available())
+        ;
     char c = Serial.read();
 
     switch (c)
     {
-        case 'm': case 'M': monitor_telemetry();                                                          break;
-        case 's': case 'S': prompt_switch_to_operational();                                               break;
-        case 'd': case 'D': prompt_airbrake_command("DEPLOY AIRBRAKES", RADIO_COMMAND_DEPLOY_AIRBRAKES);  break;
-        case 'a': case 'A': prompt_airbrake_command("STOW AIRBRAKES",   RADIO_COMMAND_STOW_AIRBRAKES);    break;
-        case 'f': case 'F': prompt_set_lora_frequency();                                                  break;
-        case 'b': case 'B': prompt_set_lora_bandwidth();                                                  break;
-        default: break;
+    case 'm':
+    case 'M':
+        monitor_telemetry();
+        break;
+    case 's':
+    case 'S':
+        prompt_switch_to_operational();
+        break;
+    case 'd':
+    case 'D':
+        prompt_airbrake_command("DEPLOY AIRBRAKES", RADIO_COMMAND_DEPLOY_AIRBRAKES);
+        break;
+    case 'a':
+    case 'A':
+        prompt_airbrake_command("STOW AIRBRAKES", RADIO_COMMAND_STOW_AIRBRAKES);
+        break;
+    case 'f':
+    case 'F':
+        prompt_set_lora_frequency();
+        break;
+    case 'b':
+    case 'B':
+        prompt_set_lora_bandwidth();
+        break;
+    default:
+        break;
     }
 }
