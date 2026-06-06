@@ -1,3 +1,6 @@
+#include <cstdlib>
+#include <cstring>
+
 #include <Arduino.h>
 
 #include <SPI.h>
@@ -373,9 +376,12 @@ void setup()
 {
     Serial.begin();
 
+    // No need to delay to allow for Serial connection if on PC
+#ifndef __unix__
     tone(PIN_BUZZER, 523, 100);
     delay(3000);
     tone(PIN_BUZZER, 523, 100);
+#endif
 
     lora_setup();
 }

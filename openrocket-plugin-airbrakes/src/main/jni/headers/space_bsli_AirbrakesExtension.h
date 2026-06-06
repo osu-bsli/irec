@@ -55,6 +55,62 @@ JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_RunControllerAndGetD
 JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_RunControllerRawAndGetDeploymentPct
   (JNIEnv *, jclass, jfloat, jfloat, jfloat, jfloat);
 
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlCreate
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlCreate
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlSetTargetApogee
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetTargetApogee
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    GetTargetApogee
+ * Signature: ()F
+ */
+JNIEXPORT jfloat JNICALL Java_space_bsli_AirbrakesExtension_GetTargetApogee
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlSetMass
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetMass
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlSetDragScale
+ * Signature: (F)V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlSetDragScale
+  (JNIEnv *, jclass, jfloat);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlFeedPacket
+ * Signature: ([B)I
+ */
+JNIEXPORT jint JNICALL Java_space_bsli_AirbrakesExtension_SitlFeedPacket
+  (JNIEnv *, jclass, jbyteArray);
+
+/*
+ * Class:     space_bsli_AirbrakesExtension
+ * Method:    SitlDestroy
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_space_bsli_AirbrakesExtension_SitlDestroy
+  (JNIEnv *, jclass);
+
 #ifdef __cplusplus
 }
 #endif

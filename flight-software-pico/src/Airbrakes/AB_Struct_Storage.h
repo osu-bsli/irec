@@ -105,4 +105,5 @@ struct AB_Settings
     float GroundTemp_C;
     float DeploymentRate_pctPerS;
     float TargetApogee_m;
+    float DragScale; // multiplies modeled airbrake drag (1.0 = nominal); for SITL model-error testing
 };

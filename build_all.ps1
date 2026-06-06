@@ -1,7 +1,7 @@
 Set-Location $PSScriptRoot\flight-software-pico
 pio run 
 
-Set-Location $PSScriptRoot\flight-software-pico\pc-testing
+Set-Location $PSScriptRoot\airbrakes-gnc-tuning-gui
 cmake --preset=default
 cmake --build build
 

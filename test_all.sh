@@ -11,12 +11,12 @@ cd ground-computer-pico
 uvx --system-certs platformio run
 cd ..
 
-cd flight-software-pico/pc-testing
+cd airbrakes-gnc-tuning-gui
 cmake -GNinja -Bbuild
 cmake --build build
-cd ../..
+cd ..
 
 cd openrocket-plugin-airbrakes
-./gradlew_with_asan.sh test
+./gradlew_with_asan.sh test --rerun
 cd ..
 
