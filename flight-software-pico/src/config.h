@@ -12,6 +12,19 @@
 
 #define CONFIG_I2C_SENSOR_FREQUENCY 200000
 
+/* Landing detection: the rocket is considered landed once it is post-apogee,
+ * below CONFIG_LANDED_MAX_ALTITUDE_M (relative to the pad), and its vertical
+ * speed stays below CONFIG_LANDED_MAX_VERTICAL_SPEED_MPS for
+ * CONFIG_LANDED_CONFIRM_MS straight. */
+#define CONFIG_LANDED_MAX_ALTITUDE_M 50.0f
+#define CONFIG_LANDED_MAX_VERTICAL_SPEED_MPS 2.0f
+#define CONFIG_LANDED_CONFIRM_MS 5000
+
+/* Flush the SD card log periodically so an abrupt power loss costs at most
+ * this much data, and save + shut off the SD card this long after landing. */
+#define CONFIG_SD_FLUSH_INTERVAL_MS 1000
+#define CONFIG_SD_SHUTOFF_AFTER_LANDING_MS 60000
+
 /* All CONFIG_TEST_<> options direct the software to enter a testing mode upon startup. */
 /* When a CONFIG_TEST_<> option is enabled, the normal functionality of the flight software DOES NOT RUN. */
 

@@ -37,6 +37,7 @@ class LoRaClass
 {
 private:
     uint32_t _frf = 0;
+    long _sbw = 125000; // SX127x default bandwidth (125 kHz)
     int _isClientOrServer = STUB_LORA_SOCKET_IS_SERVER;
 
     /* Unix socket for connection simulation */
@@ -150,7 +151,8 @@ public:
     {
         _frf = ((uint64_t)frequency << 19) / 32000000;
     }
-    void setSignalBandwidth(long sbw) {}
+    void setSignalBandwidth(long sbw) { _sbw = sbw; }
+    long getSignalBandwidth() { return _sbw; }
 
     int packetRssi()
     {

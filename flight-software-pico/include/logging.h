@@ -1,3 +1,11 @@
 #pragma once
 
-void logging_setup();
+#include "error.h"
+
+namespace fs
+{
+    class File;
+}
+
+FSError sdcard_init(fs::File *fileOut);
+void sdcard_deinit();

@@ -132,7 +132,7 @@ FSError sdcard_init(fs::File *fileOut)
     return SUCCESS;
 }
 
-static void sdcard_deinit()
+void sdcard_deinit()
 {
     SD.end();
 }

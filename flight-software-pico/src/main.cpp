@@ -63,8 +63,15 @@ const static TickType_t DEPLOY_INTERVAL_MS = 100;                         // 10 
 const static TickType_t TELEMETRY_INTERVAL_MS = 1000;                     // 1 Hz
 // const static TickType_t error_interval_ms = 100; // 10 Hz
 
-FSError sdcard_init(fs::File *fileOut);
 bool sdcard_is_in_degraded_state = false;
+
+/* Landing detection state. Written only by runtime_task (via detect_landing),
+ * read by sdcard_write_task to schedule the post-landing SD card shutoff.
+ * g_rocket_landed_tick is in the FreeRTOS tick domain (xTaskGetTickCount), not
+ * the log-packet time domain, so sdcard_write_task can compare it against its
+ * own tick count even when HITL injects foreign timestamps into log packets. */
+static volatile bool g_rocket_landed = false;
+static volatile TickType_t g_rocket_landed_tick = 0;
 
 // GPS reference point, locked by gps_compute_enu() on the first valid fix.
 // All ENU position outputs are relative to this point. Works for both live
@@ -434,6 +441,47 @@ static telemetry_packet fill_out_and_read_things_for_telemetry_packet(log_packet
   return telemetry_p;
 }
 
+/* Detect that the rocket has come to rest on the ground after flight.
+ *
+ * Landed means: post-apogee flight stage, altitude back near the pad
+ * reference, and near-zero vertical speed sustained for
+ * CONFIG_LANDED_CONFIRM_MS. The confirm window is measured in the log-packet
+ * time domain (time_boot_ms) so it behaves identically under HITL, where
+ * acquire_sensor_data overwrites the packet timestamp.
+ *
+ * Latches g_rocket_landed once; never un-sets it. */
+static void detect_landing(const AB_Filter &filter, uint32_t time_boot_ms)
+{
+  if (g_rocket_landed)
+    return;
+
+  static bool condition_active = false;
+  static uint32_t condition_start_ms = 0;
+
+  const bool post_apogee = filter.flight_stage == AB_Filter_Flight_Stage_APOGEE;
+  const bool near_ground = filter.VertState.Altitude_m < CONFIG_LANDED_MAX_ALTITUDE_M;
+  const bool still = fabsf(filter.VertState.VelocityUp_mps) < CONFIG_LANDED_MAX_VERTICAL_SPEED_MPS;
+
+  if (post_apogee && near_ground && still)
+  {
+    if (!condition_active)
+    {
+      condition_active = true;
+      condition_start_ms = time_boot_ms;
+    }
+    else if (time_boot_ms - condition_start_ms >= CONFIG_LANDED_CONFIRM_MS)
+    {
+      g_rocket_landed_tick = xTaskGetTickCount();
+      g_rocket_landed = true;
+      Serial.println("Landing detected");
+    }
+  }
+  else
+  {
+    condition_active = false;
+  }
+}
+
 static void runtime_task(void *pvParameters)
 {
   // vTaskPreemptionDisable(NULL);
@@ -531,6 +579,8 @@ static void runtime_task(void *pvParameters)
     inputs.IgnoreBaro = false;
 
     AB_Filter_Process(filter, inputs, ab_settings);
+
+    detect_landing(filter, log_p.time_boot_ms);
 
     xQueueSend(log_queue, &log_p, 0);
 
@@ -705,17 +755,49 @@ static void sdcard_write_task(void *pvParameters)
 
   TickType_t loop_iter_time_us = 0;
   TickType_t loop_iter_time_max_us = 0;
+  TickType_t last_flush_tick = xTaskGetTickCount();
+  bool sdcard_shut_off = false;
 
   while (true)
   {
     log_packet_latest log_p;
-    xQueueReceive(log_queue, &log_p, portMAX_DELAY);
+    /* Bounded wait (instead of portMAX_DELAY) so the periodic flush and the
+       post-landing shutoff below still run if log packets stop arriving. */
+    const BaseType_t received = xQueueReceive(log_queue, &log_p, pdMS_TO_TICKS(CONFIG_SD_FLUSH_INTERVAL_MS));
 
     instrumentation_reset();
 
-    if (log_status == SUCCESS)
+    const bool sd_writable = (log_status == SUCCESS) && !sdcard_shut_off;
+
+    if (received == pdTRUE && sd_writable)
     {
       log_file.write((uint8_t *)&log_p, sizeof(log_packet_latest));
+    }
+
+    const TickType_t now = xTaskGetTickCount();
+
+    /* Flush periodically so an abrupt power loss (hard landing, battery
+       disconnect) costs at most CONFIG_SD_FLUSH_INTERVAL_MS of data. */
+    if (sd_writable && now - last_flush_tick >= pdMS_TO_TICKS(CONFIG_SD_FLUSH_INTERVAL_MS))
+    {
+      log_file.flush();
+      last_flush_tick = now;
+    }
+
+    /* Save the flight log and shut off the SD card a while after landing, so
+       the filesystem is closed cleanly before recovery handling/power-off. */
+    if (!sdcard_shut_off && g_rocket_landed &&
+        now - g_rocket_landed_tick >= pdMS_TO_TICKS(CONFIG_SD_SHUTOFF_AFTER_LANDING_MS))
+    {
+      if (log_status == SUCCESS)
+      {
+        log_file.flush();
+        log_file.close();
+      }
+      SD.end();
+      sdcard_shut_off = true;
+      Serial.println("[SD] Flight log saved and SD card shut off after landing");
+      tone(PIN_BUZZER, 523, 500);
     }
 
     loop_iter_time_us = instrumentation_get_microseconds();
