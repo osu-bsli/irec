@@ -356,28 +356,29 @@ void PredictDeploymentAngle_print_params(const apogeeIC ic)
 
 static log_packet_latest get_blank_log_packet()
 {
+  const float DEF_INIT_VALUE = 0;
   log_packet_latest log_p = {
       .status_flags = 0,
       .time_boot_ms = 0,
-      .ms5607_pressure_mbar = NAN,
-      .ms5607_temperature_c = NAN,
-      .bmi323_accel_x_G = NAN, // LOW G
-      .bmi323_accel_y_G = NAN,
-      .bmi323_accel_z_G = NAN,
-      .bmi323_gyro_x_degps = NAN,
-      .bmi323_gyro_y_degps = NAN,
-      .bmi323_gyro_z_degps = NAN,
-      .adxl375_accel_x_G = NAN, // HIGH G
-      .adxl375_accel_y_G = NAN,
-      .adxl375_accel_z_G = NAN,
-      .bm1422_magn_x = NAN,
-      .bm1422_magn_y = NAN,
-      .bm1422_magn_z = NAN,
-      .gps_lat_deg = NAN,
-      .gps_lng_deg = NAN,
-      .gps_alt_m = NAN,
-      .gps_speed_mps = NAN,
-      .pt_volts = NAN,
+      .ms5607_pressure_mbar = DEF_INIT_VALUE,
+      .ms5607_temperature_c = DEF_INIT_VALUE,
+      .bmi323_accel_x_G = DEF_INIT_VALUE, // LOW G
+      .bmi323_accel_y_G = DEF_INIT_VALUE,
+      .bmi323_accel_z_G = DEF_INIT_VALUE,
+      .bmi323_gyro_x_degps = DEF_INIT_VALUE,
+      .bmi323_gyro_y_degps = DEF_INIT_VALUE,
+      .bmi323_gyro_z_degps = DEF_INIT_VALUE,
+      .adxl375_accel_x_G = DEF_INIT_VALUE, // HIGH G
+      .adxl375_accel_y_G = DEF_INIT_VALUE,
+      .adxl375_accel_z_G = DEF_INIT_VALUE,
+      .bm1422_magn_x = DEF_INIT_VALUE,
+      .bm1422_magn_y = DEF_INIT_VALUE,
+      .bm1422_magn_z = DEF_INIT_VALUE,
+      .gps_lat_deg = DEF_INIT_VALUE,
+      .gps_lng_deg = DEF_INIT_VALUE,
+      .gps_alt_m = DEF_INIT_VALUE,
+      .gps_speed_mps = DEF_INIT_VALUE,
+      .pt_volts = DEF_INIT_VALUE,
       .gps_course = -0x7FFFFFFF,
       .gps_num_sats = 0xFF,
   };
