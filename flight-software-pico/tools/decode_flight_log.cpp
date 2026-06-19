@@ -7,8 +7,8 @@
 
 static const char EXPECTED_MAGIC[9] = { 'C','O','R','E','Y','M','A','Y','3' };
 
-static const int crop_start_ms = 689 * 1000;
-static const int crop_end_ms = 711 * 1000;
+static const int crop_start_ms = 9496605 - 10000;
+// static const int crop_end_ms = 9512905;
 
 int main(int argc, char **argv)
 {
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     size_t nread;
     size_t packet_index = 0;
     
-    // FILE* fp_log_cropped = fopen("log_cropped.logv3", "w");
+    FILE* fp_log_cropped = fopen("log_cropped.logv3", "w");
 
     while ((nread = fread(&pkt, 1, sizeof(pkt), fp)) == sizeof(pkt)) {
         packet_index++;
@@ -62,6 +62,11 @@ int main(int argc, char **argv)
             continue;
         }
 
+        if (pkt.adxl375_accel_z_G > 10)
+        {
+            printf("takeoff time: %d\n", pkt.time_boot_ms);
+        }
+
         // Print CSV row
         // Note: printing 'magic' as a 9-character field, not null-terminated.
         printf("\"%.*s\",", (int)sizeof(pkt.magic), pkt.magic);
@@ -74,36 +79,36 @@ int main(int argc, char **argv)
         printf("%.6f,", pkt.ms5607_pressure_mbar);
         printf("%.6f,", pkt.ms5607_temperature_c);
 
-        printf("%.6f,", pkt.bmi323_accel_x);
-        printf("%.6f,", pkt.bmi323_accel_y);
-        printf("%.6f,", pkt.bmi323_accel_z);
+        printf("%.6f,", pkt.bmi323_accel_x_G);
+        printf("%.6f,", pkt.bmi323_accel_y_G);
+        printf("%.6f,", pkt.bmi323_accel_z_G);
 
-        printf("%.6f,", pkt.bmi323_gyro_x);
-        printf("%.6f,", pkt.bmi323_gyro_y);
-        printf("%.6f,", pkt.bmi323_gyro_z);
+        printf("%.6f,", pkt.bmi323_gyro_x_degps);
+        printf("%.6f,", pkt.bmi323_gyro_y_degps);
+        printf("%.6f,", pkt.bmi323_gyro_z_degps);
 
-        printf("%.6f,", pkt.adxl375_accel_x);
-        printf("%.6f,", pkt.adxl375_accel_y);
-        printf("%.6f,", pkt.adxl375_accel_z);
+        printf("%.6f,", pkt.adxl375_accel_x_G);
+        printf("%.6f,", pkt.adxl375_accel_y_G);
+        printf("%.6f,", pkt.adxl375_accel_z_G);
 
         printf("%.6f,", pkt.bm1422_magn_x);
         printf("%.6f,", pkt.bm1422_magn_y);
         printf("%.6f,", pkt.bm1422_magn_z);
 
-        printf("%.7f,", pkt.gps_lat);
-        printf("%.7f,", pkt.gps_lng);
-        printf("%.3f,", pkt.gps_alt);
-        printf("%.3f,", pkt.gps_speed);
+        printf("%.7f,", pkt.gps_lat_deg);
+        printf("%.7f,", pkt.gps_lng_deg);
+        printf("%.3f,", pkt.gps_alt_m);
+        printf("%.3f,", pkt.gps_speed_mps);
 
         printf("%d,", pkt.gps_course);
         printf("%u", (unsigned)pkt.gps_num_sats);
 
         printf("\n");
 
-        // if (pkt.time_boot_ms > crop_start_ms && pkt.time_boot_ms < crop_end_ms)
-        // {
-        //     fwrite(&pkt, sizeof(pkt), 1, fp_log_cropped);
-        // }
+        if (pkt.time_boot_ms > crop_start_ms)
+        {
+            fwrite(&pkt, sizeof(pkt), 1, fp_log_cropped);
+        }
     }
 
     if (!feof(fp)) {

@@ -17,7 +17,7 @@
 #include "AB_Filter_Main.h"
 #include "filter_inputs.h"
 
-#include "testing/nomad_test_flight_2026-4-11_cropped.logv3.h"
+#include "testing/nomad_irec_flight_2026-6-17_cropped.logv3.h"
 #include "telemetry.h"
 #include "config.h"
 
@@ -397,50 +397,6 @@ void ShowVisualizer()
 		if (outOfDate)
 		{
 			outOfDate = false;
-
-			/* Load GPS data */
-			static bool gpsLoaded = false;
-			static std::vector<float> gps_lat, gps_lon, gps_alt, gps_time; // NEW: Added gps_time
-			if (!gpsLoaded)
-			{
-				try
-				{
-					rapidcsv::Document gps_csv("test/TeleGPS_GPS_data_nomad-4-11-2026.csv", rapidcsv::LabelParams(0, -1));
-
-					std::vector<float> raw_lat = gps_csv.GetColumn<float>("latitude");
-					std::vector<float> raw_lon = gps_csv.GetColumn<float>("longitude");
-					std::vector<float> raw_alt = gps_csv.GetColumn<float>("altitude");
-					std::vector<float> raw_time = gps_csv.GetColumn<float>("time"); // NEW: Load continuous time
-					std::vector<int> raw_sec = gps_csv.GetColumn<int>("second");
-
-					// Filter out consecutive duplicate seconds
-					if (raw_sec.size() > 0)
-					{
-						gps_lat.push_back(raw_lat[0]);
-						gps_lon.push_back(raw_lon[0]);
-						gps_alt.push_back(raw_alt[0]);
-						gps_time.push_back(raw_time[0]); // Save time
-						int last_sec = raw_sec[0];
-
-						for (size_t i = 1; i < raw_sec.size(); i++)
-						{
-							if (raw_sec[i] != last_sec)
-							{
-								gps_lat.push_back(raw_lat[i]);
-								gps_lon.push_back(raw_lon[i]);
-								gps_alt.push_back(raw_alt[i]);
-								gps_time.push_back(raw_time[i]); // Save time
-								last_sec = raw_sec[i];
-							}
-						}
-					}
-					gpsLoaded = true;
-				}
-				catch (const std::exception &e)
-				{
-					printf("Failed to load GPS CSV!\n");
-				}
-			}
 
 			float launch_time_s = -1.0f;
 			for (int i = 0; i < log_len; i++)

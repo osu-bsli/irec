@@ -118,14 +118,16 @@ PACKED_STRUCT log_packet_v3 {
     float gps_lat_deg; // Latitude  (unit: degres)
     float gps_lng_deg; // Longitude (unit: degrees)
     float gps_alt_m; // Altitude  (unit: meters)
-    float gps_speed_mps;
-    float pt_volts;
-    int32_t gps_course;
-    uint8_t gps_num_sats;
+    float gps_speed_mps; // 4
+    float pt_volts; // 4
+    int32_t gps_course; // 4
+    uint8_t gps_num_sats; // 1
 };
 END_PACKED_STRUCT;
 
 typedef struct log_packet_v3 log_packet_latest;
+
+const int size = sizeof(log_packet_v3);
 
 void telemetry_packet_make_header(struct telemetry_packet *p);
 void log_packet_make_header(log_packet_latest *p);

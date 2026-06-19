@@ -1,4 +1,4 @@
-% accel_calibration.m
+    % accel_calibration.m
 %
 % Computes accelerometer calibration values (scale + offset) from a CSV
 % produced by CONFIG_TEST_ACCEL_CALIBRATION firmware mode.
