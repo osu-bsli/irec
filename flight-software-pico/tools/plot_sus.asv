@@ -1,0 +1,14 @@
+data = readmatrix("2026-06-17 Nomad IREC SRAD Cropped.logv3.csv");
+hold on;
+plot((data(:, 5) - data(1, 5))/1000, data(:,8));
+plot((data(:, 5) - data(1, 5))/1000, data(:,9));
+plot((data(:, 5) - data(1, 5))/1000, data(:,10));
+title("bmi323 acceleration")
+legend("X, m/s^2", "Y, m/s^2", "Z, m/s^2")
+hold off;
+figure;
+hold on;
+plot((data(:, 5) - data(1, 5))/1000, data(:,11));
+plot((data(:, 5) - data(1, 5))/1000, data(:,12));
+plot((data(:, 5) - data(1, 5))/1000, data(:,13));
+title("bmi323 gyroscope")
