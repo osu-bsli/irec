@@ -1,1 +1,3 @@
 *.crt
+.zigcache
+zig-out
