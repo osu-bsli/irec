@@ -1,0 +1,147 @@
+use std::f32::consts::PI;
+
+use eframe::{egui_glow, glow::MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS};
+use egui::{Label, RichText, Vec2};
+
+use crate::GroundControlApp;
+
+fn pressure_mbar_to_altitude(pressure_mbar: f64) -> f64 {
+    // TODO: Adjustable QNH
+    145366.45 * (1.0 - (pressure_mbar / 1013.25).powf(0.190284))
+}
+
+fn dashboard_numerical_display(ui: &mut egui::Ui, title: &str, value: String) {
+    let id = ui.make_persistent_id("dashboard numerical display entry height");
+
+    let before = ui.cursor().top();
+    ui.add(Label::new(RichText::new(title).size(40.0)).wrap_mode(egui::TextWrapMode::Truncate));
+    ui.add(
+        Label::new(RichText::new(value).size(120.0).strong())
+            .wrap_mode(egui::TextWrapMode::Truncate),
+    );
+    let height = ui.cursor().top() - before;
+    ui.data_mut(|d| d.insert_temp(id, height));
+}
+
+impl GroundControlApp {
+    #[allow(dead_code)]
+    pub fn dashboard_tab(&mut self, ui: &mut egui::Ui) {
+        ui.ctx().request_repaint_after_secs(1.0 / 30.0);
+
+        // ui.horizontal(|ui| {
+        //     ui.spacing_mut().item_spacing.x = 0.0;
+        //     ui.label("The triangle is being painted using ");
+        //     ui.hyperlink_to("glow", "https://github.com/grovesNL/glow");
+        //     ui.label(" (OpenGL).");
+        // });
+
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .default_width(500.0)
+            .show_inside(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    let id = ui.make_persistent_id("dashboard numerical display entry height");
+                    let entry_height = ui.data(|d| d.get_temp(id).unwrap_or(0.0));
+
+                    let entries = [
+                        (
+                            "PRESSURE ALTITUDE",
+                            if let Some(pressure_mbar) = self.data.ms5607_pressure_mbar.last_y() {
+                                format!("{:.0} ft", pressure_mbar_to_altitude(pressure_mbar))
+                            } else {
+                                "N/A".to_string()
+                            },
+                        ),
+                        (
+                            "APOGEE",
+                            if let Some(pressure_mbar_apogee) =
+                                self.data.ms5607_pressure_mbar.min_y()
+                            {
+                                format!("{:.0} ft", pressure_mbar_to_altitude(pressure_mbar_apogee))
+                            } else {
+                                "N/A".to_string()
+                            },
+                        ),
+                        (
+                            "ACCELERATION",
+                            if let Some(acceleration) = self.data.fused_accel_magnitude.last_y() {
+                                format!("{:.1} m/s²", acceleration)
+                            } else {
+                                "N/A".to_string()
+                            },
+                        ),
+                    ];
+
+                    let padding = (ui.available_height()
+                        - entry_height * entries.len() as f32)
+                        / entries.len() as f32
+                        / 2.;
+
+                    for i in 0..entries.len() {
+                        let e = &entries[i];
+                        if i == 0 {
+                            ui.add_space(padding * 2.);
+                        } else {
+                            ui.add_space(padding);
+                        }
+                        dashboard_numerical_display(ui, e.0, e.1.clone());
+                    }
+                });
+            });
+
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::Frame::canvas(ui.style()).show(ui, |ui| {
+                let (rect, response) =
+                    ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
+
+                self.triangle_angle += response.drag_motion().x * 0.01;
+
+                // Clone locals so we can move them into the paint callback:
+                // let angle = self.triangle_angle;
+                let angle = (self.data.euler_y.last_y().unwrap_or(0.0) as f32).to_radians();
+                let triangle = self.triangle.clone();
+
+                let callback = egui::PaintCallback {
+                    rect,
+                    callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
+                        move |_info, painter| {
+                            triangle.lock().unwrap().paint(painter.gl(), angle);
+                        },
+                    )),
+                };
+                ui.painter().add(callback);
+            });
+            ui.label("Drag to rotate!");
+        });
+
+        egui::SidePanel::right("right_panel")
+            .resizable(true)
+            .default_width(500.0)
+            .show_inside(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    // Calculate angle from horizon
+                    let theta = self.data.euler_a.last_y().unwrap_or(0.0).to_radians() as f32;
+                    let phi = self.data.euler_b.last_y().unwrap_or(0.0).to_radians() as f32;
+                    let rocket_angle = -(phi.cos() * theta.cos()).asin();
+                    const ALPHA: f32 = 0.1;
+
+                    let new_rocket_angle_ema =
+                        rocket_angle * ALPHA + self.rocket_angle_ema * (1.0 - ALPHA);
+                    self.rocket_angle_ema = new_rocket_angle_ema;
+
+                    let rocket = egui::Image::new(egui::include_image!("../assets/rocket vis.png"))
+                        .rotate(new_rocket_angle_ema, Vec2::new(0.5, 0.5))
+                        .max_height(100.0);
+
+                    ui.add_space(500.0);
+                    ui.add(rocket)
+                });
+            });
+
+        // egui::Grid::new("dashboard_grid")
+        //     .show(ui, |ui| {
+
+        //     })
+        //     .response
+    }
+}
