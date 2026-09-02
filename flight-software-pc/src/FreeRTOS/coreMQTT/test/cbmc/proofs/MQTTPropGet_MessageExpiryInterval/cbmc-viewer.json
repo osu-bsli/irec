@@ -1,7 +1,0 @@
-{ "expected-missing-functions":
-  [
-
-  ],
-  "proof-name": "MQTTPropGet_MessageExpiryInterval",
-  "proof-root": "test/cbmc/proofs"
-}

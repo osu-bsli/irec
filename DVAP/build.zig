@@ -31,7 +31,9 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("example", example_c_mod);
     example_c_mod.addCSourceFiles(.{
-        .files = "lib/example2.c",
+        .files = &.{
+            "lib/example2.c",
+        },
         .flags = &.{""},
     });
 

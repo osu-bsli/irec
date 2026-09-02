@@ -1,7 +1,0 @@
-{ "expected-missing-functions":
-  [
-
-  ],
-  "proof-name": "MQTTPropGet_UserProp",
-  "proof-root": "test/cbmc/proofs"
-}
