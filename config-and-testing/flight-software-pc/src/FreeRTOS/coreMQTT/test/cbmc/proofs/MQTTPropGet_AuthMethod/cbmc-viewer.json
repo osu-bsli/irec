@@ -1,7 +1,0 @@
-{ "expected-missing-functions":
-  [
-
-  ],
-  "proof-name": "MQTTPropGet_AuthMethod",
-  "proof-root": "test/cbmc/proofs"
-}

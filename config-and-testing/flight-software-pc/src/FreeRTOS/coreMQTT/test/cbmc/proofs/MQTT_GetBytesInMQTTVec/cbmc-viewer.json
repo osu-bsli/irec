@@ -1,7 +1,0 @@
-{ "expected-missing-functions":
-  [
-
-  ],
-  "proof-name": "MQTT_GetBytesInMQTTVec",
-  "proof-root": "test/cbmc/proofs"
-}

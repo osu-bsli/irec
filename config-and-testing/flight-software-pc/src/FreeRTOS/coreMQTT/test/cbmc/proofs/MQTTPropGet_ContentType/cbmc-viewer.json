@@ -1,7 +1,0 @@
-{ "expected-missing-functions":
-  [
-
-  ],
-  "proof-name": "MQTTPropGet_ContentType",
-  "proof-root": "test/cbmc/proofs"
-}
