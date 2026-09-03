@@ -12,6 +12,7 @@ const GraphicsContext = struct {
 
 const DVAPError = error{
     NullWindow,
+    OpenGLLoadFailure,
 };
 
 pub fn main(init: std.process.Init) !void {
@@ -53,6 +54,11 @@ pub fn main(init: std.process.Init) !void {
     const load_gl_status = gl.gladLoadGL(@as(gl.GLADloadfunc, glfw.glfwGetProcAddress));
 
     std.debug.print("from c: {} {} {} {} \n", .{ a, b, c, load_gl_status });
+
+    if (load_gl_status != 0) {
+        // TODO needs to be more specific
+        return DVAPError.OpenGLLoadFailure;
+    }
 
     gl.glViewport(0, 0, 800, 600);
 

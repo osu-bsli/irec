@@ -53,8 +53,6 @@ pub fn build(b: *std.Build) void {
     if (target.result.os.tag == .windows) {
         glfw_mod.addCSourceFiles(.{
             .files = &.{
-                // "lib/GLFW/src/internal.h",
-                // "lib/GLFW/src/mappings.h",
                 "lib/GLFW/src/context.c",
                 "lib/GLFW/src/egl_context.c",
                 "lib/GLFW/src/glx_context.c",
@@ -72,36 +70,19 @@ pub fn build(b: *std.Build) void {
                 "lib/GLFW/src/platform.c",
                 "lib/GLFW/src/vulkan.c",
             },
+            .flags = &.{"-D_GLFW_WIN32"},
         });
 
         glfw_mod.addCSourceFiles(.{
             .files = &.{
-                // "lib/GLFW/src/cocoa_joystick.h",
-                // "lib/GLFW/src/cocoa_platform.h",
-                // "lib/GLFW/src/linux_joystick.h",
-                // "lib/GLFW/src/macos_time.h",
-                // "lib/GLFW/src/null_joystick.h",
-                // "lib/GLFW/src/null_platform.h",
-                // "lib/GLFW/src/platform.h",
-                // "lib/GLFW/src/posix_poll.h",
-                // "lib/GLFW/src/posix_thread.h",
-                // "lib/GLFW/src/win32_joystick.h",
-                // "lib/GLFW/src/win32_platform.h",
-                // "lib/GLFW/src/win32_thread.h",
 
                 // "lib/GLFW/src/cocoa_init.m",
                 // "lib/GLFW/src/cocoa_joystick.m",
                 // "lib/GLFW/src/cocoa_monitor.m",
                 // "lib/GLFW/src/cocoa_window.m",
-
-                // "lib/GLFW/src/glfw.rc.in",
-
                 // "lib/GLFW/src/macos_time.c",
 
-                // "lib/GLFW/src/mappings.h.in",
-
                 "lib/GLFW/src/win32_init.c",
-
                 "lib/GLFW/src/win32_joystick.c",
                 "lib/GLFW/src/win32_module.c",
                 "lib/GLFW/src/win32_monitor.c",
