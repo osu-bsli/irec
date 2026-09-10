@@ -4,54 +4,76 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // const translate_c = b.dependency("translate_c", .{});
+
+    // const Translator = @import("translate_c").Translator;
+
+    // const glad: Translator = .init(translate_c, .{
+    //     .c_source_file = b.path("lib/GLAD/include/glad/gl.h"),
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
+
+    // glad.mod.addIncludePath(b.path("lib/GLAD/include/"));
+
     const dvap = b.addExecutable(.{
         .name = "DVAP",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
 
-    // Compile, include, and link GLAD for OpenGL functions
-    const glad_c_translate = b.addTranslateC(.{
-        .link_libc = true,
-        .optimize = optimize,
-        .target = target,
-        .root_source_file = b.path("lib/GLAD/include/glad/gl.h"),
-    });
+    dvap.root_module.addIncludePath(b.path("lib/"));
 
-    const glad_mod = glad_c_translate.createModule();
-
-    glad_mod.addIncludePath(b.path("lib/GLAD/include/"));
-
-    glad_mod.addCSourceFiles(.{
+    dvap.root_module.addCSourceFiles(.{
         .files = &.{
             "lib/GLAD/src/gl.c",
         },
-        .flags = &.{""},
     });
 
-    dvap.root_module.addImport("glad", glad_mod);
+    // Compile, include, and link GLAD for OpenGL functions
+    // const glad_c_translate = b.addTranslateC(.{
+    //     .link_libc = true,
+    //     .optimize = optimize,
+    //     .target = target,
+    //     .root_source_file = b.path(),
+    // });
+
+    // const glad_mod = glad_c_translate.createModule();
+
+    // glad_mod.addIncludePath(b.path("lib/GLAD/include/"));
+
+    // glad.mod.addCSourceFiles(.{
+    //     .files = &.{
+    //         "lib/GLAD/src/gl.c",
+    //     },
+    //     .flags = &.{""},
+    // });
+
+    // dvap.root_module.addImport("glad", glad.mod);
 
     // Compile, include, and link GLFW
-    const glfw_c_translate = b.addTranslateC(.{
-        .link_libc = true,
-        .optimize = optimize,
-        .target = target,
-        .root_source_file = b.path("lib/GLFW/include/GLFW/glfw3.h"),
-    });
+    // const glfw_c_translate = b.addTranslateC(.{
+    //     .link_libc = true,
+    //     .optimize = optimize,
+    //     .target = target,
+    //     .root_source_file = b.path("lib/GLFW/include/GLFW/glfw3.h"),
+    // });
 
-    glfw_c_translate.addIncludePath(b.path("lib/GLFW/include/"));
-    glfw_c_translate.addIncludePath(b.path("lib/GLFW/src/"));
+    dvap.root_module.addIncludePath(b.path("lib/GLAD/include/"));
+    dvap.root_module.addIncludePath(b.path("lib/GLFW/include/"));
+    dvap.root_module.addIncludePath(b.path("lib/GLFW/src/"));
 
-    const glfw_mod = glfw_c_translate.createModule();
+    // const glfw_mod = glfw_c_translate.createModule();
 
-    glfw_mod.addIncludePath(b.path("lib/GLFW/include/"));
-    glfw_mod.addIncludePath(b.path("lib/GLFW/src/"));
+    // glfw_mod.addIncludePath(b.path("lib/GLFW/include/"));
+    // glfw_mod.addIncludePath(b.path("lib/GLFW/src/"));
 
     if (target.result.os.tag == .windows) {
-        glfw_mod.addCSourceFiles(.{
+        dvap.root_module.addCSourceFiles(.{
             .files = &.{
                 "lib/GLFW/src/context.c",
                 "lib/GLFW/src/egl_context.c",
@@ -73,7 +95,7 @@ pub fn build(b: *std.Build) void {
             .flags = &.{"-D_GLFW_WIN32"},
         });
 
-        glfw_mod.addCSourceFiles(.{
+        dvap.root_module.addCSourceFiles(.{
             .files = &.{
 
                 // "lib/GLFW/src/cocoa_init.m",
@@ -94,7 +116,7 @@ pub fn build(b: *std.Build) void {
             .flags = &.{"-D_GLFW_WIN32"},
         });
     } else {
-        glfw_mod.addCSourceFiles(.{
+        dvap.root_module.addCSourceFiles(.{
             .files = &.{
                 // "lib/GLFW/src/internal.h",
                 // "lib/GLFW/src/mappings.h",
@@ -121,7 +143,7 @@ pub fn build(b: *std.Build) void {
             },
         });
 
-        glfw_mod.addCSourceFiles(.{
+        dvap.root_module.addCSourceFiles(.{
             .files = &.{
                 // "lib/GLFW/src/posix_time.h",
                 // "lib/GLFW/src/wl_platform.h",
@@ -146,26 +168,26 @@ pub fn build(b: *std.Build) void {
         });
     }
 
-    dvap.root_module.addImport("glfw", glfw_mod);
+    // dvap.root_module.addImport("glfw", glfw_mod);
 
-    // Local C examples compiled and included in the executable
-    const example_c_translate = b.addTranslateC(.{
-        .link_libc = true,
-        .optimize = optimize,
-        .root_source_file = b.path("lib/example.h"),
-        .target = target,
-    });
-    const example_c_mod = example_c_translate.createModule();
+    // // Local C examples compiled and included in the executable
+    // const example_c_translate = b.addTranslateC(.{
+    //     .link_libc = true,
+    //     .optimize = optimize,
+    //     .root_source_file = b.path("lib/example.h"),
+    //     .target = target,
+    // });
+    // const example_c_mod = example_c_translate.createModule();
 
-    example_c_mod.addCSourceFiles(.{
-        .files = &.{
-            "lib/example.c",
-            "lib/example2.c",
-        },
-        .flags = &.{""},
-    });
+    // example_c_mod.addCSourceFiles(.{
+    //     .files = &.{
+    //         "lib/example.c",
+    //         "lib/example2.c",
+    //     },
+    //     .flags = &.{""},
+    // });
 
-    dvap.root_module.addImport("example", example_c_mod);
+    // dvap.root_module.addImport("example", example_c_mod);
 
     // Build and Run step
 

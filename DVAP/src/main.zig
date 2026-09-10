@@ -1,8 +1,10 @@
 const std = @import("std");
-const e = @import("example");
+const c_libs = @import("clibs.zig");
+const gl = c_libs.gl;
+const glfw = c_libs.glfw;
 const Io = std.Io;
-const gl = @import("glad");
-const glfw = @import("glfw");
+// const gl = @import("glad");
+// const glfw = @import("glfw");
 
 // const DVAP = @import("DVAP");
 
@@ -47,15 +49,24 @@ pub fn main(init: std.process.Init) !void {
     // Make the window the user's selected window
     glfw.glfwMakeContextCurrent(graphics_context.window);
 
-    const a = e.chicken(0);
-    const b = e.amongus(0.003);
+    // const a = c.e.chicken(0);
+    // const b = c.e.amongus(0.003);
+
+    // _ = &a;
+    // _ = &b;
+    _ = &window_name;
 
     // Attach OpenGL to the window
     const load_gl_status = gl.gladLoadGL(@as(gl.GLADloadfunc, glfw.glfwGetProcAddress));
 
-    std.debug.print("from c: {} {} {} {} \n", .{ a, b, c, load_gl_status });
+    std.debug.print("from c: {} {} \n", .{
+        // a,
+        // b,
+        c,
+        load_gl_status,
+    });
 
-    if (load_gl_status != 0) {
+    if (load_gl_status == 0) {
         // TODO needs to be more specific
         return DVAPError.OpenGLLoadFailure;
     }
