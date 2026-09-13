@@ -13,10 +13,5 @@ pub const gl = @cImport({
 });
 
 pub const glfw = @cImport({
-    // if (builtin.os.tag == .windows) {
-    // @cInclude("stdbool.h");
-    // @cInclude("stdint.h");
-    @cInclude("windef.h");
-    // }
     @cInclude("GLFW/glfw3.h");
 });

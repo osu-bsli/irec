@@ -2,7 +2,7 @@
     .name = .DVAP,
     .version = "0.0.0",
     .fingerprint = 0xdf0a6dc4ca833c91, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.17.0-dev",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{},
     .paths = .{
         "build.zig",
