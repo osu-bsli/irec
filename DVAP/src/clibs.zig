@@ -1,6 +1,7 @@
 // pub const glfw = @cImport({
 // @cInclude("lib/GLAD/include/glad/gl.h");
 // });
+const builtin = @import("builtin");
 
 pub const e = @cImport({
     @cInclude("example.c");
@@ -12,5 +13,10 @@ pub const gl = @cImport({
 });
 
 pub const glfw = @cImport({
+    // if (builtin.os.tag == .windows) {
+    // @cInclude("stdbool.h");
+    // @cInclude("stdint.h");
+    @cInclude("windef.h");
+    // }
     @cInclude("GLFW/glfw3.h");
 });

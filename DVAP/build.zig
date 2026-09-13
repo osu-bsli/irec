@@ -73,45 +73,34 @@ pub fn build(b: *std.Build) void {
     // glfw_mod.addIncludePath(b.path("lib/GLFW/src/"));
 
     if (target.result.os.tag == .windows) {
+        dvap.root_module.linkSystemLibrary("gdi32", .{});
+        dvap.root_module.linkSystemLibrary("user32", .{});
+        dvap.root_module.linkSystemLibrary("shell32", .{});
+
         dvap.root_module.addCSourceFiles(.{
             .files = &.{
-                "lib/GLFW/src/context.c",
-                "lib/GLFW/src/egl_context.c",
-                "lib/GLFW/src/glx_context.c",
-                "lib/GLFW/src/init.c",
-                "lib/GLFW/src/input.c",
-                "lib/GLFW/src/window.c",
-                "lib/GLFW/src/wgl_context.c",
+                "lib/GLFW/src/platform.c",
                 "lib/GLFW/src/monitor.c",
-                "lib/GLFW/src/nsgl_context.m",
+                "lib/GLFW/src/init.c",
+                "lib/GLFW/src/vulkan.c",
+                "lib/GLFW/src/input.c",
+                "lib/GLFW/src/context.c",
+                "lib/GLFW/src/window.c",
+                "lib/GLFW/src/osmesa_context.c",
+                "lib/GLFW/src/egl_context.c",
+                "lib/GLFW/src/wgl_context.c",
                 "lib/GLFW/src/null_init.c",
                 "lib/GLFW/src/null_joystick.c",
                 "lib/GLFW/src/null_monitor.c",
                 "lib/GLFW/src/null_window.c",
-                "lib/GLFW/src/osmesa_context.c",
-                "lib/GLFW/src/platform.c",
-                "lib/GLFW/src/vulkan.c",
-            },
-            .flags = &.{"-D_GLFW_WIN32"},
-        });
 
-        dvap.root_module.addCSourceFiles(.{
-            .files = &.{
-
-                // "lib/GLFW/src/cocoa_init.m",
-                // "lib/GLFW/src/cocoa_joystick.m",
-                // "lib/GLFW/src/cocoa_monitor.m",
-                // "lib/GLFW/src/cocoa_window.m",
-                // "lib/GLFW/src/macos_time.c",
-
-                "lib/GLFW/src/win32_init.c",
-                "lib/GLFW/src/win32_joystick.c",
-                "lib/GLFW/src/win32_module.c",
-                "lib/GLFW/src/win32_monitor.c",
                 "lib/GLFW/src/win32_thread.c",
-                "lib/GLFW/src/win32_time.h",
+                "lib/GLFW/src/win32_init.c",
+                "lib/GLFW/src/win32_monitor.c",
                 "lib/GLFW/src/win32_time.c",
+                "lib/GLFW/src/win32_joystick.c",
                 "lib/GLFW/src/win32_window.c",
+                "lib/GLFW/src/win32_module.c",
             },
             .flags = &.{"-D_GLFW_WIN32"},
         });
