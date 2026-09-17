@@ -49,6 +49,9 @@ pub fn main(init: std.process.Init) !void {
     // Make the window the user's selected window
     glfw.glfwMakeContextCurrent(graphics_context.window);
 
+    // Window resizing
+    glfw.glfwSetFramebufferSizeCallback(graphics_context.window, framebufferSizeCallback);
+
     // const a = c.e.chicken(0);
     // const b = c.e.amongus(0.003);
 
@@ -73,12 +76,44 @@ pub fn main(init: std.process.Init) !void {
 
     gl.glViewport(0, 0, 800, 600);
 
+    // Make VBO and VAO
+    var VAO: u32 = 0; // using u32 rather than unsigned int to ensure 32 bits
+    var VBO: u32 = 0;
+    VBO = 1; // get rid of var error
+
+    // Make VAO
+    gl.glGenVertexArrays(0, &VAO);
+    gl.glBindVertexArray(VAO);
+    // Set XYZ vec3 in location = 0
+    gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(0));
+    gl.glEnableVertexAttribArray(0);
+    // Set RGB vec3 in location = 1
+    gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+    gl.glEnableVertexAttribArray(1);
+
+    // Make VBO
+    const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+        1.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+    };
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
+    gl.glBufferData(gl.GL_ARRAY_BUFFER, @sizeOf(f32) * verts.len, &verts, gl.GL_STATIC_DRAW);
+
+    gl.glEnable(gl.GL_DEPTH_TEST);
+
     while (glfw.glfwWindowShouldClose(graphics_context.window) != glfw.GLFW_TRUE) {
+        gl.glClearColor(0.2, 0.3, 0.3, 1.0);
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT);
+
+        // Bind VBO and VAO
+        gl.glBindVertexArray(VAO);
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
+
+        gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts.len);
+
         glfw.glfwSwapBuffers(graphics_context.window);
         glfw.glfwPollEvents();
-
-        gl.glClearColor(0.2, 0.3, 0.3, 1.0);
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT);
     }
 
     try stdout_writer.flush(); // Don't forget to flush!
@@ -86,4 +121,27 @@ pub fn main(init: std.process.Init) !void {
     if (std.debug.runtime_safety == true) {
         glfw.glfwTerminate();
     }
+}
+
+fn framebufferSizeCallback(window: *glfw.GLFWwindow, width: i32, height: i32) void {
+    _ = &window;
+    gl.glViewport(0, 0, width, height);
+}
+
+fn processInput(window: *glfw.GLFWwindow) void {
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_ESCAPE) == glfw.GLFW_PRESS) {
+        glfw.glfwSetWindowShouldClose(window, glfw.GLFW_TRUE);
+    }
+}
+
+fn mouseCallback(window: *glfw.GLFWwindow, mouse_x: f32, mouse_y: f32) void {
+    _ = &window;
+    _ = &mouse_x;
+    _ = &mouse_y;
+}
+
+fn scrollCallback(window: *glfw.GLFWwindow, offset_x: f32, offset_y: f32) void {
+    _ = &window;
+    _ = &offset_x;
+    _ = &offset_y;
 }
