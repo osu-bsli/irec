@@ -77,15 +77,7 @@ pub fn build(b: *std.Build) void {
                 "lib/GLFW/src/osmesa_context.c",
                 "lib/GLFW/src/platform.c",
                 "lib/GLFW/src/vulkan.c",
-            },
-            .flags = &.{
-                // "-D_GLFW_WAYLAND",
-                "-D_GLFW_X11",
-            },
-        });
 
-        dvap.root_module.addCSourceFiles(.{
-            .files = &.{
                 // "lib/GLFW/src/posix_time.h",
                 // "lib/GLFW/src/wl_platform.h",
                 // "lib/GLFW/src/x11_platform.h",
