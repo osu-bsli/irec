@@ -50,7 +50,9 @@ pub fn main(init: std.process.Init) !void {
     glfw.glfwMakeContextCurrent(graphics_context.window);
 
     // Window resizing
-    glfw.glfwSetFramebufferSizeCallback(graphics_context.window, framebufferSizeCallback);
+    const set_frame_buffer_status = glfw.glfwSetFramebufferSizeCallback(graphics_context.window, framebufferSizeCallback);
+    _ = &set_frame_buffer_status;
+    // TODO add new Error type and return if unable to set framebuffer size
 
     // const a = c.e.chicken(0);
     // const b = c.e.amongus(0.003);
@@ -123,7 +125,7 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-fn framebufferSizeCallback(window: *glfw.GLFWwindow, width: i32, height: i32) void {
+pub export fn framebufferSizeCallback(window: ?*glfw.GLFWwindow, width: c_int, height: c_int) void {
     _ = &window;
     gl.glViewport(0, 0, width, height);
 }
