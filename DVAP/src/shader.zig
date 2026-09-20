@@ -76,7 +76,7 @@ pub const Shader = struct {
     }
 
     // Functions to assist with setting uniform variables
-    fn set_bool(self: *Shader, name: [:0]u8, ) {
-
+    fn setBool(self: *Shader, name: [:0]u8, value: bool) void {
+        gl.glUniform1i(gl.glGetUniformLocation(self.ID, name), @intFromBool(value));
     }
 };

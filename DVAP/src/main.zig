@@ -3,6 +3,8 @@ const c_libs = @import("clibs.zig");
 const gl = c_libs.gl;
 const glfw = c_libs.glfw;
 const Io = std.Io;
+
+const shader = @import("shader.zig");
 // const gl = @import("glad");
 // const glfw = @import("glfw");
 
