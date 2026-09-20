@@ -23,7 +23,7 @@ fn compileShader(source: [:0]const u8, shader_type: c_int) ShaderError!u32 {
     if (!success) {
         var info_log: [512]u8 = undefined;
         gl.glGetShaderInfoLog(shader, 512, null, &info_log);
-        std.debug.print("{s}", info_log);
+        std.debug.print("Error compiling shader: {s}", info_log);
 
         // Cleanup because compilation failed
         gl.glDeleteShader(shader);
@@ -61,7 +61,9 @@ pub const Shader = struct {
         if (!success) {
             var info_log: [512]u8 = undefined;
             gl.glGetProgramInfoLog(program, 512, null, &info_log);
-            std.debug.print("{s}", info_log);
+            std.debug.print("Error creating shader program: {s}", info_log);
+            gl.glDeleteProgram(program);
+            return Shader{ .ID = 0 };
         }
 
         return Shader{ .ID = program };
@@ -79,4 +81,14 @@ pub const Shader = struct {
     fn setBool(self: *Shader, name: [:0]u8, value: bool) void {
         gl.glUniform1i(gl.glGetUniformLocation(self.ID, name), @intFromBool(value));
     }
+
+    fn setInt(self: *Shader, name: [:0]u8, value: i32) void {
+        gl.glUniform1i(gl.glGetUniformLocation(self.ID, name), value);
+    }
+
+    fn setFloat(self: *Shader, name: [:0]u8, value: f32) void {
+        gl.glUniform1f(gl.glGetUniformLocation(self.ID, name), value);
+    }
+
+    // fn setVec2f()
 };
