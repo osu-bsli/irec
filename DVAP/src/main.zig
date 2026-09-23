@@ -3,8 +3,9 @@ const c_libs = @import("clibs.zig");
 const gl = c_libs.gl;
 const glfw = c_libs.glfw;
 const Io = std.Io;
+const zm = @import("zmath");
 
-const shader = @import("shader.zig");
+const shader_lib = @import("shader.zig");
 // const gl = @import("glad");
 // const glfw = @import("glfw");
 
@@ -80,29 +81,38 @@ pub fn main(init: std.process.Init) !void {
 
     gl.glViewport(0, 0, 800, 600);
 
+    const shader = try shader_lib.Shader.init(
+        @embedFile("vertex.glsl").* ++ "\x00",
+        @embedFile("fragment.glsl").* ++ "\x00",
+    );
+    defer shader.cleanup();
+    shader.use();
+
+    const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
+        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
+        0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
+        0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
+    };
+
     // Make VBO and VAO
     var VAO: u32 = 0; // using u32 rather than unsigned int to ensure 32 bits
     var VBO: u32 = 0;
-    VBO = 1; // get rid of var error
 
-    // Make VAO
-    gl.glGenVertexArrays(0, &VAO);
+    // Gen and bind VAO
+    gl.glGenVertexArrays(1, &VAO);
     gl.glBindVertexArray(VAO);
+
+    // Make VBO
+    gl.glGenBuffers(1, &VBO);
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
+    gl.glBufferData(gl.GL_ARRAY_BUFFER, @sizeOf(f32) * verts.len, &verts, gl.GL_STATIC_DRAW);
+
     // Set XYZ vec3 in location = 0
     gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(0));
     gl.glEnableVertexAttribArray(0);
     // Set RGB vec3 in location = 1
     gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
     gl.glEnableVertexAttribArray(1);
-
-    // Make VBO
-    const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
-        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-        1.0, 0.0, 1.0, 0.0, 0.0, 1.0,
-    };
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
-    gl.glBufferData(gl.GL_ARRAY_BUFFER, @sizeOf(f32) * verts.len, &verts, gl.GL_STATIC_DRAW);
 
     gl.glEnable(gl.GL_DEPTH_TEST);
 
@@ -114,7 +124,7 @@ pub fn main(init: std.process.Init) !void {
         gl.glBindVertexArray(VAO);
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
 
-        gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts.len);
+        gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts.len / 6); // Divide by 6 because thats the number of floats per vertex
 
         glfw.glfwSwapBuffers(graphics_context.window);
         glfw.glfwPollEvents();
