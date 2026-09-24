@@ -90,4 +90,5 @@ pub const Shader = struct {
     }
 
     // fn setVec2f()
+    // ...
 };

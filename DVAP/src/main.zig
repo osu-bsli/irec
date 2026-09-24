@@ -8,6 +8,7 @@ const zm = @import("zmath");
 const rocket_verts = @import("rocket_vertices.zig");
 
 const shader_lib = @import("shader.zig");
+const camera_lib = @import("camera.zig");
 // const gl = @import("glad");
 // const glfw = @import("glfw");
 

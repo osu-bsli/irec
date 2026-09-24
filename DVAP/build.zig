@@ -14,6 +14,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    const zmath = b.dependency("zmath", .{});
+    dvap.root_module.addImport("zmath", zmath.module("root"));
+
     dvap.root_module.addIncludePath(b.path("lib/"));
 
     dvap.root_module.addCSourceFiles(.{
