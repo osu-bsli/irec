@@ -5,6 +5,8 @@ const glfw = c_libs.glfw;
 const Io = std.Io;
 const zm = @import("zmath");
 
+const rocket_verts = @import("rocket_vertices.zig");
+
 const shader_lib = @import("shader.zig");
 // const gl = @import("glad");
 // const glfw = @import("glfw");
@@ -88,11 +90,12 @@ pub fn main(init: std.process.Init) !void {
     defer shader.cleanup();
     shader.use();
 
-    const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
-        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
-        0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
-        0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
-    };
+    // const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
+    //     -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
+    //     0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
+    //     0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
+    // };
+    const verts = rocket_verts.verts;
 
     // Make VBO and VAO
     var VAO: u32 = 0; // using u32 rather than unsigned int to ensure 32 bits

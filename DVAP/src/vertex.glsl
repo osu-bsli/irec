@@ -5,8 +5,8 @@ layout (location = 1) in vec3 aColor;
 
 out vec3 Color;
 
-// uniform mat4 projection;
-// uniform mat4 view;
+uniform mat4 projection;
+uniform mat4 view;
 // No need for a model
 
 void main() {
