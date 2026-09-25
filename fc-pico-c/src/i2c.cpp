@@ -4,7 +4,7 @@
  * i2c communication abstraction.
  *
  * @authors
- * - Diego Noria
+ * - Gwendolyn Noria
 */
 
 #include <Arduino.h>

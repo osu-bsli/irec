@@ -4,7 +4,7 @@
  *  Standardized errors for our firmware
  *
  * @authors
- * - Diego Noria
+ * - Gwendolyn Noria
  *
  * reference for how the enum to string works
  * https://stackoverflow.com/a/37277144

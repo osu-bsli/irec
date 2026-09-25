@@ -7,7 +7,7 @@
  * - Dawn Goorskey
  * - Brian Jia
  * - Amber Phillips
- * - Diego Noria
+ * - Gwendolyn Noria
  */
 
 #include <error.h>

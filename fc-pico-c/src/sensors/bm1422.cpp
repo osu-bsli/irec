@@ -7,7 +7,7 @@
  *
  * @author:
  * - BSLI
- * - Diego Noria
+ * - Gwendolyn Noria
  */
 
 #include "sensors/bm1422.h"

@@ -6,7 +6,7 @@
  * @authors
  * - BSLI
  * - Brian Jia
- * - Diego Noria
+ * - Gwendolyn Noria
  */
 
 #include "config.h"

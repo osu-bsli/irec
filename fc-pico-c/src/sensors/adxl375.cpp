@@ -7,7 +7,7 @@
  * - Dawn Goorskey
  * - Hana Winchester
  * - Brian Jia
- * - Diego Noria
+ * - Gwendolyn Noria
  */
 
 #include "sensors/adxl375.h"
