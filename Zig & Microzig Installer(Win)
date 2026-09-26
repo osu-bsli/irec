@@ -1,0 +1,676 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
+REM ================================================================
+REM Zig + MicroZig installer for Raspberry Pi Pico 2 W
+REM Windows Command Prompt (.cmd)
+REM
+REM Installs:
+REM   Zig:      0.17.0-dev.1936+5a625d5f3
+REM   MicroZig: 0.17.9
+REM
+REM Configures:
+REM   Raspberry Pi RP2350 / Pico 2 W
+REM   ARM Cortex-M33 target: pico2_arm
+REM
+REM This script DOES NOT build or flash firmware.
+REM ================================================================
+
+REM ------------------------------------------------
+REM Versions
+REM ------------------------------------------------
+
+set "ZIG_VERSION=0.17.0-dev.1936+5a625d5f3"
+set "MICROZIG_VERSION=0.17.9"
+
+REM ------------------------------------------------
+REM Installation locations
+REM ------------------------------------------------
+
+set "ZIG_INSTALL_ROOT=%LOCALAPPDATA%\Programs\Zig"
+set "PROJECT_ROOT=%USERPROFILE%\ZigProjects\Pico2W-MicroZig"
+set "GLOBAL_CACHE=%LOCALAPPDATA%\ZigCache\%ZIG_VERSION%"
+set "TEMP_ROOT=%TEMP%\MicroZigInstall"
+
+echo.
+echo ================================================
+echo  Zig + MicroZig installer for Raspberry Pi Pico 2 W
+echo ================================================
+echo.
+echo Zig version:      %ZIG_VERSION%
+echo MicroZig version: %MICROZIG_VERSION%
+echo Project:          %PROJECT_ROOT%
+echo.
+
+REM ------------------------------------------------
+REM Determine Windows CPU architecture
+REM ------------------------------------------------
+
+if /I "%PROCESSOR_ARCHITECTURE%"=="AMD64" (
+    set "ZIG_ARCH=x86_64"
+) else if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" (
+    set "ZIG_ARCH=aarch64"
+) else (
+    echo ERROR: Unsupported Windows architecture: %PROCESSOR_ARCHITECTURE%
+    goto :fail
+)
+
+set "ZIG_FOLDER_NAME=zig-%ZIG_ARCH%-windows-%ZIG_VERSION%"
+set "ZIG_DIR=%ZIG_INSTALL_ROOT%\%ZIG_FOLDER_NAME%"
+set "ZIG_EXE=%ZIG_DIR%\zig.exe"
+set "ZIG_ZIP=%TEMP_ROOT%\%ZIG_FOLDER_NAME%.zip"
+set "ZIG_URL=https://ziglang.org/builds/%ZIG_FOLDER_NAME%.zip"
+
+REM ------------------------------------------------
+REM Verify required Windows command-line tools
+REM ------------------------------------------------
+
+where curl.exe >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: curl.exe was not found.
+    goto :fail
+)
+
+where tar.exe >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: tar.exe was not found.
+    goto :fail
+)
+
+REM ------------------------------------------------
+REM Create directories
+REM ------------------------------------------------
+
+if not exist "%ZIG_INSTALL_ROOT%" mkdir "%ZIG_INSTALL_ROOT%"
+if errorlevel 1 goto :fail
+
+if not exist "%GLOBAL_CACHE%" mkdir "%GLOBAL_CACHE%"
+if errorlevel 1 goto :fail
+
+if exist "%TEMP_ROOT%" rmdir /S /Q "%TEMP_ROOT%"
+if exist "%TEMP_ROOT%" (
+    echo ERROR: Could not clear temporary installer directory:
+    echo   %TEMP_ROOT%
+    goto :fail
+)
+
+mkdir "%TEMP_ROOT%"
+if errorlevel 1 goto :fail
+
+REM ------------------------------------------------
+REM Install Zig
+REM ------------------------------------------------
+
+if not exist "%ZIG_EXE%" (
+    echo.
+    echo Downloading Zig %ZIG_VERSION%...
+
+    curl.exe -L --fail --output "%ZIG_ZIP%" "%ZIG_URL%"
+    if errorlevel 1 (
+        echo ERROR: Zig download failed.
+        goto :fail
+    )
+
+    echo Extracting Zig...
+
+    tar.exe -xf "%ZIG_ZIP%" -C "%ZIG_INSTALL_ROOT%"
+    if errorlevel 1 (
+        echo ERROR: Zig extraction failed.
+        goto :fail
+    )
+) else (
+    echo.
+    echo Zig is already installed.
+)
+
+if not exist "%ZIG_EXE%" (
+    echo ERROR: Zig installation failed. zig.exe was not found.
+    goto :fail
+)
+
+"%ZIG_EXE%" version > "%TEMP_ROOT%\zig-version.txt"
+if errorlevel 1 (
+    echo ERROR: Could not run the installed Zig executable.
+    goto :fail
+)
+
+set /p "INSTALLED_ZIG_VERSION="<"%TEMP_ROOT%\zig-version.txt"
+
+if not "%INSTALLED_ZIG_VERSION%"=="%ZIG_VERSION%" (
+    echo ERROR: Wrong Zig version installed.
+    echo Expected: %ZIG_VERSION%
+    echo Found:    %INSTALLED_ZIG_VERSION%
+    goto :fail
+)
+
+echo Zig installed successfully:
+echo   %ZIG_EXE%
+echo.
+
+REM ------------------------------------------------
+REM Add Zig to USER PATH
+REM ------------------------------------------------
+
+set "USER_PATH="
+
+for /f "tokens=2,*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul ^| findstr /I /R "Path[ ]*REG_"') do (
+    set "USER_PATH=%%B"
+)
+
+set "PATH_ALREADY_HAS_ZIG=0"
+
+if defined USER_PATH (
+    set "PATH_CHECK=!USER_PATH:%ZIG_DIR%=!"
+    if /I not "!PATH_CHECK!"=="!USER_PATH!" (
+        set "PATH_ALREADY_HAS_ZIG=1"
+    )
+)
+
+if "!PATH_ALREADY_HAS_ZIG!"=="0" (
+    if defined USER_PATH (
+        set "NEW_USER_PATH=%ZIG_DIR%;!USER_PATH!"
+    ) else (
+        set "NEW_USER_PATH=%ZIG_DIR%"
+    )
+
+    reg add "HKCU\Environment" /v Path /t REG_EXPAND_SZ /d "!NEW_USER_PATH!" /f >nul
+    if errorlevel 1 (
+        echo ERROR: Could not update the user PATH.
+        goto :fail
+    )
+)
+
+REM Make Zig available immediately in this CMD session.
+
+set "PATH=%ZIG_DIR%;%PATH%"
+
+REM Helpful persistent environment variable.
+
+setx ZIG_EXE "%ZIG_EXE%" >nul
+if errorlevel 1 (
+    echo ERROR: Could not create the ZIG_EXE user environment variable.
+    goto :fail
+)
+
+REM ------------------------------------------------
+REM Configure Zig global cache
+REM ------------------------------------------------
+
+setx ZIG_GLOBAL_CACHE_DIR "%GLOBAL_CACHE%" >nul
+if errorlevel 1 (
+    echo ERROR: Could not create the ZIG_GLOBAL_CACHE_DIR user environment variable.
+    goto :fail
+)
+
+set "ZIG_GLOBAL_CACHE_DIR=%GLOBAL_CACHE%"
+
+REM ------------------------------------------------
+REM Create Pico 2 W MicroZig installation project
+REM ------------------------------------------------
+
+if exist "%PROJECT_ROOT%" (
+    echo.
+    echo ERROR: The project directory already exists:
+    echo.
+    echo   %PROJECT_ROOT%
+    echo.
+    echo This installer will not overwrite an existing project.
+    echo Rename or remove that directory and run the installer again.
+    echo.
+    goto :fail
+)
+
+echo Creating Pico 2 W project...
+
+mkdir "%PROJECT_ROOT%"
+if errorlevel 1 (
+    echo ERROR: Could not create:
+    echo   %PROJECT_ROOT%
+    goto :fail
+)
+
+pushd "%PROJECT_ROOT%"
+if errorlevel 1 goto :fail
+
+"%ZIG_EXE%" init
+set "INIT_EXIT=!ERRORLEVEL!"
+
+popd
+
+if not "%INIT_EXIT%"=="0" (
+    echo ERROR: zig init failed.
+    goto :fail
+)
+
+REM ------------------------------------------------
+REM Download complete MicroZig 0.17.9 source tree
+REM
+REM We use the SOURCE tree rather than the packaged
+REM MicroZig release dependency. This greatly reduces
+REM Windows package-fetch/rename problems.
+REM ------------------------------------------------
+
+echo.
+echo Downloading MicroZig %MICROZIG_VERSION% source...
+
+set "MICROZIG_ZIP=%TEMP_ROOT%\microzig-%MICROZIG_VERSION%.zip"
+set "MICROZIG_EXTRACT=%TEMP_ROOT%\microzig-source"
+set "MICROZIG_URL=https://github.com/ZigEmbeddedGroup/microzig/archive/refs/tags/%MICROZIG_VERSION%.zip"
+
+curl.exe -L --fail --output "%MICROZIG_ZIP%" "%MICROZIG_URL%"
+if errorlevel 1 (
+    echo ERROR: MicroZig download failed.
+    goto :fail
+)
+
+mkdir "%MICROZIG_EXTRACT%"
+if errorlevel 1 goto :fail
+
+tar.exe -xf "%MICROZIG_ZIP%" -C "%MICROZIG_EXTRACT%"
+if errorlevel 1 (
+    echo ERROR: MicroZig extraction failed.
+    goto :fail
+)
+
+set "DEPS_DIR=%PROJECT_ROOT%\deps"
+
+if not exist "%DEPS_DIR%" mkdir "%DEPS_DIR%"
+if errorlevel 1 goto :fail
+
+set "EXTRACTED_MICROZIG=%MICROZIG_EXTRACT%\microzig-%MICROZIG_VERSION%"
+set "INSTALLED_MICROZIG=%DEPS_DIR%\microzig"
+
+if not exist "%EXTRACTED_MICROZIG%" (
+    echo ERROR: Extracted MicroZig source directory was not found:
+    echo   %EXTRACTED_MICROZIG%
+    goto :fail
+)
+
+move "%EXTRACTED_MICROZIG%" "%INSTALLED_MICROZIG%" >nul
+if errorlevel 1 (
+    echo ERROR: Could not install the MicroZig source tree.
+    goto :fail
+)
+
+REM ------------------------------------------------
+REM Configure build.zig.zon to use LOCAL MicroZig
+REM ------------------------------------------------
+
+set "ZON_PATH=%PROJECT_ROOT%\build.zig.zon"
+
+call :AddMicroZigDependency "%ZON_PATH%"
+if errorlevel 1 goto :fail
+
+REM ------------------------------------------------
+REM Configure build.zig for Raspberry Pi Pico 2 W
+REM
+REM Pico 2 / Pico 2 W:
+REM   RP2350
+REM   ARM Cortex-M33
+REM   MicroZig target = pico2_arm
+REM ------------------------------------------------
+
+set "BUILD_ZIG=%PROJECT_ROOT%\build.zig"
+
+>"%BUILD_ZIG%" echo const std = @import("std");
+>>"%BUILD_ZIG%" echo const microzig = @import("microzig");
+>>"%BUILD_ZIG%" echo.
+>>"%BUILD_ZIG%" echo const MicroBuild = microzig.MicroBuild(.{
+>>"%BUILD_ZIG%" echo     .rp2xxx = true,
+>>"%BUILD_ZIG%" echo });
+>>"%BUILD_ZIG%" echo.
+>>"%BUILD_ZIG%" echo pub fn build(b: *std.Build) void {
+>>"%BUILD_ZIG%" echo     const optimize = b.standardOptimizeOption(.{});
+>>"%BUILD_ZIG%" echo.
+>>"%BUILD_ZIG%" echo     const mz_dep = b.dependency("microzig", .{});
+>>"%BUILD_ZIG%" echo     const mb = MicroBuild.init(b, mz_dep) orelse return;
+>>"%BUILD_ZIG%" echo.
+>>"%BUILD_ZIG%" echo     const firmware = mb.add_firmware(.{
+>>"%BUILD_ZIG%" echo         .name = "pico2w",
+>>"%BUILD_ZIG%" echo         .target = mb.ports.rp2xxx.boards.raspberrypi.pico2_arm,
+>>"%BUILD_ZIG%" echo         .optimize = optimize,
+>>"%BUILD_ZIG%" echo         .root_source_file = b.path("src/main.zig"),
+>>"%BUILD_ZIG%" echo     });
+>>"%BUILD_ZIG%" echo.
+>>"%BUILD_ZIG%" echo     mb.install_firmware(firmware, .{});
+>>"%BUILD_ZIG%" echo     mb.install_firmware(firmware, .{
+>>"%BUILD_ZIG%" echo         .format = .elf,
+>>"%BUILD_ZIG%" echo     });
+>>"%BUILD_ZIG%" echo }
+
+if errorlevel 1 (
+    echo ERROR: Could not write build.zig.
+    goto :fail
+)
+
+REM ------------------------------------------------
+REM Create a minimal MicroZig main.zig
+REM
+REM This is only a starter source file.
+REM Nothing is compiled by this installer.
+REM ------------------------------------------------
+
+set "SRC_DIR=%PROJECT_ROOT%\src"
+
+if not exist "%SRC_DIR%" mkdir "%SRC_DIR%"
+if errorlevel 1 goto :fail
+
+set "MAIN_ZIG=%SRC_DIR%\main.zig"
+
+REM Disable delayed expansion while writing Zig source so the literal
+REM exclamation mark in "pub fn main() !void" is preserved.
+setlocal DisableDelayedExpansion
+
+>"%MAIN_ZIG%" echo const microzig = @import("microzig");
+>>"%MAIN_ZIG%" echo.
+>>"%MAIN_ZIG%" echo pub const panic = microzig.panic;
+>>"%MAIN_ZIG%" echo pub const std_options = microzig.std_options(.{});
+>>"%MAIN_ZIG%" echo.
+>>"%MAIN_ZIG%" echo comptime {
+>>"%MAIN_ZIG%" echo     _ = microzig.export_startup();
+>>"%MAIN_ZIG%" echo }
+>>"%MAIN_ZIG%" echo.
+>>"%MAIN_ZIG%" echo pub fn main() !void {
+>>"%MAIN_ZIG%" echo     while (true) {}
+>>"%MAIN_ZIG%" echo }
+
+set "MAIN_WRITE_EXIT=%ERRORLEVEL%"
+endlocal & set "MAIN_WRITE_EXIT=%MAIN_WRITE_EXIT%"
+
+if not "%MAIN_WRITE_EXIT%"=="0" (
+    echo ERROR: Could not write src\main.zig.
+    goto :fail
+)
+
+REM ------------------------------------------------
+REM Windows Zig package rename workaround
+REM
+REM Some Zig 0.17 development builds successfully
+REM download/unpack packages on Windows, but fail when
+REM renaming:
+REM
+REM   zig-pkg\.tmp-xxxx
+REM
+REM into the final package-cache directory.
+REM
+REM CMD's MOVE succeeds where Zig's rename sometimes
+REM fails. This routine automatically performs that
+REM move and retries dependency fetching.
+REM
+REM This is DEPENDENCY INSTALLATION ONLY.
+REM It does not build firmware.
+REM ------------------------------------------------
+
+call :InstallZigDependencies "%ZIG_EXE%" "%PROJECT_ROOT%"
+if errorlevel 1 goto :fail
+
+REM ------------------------------------------------
+REM Store convenient project location
+REM ------------------------------------------------
+
+setx MICROZIG_PICO2W_PROJECT "%PROJECT_ROOT%" >nul
+if errorlevel 1 (
+    echo ERROR: Could not create the MICROZIG_PICO2W_PROJECT user environment variable.
+    goto :fail
+)
+
+set "MICROZIG_PICO2W_PROJECT=%PROJECT_ROOT%"
+
+REM ------------------------------------------------
+REM Clean temporary download files
+REM ------------------------------------------------
+
+if exist "%TEMP_ROOT%" rmdir /S /Q "%TEMP_ROOT%"
+
+REM ------------------------------------------------
+REM Done
+REM ------------------------------------------------
+
+echo.
+echo ================================================
+echo  INSTALLATION COMPLETE
+echo ================================================
+echo.
+echo Zig:
+echo   %ZIG_VERSION%
+echo.
+echo Zig executable:
+echo   %ZIG_EXE%
+echo.
+echo MicroZig:
+echo   %MICROZIG_VERSION%
+echo.
+echo Pico 2 W project:
+echo   %PROJECT_ROOT%
+echo.
+echo MicroZig source:
+echo   %INSTALLED_MICROZIG%
+echo.
+echo Target:
+echo   Raspberry Pi Pico 2 W
+echo   RP2350 / ARM Cortex-M33
+echo   MicroZig target: pico2_arm
+echo.
+echo No firmware was built or flashed.
+echo.
+echo Open a new Command Prompt window before beginning development.
+echo.
+
+exit /b 0
+
+
+REM ================================================================
+REM Add local MicroZig dependency to build.zig.zon
+REM ================================================================
+
+:AddMicroZigDependency
+
+set "AZ_ZON_PATH=%~1"
+set "AZ_ZON_TEMP=%~1.tmp"
+set "AZ_MARKER_FOUND=0"
+
+if not exist "%AZ_ZON_PATH%" (
+    echo ERROR: build.zig.zon was not found:
+    echo   %AZ_ZON_PATH%
+    exit /b 1
+)
+
+>"%AZ_ZON_TEMP%" (
+    for /f "usebackq delims=" %%L in ("%AZ_ZON_PATH%") do (
+        set "AZ_LINE=%%L"
+        echo(!AZ_LINE!
+
+        if "!AZ_LINE!"=="    .dependencies = .{" (
+            echo         .microzig = .{ .path = "deps/microzig" },
+            set "AZ_MARKER_FOUND=1"
+        )
+    )
+)
+
+if "!AZ_MARKER_FOUND!"=="0" (
+    if exist "%AZ_ZON_TEMP%" del /Q "%AZ_ZON_TEMP%"
+    echo ERROR: Could not locate the dependency section in build.zig.zon.
+    exit /b 1
+)
+
+move /Y "%AZ_ZON_TEMP%" "%AZ_ZON_PATH%" >nul
+if errorlevel 1 (
+    echo ERROR: Could not update build.zig.zon.
+    exit /b 1
+)
+
+exit /b 0
+
+
+REM ================================================================
+REM Fetch all Zig / MicroZig / Pico dependencies
+REM ================================================================
+
+:InstallZigDependencies
+
+set "ID_ZIG=%~1"
+set "ID_WORKDIR=%~2"
+set "ID_FETCH_LOG=%TEMP_ROOT%\zig-fetch.log"
+
+pushd "%ID_WORKDIR%"
+if errorlevel 1 (
+    echo ERROR: Could not enter:
+    echo   %ID_WORKDIR%
+    exit /b 1
+)
+
+for /L %%A in (1,1,75) do (
+
+    echo.
+    echo Fetching MicroZig/Pico dependencies, attempt %%A...
+
+    "%ID_ZIG%" build --fetch -j1 > "%ID_FETCH_LOG%" 2>&1
+    set "ID_FETCH_EXIT=!ERRORLEVEL!"
+
+    if "!ID_FETCH_EXIT!"=="0" (
+        echo.
+        echo All dependencies fetched successfully.
+        popd
+        exit /b 0
+    )
+
+    set "MOVES_MADE=0"
+    set "REPAIR_FAILED=0"
+
+    for /f "usebackq delims=" %%L in ("%ID_FETCH_LOG%") do (
+        set "ID_LINE=%%L"
+
+        if not "!ID_LINE:failed to rename temporary directory =!"=="!ID_LINE!" (
+            call :RepairPackageRename "%%L" "%ID_WORKDIR%"
+        )
+    )
+
+    if "!REPAIR_FAILED!"=="1" (
+        echo ERROR: Windows package-cache rename workaround failed.
+        type "%ID_FETCH_LOG%"
+        popd
+        exit /b 1
+    )
+
+    if !MOVES_MADE! GTR 0 (
+        REM One or more package renames were repaired.
+        REM Continue to the next fetch attempt.
+    ) else (
+        findstr /I /C:"TlsInitializationFailed" /C:"server connection failed" /C:"invalid HTTP response" "%ID_FETCH_LOG%" >nul
+
+        if not errorlevel 1 (
+            echo Transient Zig TLS error. Retrying...
+            timeout /T 2 /NOBREAK >nul
+        ) else (
+            echo.
+            echo Dependency fetch failed for an unexpected reason:
+            echo.
+            type "%ID_FETCH_LOG%"
+            popd
+            exit /b 1
+        )
+    )
+)
+
+echo.
+echo ERROR: Dependency installation exceeded the retry limit.
+popd
+exit /b 1
+
+
+REM ================================================================
+REM Repair one Zig Windows package-cache rename failure
+REM ================================================================
+
+:RepairPackageRename
+
+set "RP_LINE=%~1"
+set "RP_WORKDIR=%~2"
+
+set "RP_PARSED=!RP_LINE:*failed to rename temporary directory =!"
+set "RP_PARSED=!RP_PARSED: into package cache directory =|!"
+
+set "RP_SOURCE="
+set "RP_DESTINATION="
+
+for /f "tokens=1,* delims=|" %%S in ("!RP_PARSED!") do (
+    set "RP_SOURCE=%%S"
+    set "RP_DESTINATION=%%T"
+)
+
+set "RP_DESTINATION=!RP_DESTINATION:: Unexpected=!"
+
+if not defined RP_SOURCE (
+    set "REPAIR_FAILED=1"
+    exit /b 1
+)
+
+if not defined RP_DESTINATION (
+    set "REPAIR_FAILED=1"
+    exit /b 1
+)
+
+REM Convert relative paths to absolute paths.
+
+if not "!RP_SOURCE:~1,1!"==":" (
+    if not "!RP_SOURCE:~0,2!"=="\\" (
+        set "RP_SOURCE=!RP_WORKDIR!\!RP_SOURCE!"
+    )
+)
+
+if not "!RP_DESTINATION:~1,1!"==":" (
+    if not "!RP_DESTINATION:~0,2!"=="\\" (
+        set "RP_DESTINATION=!RP_WORKDIR!\!RP_DESTINATION!"
+    )
+)
+
+if exist "!RP_SOURCE!" (
+
+    echo Applying Windows package-cache rename workaround:
+    echo   FROM: !RP_SOURCE!
+    echo   TO:   !RP_DESTINATION!
+
+    if exist "!RP_DESTINATION!" (
+        rmdir /S /Q "!RP_SOURCE!"
+
+        if exist "!RP_SOURCE!" (
+            set "REPAIR_FAILED=1"
+            exit /b 1
+        )
+    ) else (
+        for %%D in ("!RP_DESTINATION!") do set "RP_DEST_PARENT=%%~dpD"
+
+        if not exist "!RP_DEST_PARENT!" (
+            mkdir "!RP_DEST_PARENT!"
+            if errorlevel 1 (
+                set "REPAIR_FAILED=1"
+                exit /b 1
+            )
+        )
+
+        move "!RP_SOURCE!" "!RP_DESTINATION!" >nul
+        if errorlevel 1 (
+            set "REPAIR_FAILED=1"
+            exit /b 1
+        )
+    )
+
+    set /A MOVES_MADE+=1
+)
+
+exit /b 0
+
+
+REM ================================================================
+REM Failure
+REM ================================================================
+
+:fail
+
+echo.
+echo ================================================
+echo  INSTALLATION FAILED
+echo ================================================
+echo.
+
+exit /b 1
