@@ -1,0 +1,424 @@
+@echo off
+setlocal EnableExtensions
+
+REM ============================================================
+REM NEW MICROZIG RASPBERRY PI PICO 2 W PROJECT
+REM
+REM Prerequisite:
+REM   Run the Zig + MicroZig PowerShell installer once first.
+REM
+REM Installer must define:
+REM   ZIG_EXE
+REM   MICROZIG_PICO2W_PROJECT
+REM
+REM Usage:
+REM
+REM   New-Pico2W-Project.cmd MyNewProject
+REM
+REM If no name is supplied, MyPicoProject is used.
+REM ============================================================
+
+
+REM ============================================================
+REM PROJECT NAME
+REM ============================================================
+
+if "%~1"=="" (
+    set "PROJECT_NAME=MyPicoProject"
+) else (
+    set "PROJECT_NAME=%~1"
+)
+
+set "PROJECT_ROOT=C:\ZigProjects\%PROJECT_NAME%"
+
+
+echo.
+echo ============================================================
+echo Creating Pico 2 W project: %PROJECT_NAME%
+echo ============================================================
+echo.
+
+
+REM ============================================================
+REM VERIFY INSTALLER ENVIRONMENT VARIABLES
+REM ============================================================
+
+if "%ZIG_EXE%"=="" (
+    echo ERROR: ZIG_EXE is not defined.
+    echo Run the Zig/MicroZig PowerShell installer first.
+    goto :fail
+)
+
+if "%MICROZIG_PICO2W_PROJECT%"=="" (
+    echo ERROR: MICROZIG_PICO2W_PROJECT is not defined.
+    echo Run the Zig/MicroZig PowerShell installer first.
+    goto :fail
+)
+
+set "ZIG=%ZIG_EXE%"
+
+
+REM ============================================================
+REM VERIFY ZIG
+REM ============================================================
+
+echo Zig executable:
+echo   %ZIG%
+echo.
+
+"%ZIG%" version
+
+if errorlevel 1 (
+    echo ERROR: Zig could not be executed.
+    goto :fail
+)
+
+echo.
+
+
+REM ============================================================
+REM VERIFY MICROZIG
+REM ============================================================
+
+if not exist "%MICROZIG_PICO2W_PROJECT%\deps\microzig\build.zig" (
+    echo ERROR: MicroZig was not found at:
+    echo   %MICROZIG_PICO2W_PROJECT%\deps\microzig
+    goto :fail
+)
+
+echo MicroZig source:
+echo   %MICROZIG_PICO2W_PROJECT%\deps\microzig
+echo.
+
+
+REM ============================================================
+REM CREATE PROJECT UNDER C:\ZigProjects
+REM
+REM Do not use Documents because we encountered Windows
+REM write failures there.
+REM ============================================================
+
+if not exist "C:\ZigProjects" (
+    mkdir "C:\ZigProjects"
+)
+
+if exist "%PROJECT_ROOT%" (
+    echo ERROR: Project already exists:
+    echo   %PROJECT_ROOT%
+    echo.
+    echo Choose another project name or remove the existing one.
+    goto :fail
+)
+
+mkdir "%PROJECT_ROOT%"
+
+if errorlevel 1 (
+    echo ERROR: Could not create:
+    echo   %PROJECT_ROOT%
+    goto :fail
+)
+
+cd /d "%PROJECT_ROOT%"
+
+if errorlevel 1 (
+    echo ERROR: Could not enter project directory.
+    goto :fail
+)
+
+
+REM ============================================================
+REM VERIFY WINDOWS CAN WRITE HERE
+REM ============================================================
+
+echo test>write-test.tmp
+
+if not exist write-test.tmp (
+    echo ERROR: Windows cannot write to:
+    echo   %PROJECT_ROOT%
+    goto :fail
+)
+
+del write-test.tmp
+
+
+REM ============================================================
+REM ZIG INIT
+REM ============================================================
+
+echo.
+echo Running zig init...
+echo.
+
+"%ZIG%" init
+
+if errorlevel 1 (
+    echo ERROR: zig init failed.
+    goto :fail
+)
+
+
+REM ============================================================
+REM CREATE MICROZIG JUNCTION
+REM ============================================================
+
+if not exist deps (
+    mkdir deps
+)
+
+echo.
+echo Linking MicroZig...
+echo.
+
+mklink /J "deps\microzig" "%MICROZIG_PICO2W_PROJECT%\deps\microzig"
+
+if errorlevel 1 (
+    echo ERROR: Could not create MicroZig junction.
+    goto :fail
+)
+
+if not exist "deps\microzig\build.zig" (
+    echo ERROR: MicroZig junction does not resolve correctly.
+    goto :fail
+)
+
+
+REM ============================================================
+REM COPY KNOWN-GOOD ZIG PACKAGE CACHES
+REM
+REM Zig 0.17 development builds can fail on Windows with:
+REM
+REM failed to rename temporary directory ... Unexpected
+REM
+REM Reusing the installer project's already populated package
+REM directories avoids most of those fetch/rename failures.
+REM ============================================================
+
+echo.
+echo Copying known-good Zig package caches...
+echo.
+
+if exist "%MICROZIG_PICO2W_PROJECT%\zig-pkg" (
+    xcopy "%MICROZIG_PICO2W_PROJECT%\zig-pkg" "zig-pkg\" /E /I /H /Y >nul
+)
+
+REM Also overlay the RP2350 example cache if it exists.
+REM This can contain Pico SDK, lwIP, and other RP2350 packages.
+
+if exist "%MICROZIG_PICO2W_PROJECT%\deps\microzig\examples\raspberrypi\rp2xxx\zig-pkg" (
+    xcopy "%MICROZIG_PICO2W_PROJECT%\deps\microzig\examples\raspberrypi\rp2xxx\zig-pkg" "zig-pkg\" /E /I /H /Y >nul
+)
+
+
+REM ============================================================
+REM ADD MICROZIG TO build.zig.zon
+REM
+REM zig init generated the fingerprint/name/version for us.
+REM We only replace the initially-empty dependency table.
+REM
+REM IMPORTANT:
+REM This PowerShell command is intentionally ONE physical line.
+REM ============================================================
+
+echo.
+echo Adding MicroZig to build.zig.zon...
+echo.
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p='build.zig.zon'; $s=[IO.File]::ReadAllText($p); $nl=[Environment]::NewLine; $q=[char]34; $r='    .dependencies = .{' + $nl + '        .microzig = .{ .path = ' + $q + 'deps/microzig' + $q + ' },' + $nl + '    },'; $pattern='(?ms)^    \.dependencies\s*=\s*\.\{.*?^    \},'; $s=[regex]::Replace($s,$pattern,$r,1); [IO.File]::WriteAllText($p,$s,(New-Object Text.UTF8Encoding($false)))"
+
+if errorlevel 1 (
+    echo ERROR: Could not modify build.zig.zon.
+    goto :fail
+)
+
+
+REM ============================================================
+REM VERIFY MICROZIG REALLY WAS ADDED
+REM ============================================================
+
+findstr /C:".microzig" build.zig.zon >nul
+
+if errorlevel 1 (
+    echo ERROR: MicroZig dependency was not added to build.zig.zon.
+    echo.
+    type build.zig.zon
+    goto :fail
+)
+
+echo MicroZig dependency successfully added.
+
+
+REM ============================================================
+REM CREATE build.zig
+REM
+REM Target:
+REM   Raspberry Pi Pico 2 W
+REM   RP2350
+REM   ARM Cortex-M33
+REM   MicroZig pico2_arm
+REM
+REM We also expose src\root.zig as a module called ProjectLib.
+REM Firmware can access it using:
+REM
+REM   const ProjectLib = @import("ProjectLib");
+REM ============================================================
+
+echo.
+echo Creating Pico 2 W build.zig...
+echo.
+
+>build.zig echo const std = @import("std");
+>>build.zig echo const microzig = @import("microzig");
+>>build.zig echo.
+>>build.zig echo const MicroBuild = microzig.MicroBuild(.{
+>>build.zig echo     .rp2xxx = true,
+>>build.zig echo });
+>>build.zig echo.
+>>build.zig echo pub fn build(b: *std.Build) void {
+>>build.zig echo     const optimize = b.standardOptimizeOption(.{});
+>>build.zig echo.
+>>build.zig echo     const mz_dep = b.dependency("microzig", .{});
+>>build.zig echo     const mb = MicroBuild.init(b, mz_dep) orelse return;
+>>build.zig echo.
+>>build.zig echo     const project_lib = b.createModule(.{
+>>build.zig echo         .root_source_file = b.path("src/root.zig"),
+>>build.zig echo     });
+>>build.zig echo.
+>>build.zig echo     const firmware = mb.add_firmware(.{
+>>build.zig echo         .name = "pico2w",
+>>build.zig echo         .target = mb.ports.rp2xxx.boards.raspberrypi.pico2_arm,
+>>build.zig echo         .optimize = optimize,
+>>build.zig echo         .root_source_file = b.path("src/main.zig"),
+>>build.zig echo         .imports = ^&.{
+>>build.zig echo             .{
+>>build.zig echo                 .name = "ProjectLib",
+>>build.zig echo                 .module = project_lib,
+>>build.zig echo             },
+>>build.zig echo         },
+>>build.zig echo     });
+>>build.zig echo.
+>>build.zig echo     mb.install_firmware(firmware, .{});
+>>build.zig echo.
+>>build.zig echo     mb.install_firmware(firmware, .{
+>>build.zig echo         .format = .elf,
+>>build.zig echo     });
+>>build.zig echo }
+
+
+REM ============================================================
+REM CREATE EMBEDDED src\main.zig
+REM ============================================================
+
+echo.
+echo Creating embedded main.zig...
+echo.
+
+>src\main.zig echo const microzig = @import("microzig");
+>>src\main.zig echo const ProjectLib = @import("ProjectLib");
+>>src\main.zig echo.
+>>src\main.zig echo pub const panic = microzig.panic;
+>>src\main.zig echo pub const std_options = microzig.std_options(.{});
+>>src\main.zig echo.
+>>src\main.zig echo comptime {
+>>src\main.zig echo     _ = microzig.export_startup();
+>>src\main.zig echo }
+>>src\main.zig echo.
+>>src\main.zig echo pub fn main() !void {
+>>src\main.zig echo     _ = ProjectLib;
+>>src\main.zig echo.
+>>src\main.zig echo     while (true) {}
+>>src\main.zig echo }
+
+
+REM ============================================================
+REM CREATE CLEAN src\root.zig
+REM ============================================================
+
+>src\root.zig echo // Put reusable project code in this file.
+>>src\root.zig echo.
+>>src\root.zig echo pub fn add(a: f32, b: f32) f32 {
+>>src\root.zig echo     return a + b;
+>>src\root.zig echo }
+
+
+REM ============================================================
+REM BUILD RELEASEFAST
+REM ============================================================
+
+echo.
+echo ============================================================
+echo Building Pico 2 W firmware
+echo ============================================================
+echo.
+
+"%ZIG%" build -Doptimize=ReleaseFast
+
+if errorlevel 1 (
+    echo.
+    echo BUILD FAILED.
+    goto :fail
+)
+
+
+REM ============================================================
+REM VERIFY UF2
+REM ============================================================
+
+if not exist "zig-out\firmware\pico2w.uf2" (
+    echo ERROR: Build returned successfully but pico2w.uf2
+    echo was not found.
+    goto :fail
+)
+
+
+REM ============================================================
+REM SUCCESS
+REM ============================================================
+
+echo.
+echo ============================================================
+echo PROJECT CREATED SUCCESSFULLY
+echo ============================================================
+echo.
+echo Project:
+echo   %PROJECT_ROOT%
+echo.
+echo Zig:
+"%ZIG%" version
+echo.
+echo MicroZig:
+echo   %MICROZIG_PICO2W_PROJECT%\deps\microzig
+echo.
+echo Target:
+echo   Raspberry Pi Pico 2 W
+echo   RP2350
+echo   ARM Cortex-M33
+echo   MicroZig target: pico2_arm
+echo.
+echo Firmware:
+echo   %PROJECT_ROOT%\zig-out\firmware\pico2w.uf2
+echo.
+echo Future ReleaseFast build command:
+echo   "%%ZIG_EXE%%" build -Doptimize=ReleaseFast
+echo.
+echo To enter the project:
+echo   cd /d %PROJECT_ROOT%
+echo.
+echo DONE.
+echo.
+
+exit /b 0
+
+
+REM ============================================================
+REM FAILURE
+REM ============================================================
+
+:fail
+
+echo.
+echo ============================================================
+echo SETUP STOPPED
+echo ============================================================
+echo.
+
+exit /b 1
