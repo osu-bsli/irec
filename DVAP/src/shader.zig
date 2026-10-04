@@ -22,7 +22,7 @@ fn compileShader(source: [:0]const u8, shader_type: c_uint) ShaderError!u32 {
     if (success == 0) {
         var info_log: [512]u8 = undefined;
         gl.glGetShaderInfoLog(shader, 512, null, &info_log);
-        std.debug.print("Error compiling shader: {s}", .{info_log});
+        std.debug.print("Error compiling shader: {s} \n", .{info_log});
 
         // Cleanup because compilation failed
         gl.glDeleteShader(shader);
@@ -68,24 +68,24 @@ pub const Shader = struct {
         return Shader{ .ID = program };
     }
 
-    pub fn use(self: Shader) void {
+    pub fn use(self: *const Shader) void {
         gl.glUseProgram(self.ID);
     }
 
-    pub fn cleanup(self: Shader) void {
+    pub fn deinit(self: *const Shader) void {
         gl.glDeleteProgram(self.ID);
     }
 
     // Functions to assist with setting uniform variables
-    pub fn setBool(self: Shader, name: [:0]const u8, value: bool) void {
+    pub fn setBool(self: *Shader, name: [:0]const u8, value: bool) void {
         gl.glUniform1i(gl.glGetUniformLocation(self.ID, name), @intFromBool(value));
     }
 
-    pub fn setInt(self: Shader, name: [:0]const u8, value: i32) void {
+    pub fn setInt(self: *Shader, name: [:0]const u8, value: i32) void {
         gl.glUniform1i(gl.glGetUniformLocation(self.ID, name), value);
     }
 
-    pub fn setFloat(self: Shader, name: [:0]const u8, value: f32) void {
+    pub fn setFloat(self: *Shader, name: [:0]const u8, value: f32) void {
         gl.glUniform1f(gl.glGetUniformLocation(self.ID, name), value);
     }
 

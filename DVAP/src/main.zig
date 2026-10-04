@@ -58,6 +58,8 @@ pub fn main(init: std.process.Init) !void {
     // Window resizing
     const set_frame_buffer_status = glfw.glfwSetFramebufferSizeCallback(graphics_context.window, framebufferSizeCallback);
     _ = &set_frame_buffer_status;
+    const set_key_callback_status = glfw.glfwSetKeyCallback(graphics_context.window, processInput);
+    _ = &set_key_callback_status;
     // TODO add new Error type and return if unable to set framebuffer size
 
     // const a = c.e.chicken(0);
@@ -88,7 +90,6 @@ pub fn main(init: std.process.Init) !void {
         @embedFile("vertex.glsl").* ++ "\x00",
         @embedFile("fragment.glsl").* ++ "\x00",
     );
-    defer shader.cleanup();
     shader.use();
 
     // const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
@@ -134,6 +135,9 @@ pub fn main(init: std.process.Init) !void {
         glfw.glfwPollEvents();
     }
 
+    // Shader Cleanup
+    shader.deinit();
+
     try stdout_writer.flush(); // Don't forget to flush!
 
     if (std.debug.runtime_safety == true) {
@@ -146,7 +150,17 @@ pub export fn framebufferSizeCallback(window: ?*glfw.GLFWwindow, width: c_int, h
     gl.glViewport(0, 0, width, height);
 }
 
-fn processInput(window: *glfw.GLFWwindow) void {
+pub export fn processInput(
+    window: ?*glfw.GLFWwindow,
+    key: c_int,
+    scancode: c_int,
+    action: c_int,
+    mods: c_int,
+) void {
+    _ = &key;
+    _ = &scancode;
+    _ = &action;
+    _ = &mods;
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_ESCAPE) == glfw.GLFW_PRESS) {
         glfw.glfwSetWindowShouldClose(window, glfw.GLFW_TRUE);
     }
