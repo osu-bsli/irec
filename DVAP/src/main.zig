@@ -92,6 +92,11 @@ pub fn main(init: std.process.Init) !void {
     );
     shader.use();
 
+    var camera = camera_lib.Camera{
+        .pos = .{ 0.0, 0.0, 0.0, 0.0 },
+    };
+    camera.enable_mouse_looking(true);
+
     // const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
     //     -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
     //     0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
@@ -124,6 +129,8 @@ pub fn main(init: std.process.Init) !void {
     while (glfw.glfwWindowShouldClose(graphics_context.window) != glfw.GLFW_TRUE) {
         gl.glClearColor(0.2, 0.3, 0.3, 1.0);
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT);
+
+        // processInput(graphics_context.window);
 
         // Bind VBO and VAO
         gl.glBindVertexArray(VAO);
