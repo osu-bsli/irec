@@ -8,28 +8,30 @@ The BSLI IREC team is competing in the 45,000ft, student-researched-and-develope
 
 The repository is structured as follows.
 
-1. [Flight Computer Pico Zig](#Flight Computer Pico Zig)
-1. [Flight Computer Pico C](#Flight Computer Pico C)
-1. [Data Visualization & Processing](#Data Visualization & Processing)
-1. [Flight Computer Testing Suite](#Flight Computer Testing Suite)
-1. [Flight Data Logs](#Flight Data Logs)
+1. [Flight Computer Pico Zig](#FC-PICO-ZIG)
+1. [Flight Computer Pico C](#FC-PICO-C)
+1. [Data Visualization & Processing](#DVAP)
+1. [Flight Computer Testing Suite](#FC-Testing-Suite)
+1. [Flight Data Logs](#Flight-Data-Logs)
 1. [Obsolete](#Obsolete)
 1. [Style](#Style)
 
-# Flight Computer Pico Zig
+# FC-PICO-ZIG
 
 The ```fc-pico-zig``` folder contains our most thoroughly tested and modern firmware for the SRAD Flight Computer.
 The entire codebase is hand written in Zig and compiles for the Raspberry Pi Pico 2 (RP2350 chipset).
 For additional design details and intent refer to (fc-pico-zig/README.md)[fc-pico-zig].
 
-# Flight Computer Pico C
+# FC-PICO-C
 
 The ```fc-pico-c``` folder contains our obsolete firmware for the SRAD Flight Computer.
 This firmware has inhereted code structure and design from several flight computer's and cohorts prior.
 While some of the previous design decisions are acceptable, there are substantial flaws and the code base reached a degree of complexity that needs to be remidied.
 For our most modern and sophisticated firmware please refer to [Flight Computer Pico Zig](#Flight Computer Pico Zig).
 
-# Data Visualization & Processing
+# DVAP
+
+Data Visualization And Processing
 
 The ```DVAP``` folder contains the source code and documentation for the *Data Visualization And Processing* desktop software.
 *DVAP* is designed and intended to fascilitate and standardize the extraction of Flight Logs from the fc-pico-zig firmware.
@@ -38,12 +40,12 @@ The ```DVAP``` folder contains the source code and documentation for the *Data V
 
 Additional information about the *DVAP* can be found here: [DVAP/README.MD](DVAP)
 
-# Flight Computer Testing Suite
+# FC-Testing-Suite
 
 The *Flight Computer Testing Suite* is a collection of our utilities to perform *Machine-In-Loop* (MIL), *Software-In-Loop* (SIL), *Processor-In-Loop* (PIL), *Hardware-In-Loop* (HIL), and Real World reproducible testing.
 These utilities will be used to automatically thoroughly test, verify, and validate our SRAD controls and firmware for competition.
 
-# Flight Data Logs
+# Flight-Data-Logs
 
 The ```flight-data-logs``` folder contains all data records of previous IREC flights in binary and CSV formats.
 
