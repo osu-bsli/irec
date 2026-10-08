@@ -1,7 +1,0 @@
-{
-    "dependencies": [
-        "fmt",
-        "sdl3",
-        "eigen3"
-    ]
-}
