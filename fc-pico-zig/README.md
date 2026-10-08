@@ -6,12 +6,12 @@ This should help reduce dependencies, provide more control without sacrificing a
 firmware to a more modern standard.
 
 Glossary:
-1. [Building & Debugging](#Building & Debugging)
+1. [Build](#Build)
 1. [Contributing](#Contributing)
 1. [Bugs](#Bugs)
 1. [Credit](#credit)
 
-#Building & Debugging
+# Build
 
 # Bugs
 
