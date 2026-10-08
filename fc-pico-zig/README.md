@@ -13,6 +13,10 @@ Glossary:
 
 # Build
 
+Run ```zig build``` to compile the UF2 binary for use with the RP2350 target. The binary is in the zig-out/firmware/ folder.
+
+Mount the RP2350 to a directory and drag and drop the UF2 file into it's directory. This will flash your code onto the RP2350, your code will run upon restart.
+
 # Bugs
 
 We are not accepting public issues or pull requests at this time.

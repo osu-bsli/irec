@@ -56,9 +56,9 @@ Many of these have been used as references for our current software/firmware.
 
 # Style
 
-Structs Are CamelCase.
-functions are snake_case.
-constants are ALL_CAPS.
+* Structs Are CamelCase.
+* functions are snake_case.
+* constants are ALL_CAPS.
 
 Adhere to the zig style guide, its good.
 
