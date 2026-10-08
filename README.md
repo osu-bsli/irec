@@ -27,7 +27,7 @@ For additional design details and intent refer to (fc-pico-zig/README.md)[fc-pic
 The ```fc-pico-c``` folder contains our obsolete firmware for the SRAD Flight Computer.
 This firmware has inhereted code structure and design from several flight computer's and cohorts prior.
 While some of the previous design decisions are acceptable, there are substantial flaws and the code base reached a degree of complexity that needs to be remidied.
-For our most modern and sophisticated firmware please refer to [Flight Computer Pico Zig](#Flight Computer Pico Zig).
+For our most modern and sophisticated firmware please refer to [Flight Computer Pico Zig](#FC-PICO-ZIG).
 
 # DVAP
 
