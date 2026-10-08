@@ -1,0 +1,16 @@
+.{
+    .name = .lwip,
+    .fingerprint = 0xe53048a052fbebad,
+    .version = "0.1.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .lwip = .{
+            // .url = "https://download.savannah.nongnu.org/releases/lwip/lwip-2.2.1.zip",
+            .url = "https://github.com/lwip-tcpip/lwip/archive/refs/tags/STABLE-2_2_1_RELEASE.zip",
+            .hash = "N-V-__8AAGSTdQCcOKeNITCRoYez502saFXZqz4ucBJ4xTa9",
+        },
+    },
+}

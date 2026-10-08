@@ -1,0 +1,16 @@
+.{
+    .name = .examples_espressif_esp,
+    .fingerprint = 0xa568458fa3375cb1,
+    .version = "0.0.0",
+    .dependencies = .{
+        .microzig = .{ .path = "../../.." },
+        .lwip = .{ .path = "../../../modules/lwip" },
+        .foundation_libc = .{ .path = "../../../modules/foundation-libc" },
+    },
+    .paths = .{
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

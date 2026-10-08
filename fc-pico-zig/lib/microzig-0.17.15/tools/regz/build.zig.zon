@@ -1,0 +1,22 @@
+.{
+    .name = .mz_tools_regz,
+    .fingerprint = 0x7886602f9b3c8b94,
+    .version = "0.0.0",
+    .paths = .{
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+    .dependencies = .{
+        .libxml2 = .{
+            .url = "git+https://github.com/allyourcodebase/libxml2?ref=zig-0.17.0#5963151267de6ab21b4abcc9fe5164eadc63a4a4",
+            .hash = "libxml2-2.15.1-2-qHdjhkFXAADYDyUYdBuZ63gfHidJSauXYKrIuUK2QPGE",
+        },
+        .virtual_io = .{ .path = "../../modules/virtual-io" },
+        .zqlite = .{
+            .url = "git+https://github.com/mattnite/zqlite.zig?ref=zig-0.17.0#4c3116c42d1abf721735e8d48b9f7bebaddfbd6c",
+            .hash = "zqlite-0.0.1-RWLaY5M-nADM7IT75xD-2DxZnqPJsqEDSUZ4wA6_zOPy",
+        },
+    },
+}

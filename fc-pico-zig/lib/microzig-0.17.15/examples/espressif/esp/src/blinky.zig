@@ -1,0 +1,53 @@
+const std = @import("std");
+const microzig = @import("microzig");
+const hal = microzig.hal;
+const gpio = hal.gpio;
+const usb_serial_jtag = hal.usb_serial_jtag;
+const time = hal.time;
+
+pub const panic = microzig.panic;
+
+pub const std_options = microzig.std_options(.{
+    .logFn = usb_serial_jtag.logger.log,
+});
+
+comptime {
+    _ = microzig.export_startup();
+}
+
+pub fn main() !void {
+    const pin_config: gpio.Pin.Config = .{
+        .output_enable = true,
+        .drive_strength = .@"40mA",
+    };
+
+    const led_r_pin = gpio.num(3);
+    const led_g_pin = gpio.num(4);
+    const led_b_pin = gpio.num(5);
+
+    led_r_pin.apply(pin_config);
+    led_g_pin.apply(pin_config);
+    led_b_pin.apply(pin_config);
+
+    std.log.info("Hello from Zig!", .{});
+
+    while (true) {
+        led_r_pin.put(1);
+        led_g_pin.put(0);
+        led_b_pin.put(0);
+        std.log.info("R", .{});
+        time.sleep_ms(500);
+
+        led_r_pin.put(0);
+        led_g_pin.put(1);
+        led_b_pin.put(0);
+        std.log.info("G", .{});
+        time.sleep_ms(500);
+
+        led_r_pin.put(0);
+        led_g_pin.put(0);
+        led_b_pin.put(1);
+        std.log.info("B", .{});
+        time.sleep_ms(500);
+    }
+}

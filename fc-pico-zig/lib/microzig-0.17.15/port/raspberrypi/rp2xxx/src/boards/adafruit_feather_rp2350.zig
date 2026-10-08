@@ -1,0 +1,13 @@
+pub const xosc_freq = 12_000_000;
+pub const xosc_startup_delay_multiplier = 64;
+
+const microzig = @import("microzig");
+const hal = microzig.hal;
+const pins = hal.pins;
+
+pub const pin_config = pins.GlobalConfiguration{
+    .GPIO7 = .{
+        .name = "led",
+        .function = .SIO,
+    },
+};

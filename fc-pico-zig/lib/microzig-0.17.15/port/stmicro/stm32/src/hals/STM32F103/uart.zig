@@ -1,0 +1,405 @@
+//TODO: Half-Duplex (Single-Wire mode)
+//TODO: Synchronous mode (For USART only)
+
+const std = @import("std");
+const time = @import("time.zig");
+const microzig = @import("microzig");
+const enums = @import("../common/enums.zig");
+
+const assert = std.debug.assert;
+
+const mdf = microzig.drivers;
+const Duration = mdf.time.Duration;
+const Deadline = mdf.time.Deadline;
+
+const USART_Peripheral = microzig.chip.types.peripherals.usart_v1.USART;
+const M0 = microzig.chip.types.peripherals.usart_v1.M0;
+const PS = microzig.chip.types.peripherals.usart_v1.PS;
+const STOP = microzig.chip.types.peripherals.usart_v1.STOP;
+
+pub const WordBits = enum {
+    eight,
+    //nine,
+};
+
+pub const StopBits = enum {
+    one,
+    half,
+    two,
+    one_and_half,
+};
+
+pub const Parity = enum {
+    none,
+    even,
+    odd,
+};
+
+pub const FlowControl = enum {
+    none,
+    CTS,
+    RTS,
+    CTS_RTS,
+};
+
+pub const ConfigError = error{
+    InvalidUartNum,
+    UnsupportedBaudRate,
+    UnsupportedFlowControl,
+};
+
+pub const Config = struct {
+    clock_speed: u32,
+    baud_rate: u32 = 115200,
+    word_bits: WordBits = .eight,
+    stop_bits: StopBits = .one,
+    parity: Parity = .none,
+    flow_control: FlowControl = .none,
+};
+
+pub const TransmitError = error{
+    Timeout,
+};
+
+pub const ReceiveError = error{
+    OverrunError,
+    NoiseError,
+    ParityError,
+    FramingError,
+    Timeout,
+};
+
+pub const ErrorStates = packed struct(u4) {
+    overrun_error: bool = false,
+    noise_error: bool = false,
+    parity_error: bool = false,
+    framing_error: bool = false,
+};
+
+fn comptime_fail_or_error(msg: []const u8, fmt_args: anytype, err: ConfigError) ConfigError {
+    if (@inComptime()) {
+        @compileError(std.fmt.comptimePrint(msg, fmt_args));
+    } else {
+        return err;
+    }
+}
+
+pub const Instances = enums.UART_Type;
+
+pub const UART = struct {
+    regs: *volatile USART_Peripheral,
+    ///Returns an error at runtime, and raises a compile error at comptime.
+    fn validate_baudrate(baud_rate: u32, peri_freq: u32) ConfigError!void {
+        const val: f32 = @as(f32, @floatFromInt(peri_freq)) / (@as(f32, @floatFromInt(baud_rate)) * 16);
+        if (val > 4095) {
+            return comptime_fail_or_error(
+                "Baud {d} is too low for Clock {d}",
+                .{ baud_rate, peri_freq },
+                ConfigError.UnsupportedBaudRate,
+            );
+        } else if (val < 1.0) {
+            return comptime_fail_or_error(
+                "Baud {d} is too High for Clock {d}",
+                .{ baud_rate, peri_freq },
+                ConfigError.UnsupportedBaudRate,
+            );
+        }
+    }
+
+    // The only difference between UART 4 and 5 and USARTs in asynchronous mode is the lack of
+    // hardware control flow
+    // NOTE: Most devices don't have UART 4/5, should we drop support for them?
+    fn validate_config(uart: *const UART, config: Config) ConfigError!void {
+        const uart_num = @intFromPtr(uart.regs);
+        // Check for the base address of the UARTx
+        if ((uart_num == 0x40005000) or (uart_num == 0x40004c00)) {
+            if ((config.flow_control != .none)) {
+                return comptime_fail_or_error(
+                    "UART 4/5 does no have Hardware control flow",
+                    .{},
+                    ConfigError.UnsupportedFlowControl,
+                );
+            }
+        }
+    }
+
+    pub fn apply(comptime uart: *const UART, comptime config: Config) void {
+        comptime validate_baudrate(config.baud_rate, config.clock_speed) catch unreachable;
+        comptime validate_config(uart, config) catch unreachable;
+        uart.apply_internal(config);
+    }
+
+    pub fn apply_runtime(uart: *const UART, config: Config) !void {
+        try validate_baudrate(config.baud_rate, config.clock_speed);
+        try validate_config(uart, config);
+        uart.apply_internal(config);
+    }
+
+    fn apply_internal(uart: *const UART, config: Config) void {
+        const regs = uart.regs;
+        uart.set_baudrate(config.baud_rate, config.clock_speed);
+        uart.set_wordbits(config.word_bits);
+        uart.set_parity(config.parity);
+        uart.set_stopbits(config.stop_bits);
+        uart.set_flowcontrol(config.flow_control);
+        regs.CR1.modify(.{
+            .UE = 1,
+            .RE = 1,
+            .TE = 1,
+        });
+    }
+
+    fn set_baudrate(uart: *const UART, baudrate: u32, clock_fraq: u32) void {
+        const regs = uart.regs;
+        const baud: f32 = @as(f32, @floatFromInt(clock_fraq)) / (@as(f32, @floatFromInt(baudrate)) * 16);
+
+        var mantissa: u32 = @intFromFloat(baud);
+        var frac: u32 = @intFromFloat(@floor((baud - @as(f32, @floatFromInt(mantissa))) * 16));
+        mantissa += @divTrunc(frac, 16);
+        frac = frac % 16;
+
+        const value: u32 = 0xFFFF & ((mantissa << 4) | frac);
+        regs.BRR.raw = value;
+    }
+
+    fn set_wordbits(uart: *const UART, word: WordBits) void {
+        const regs = uart.regs;
+        regs.CR1.modify(.{
+            .M0 = @as(M0, @fromBackingInt(@backingInt(word))),
+        });
+    }
+
+    fn set_stopbits(uart: *const UART, stops: StopBits) void {
+        const regs = uart.regs;
+        regs.CR2.modify(.{
+            .STOP = @as(STOP, @fromBackingInt(@backingInt(stops))),
+        });
+    }
+
+    fn set_parity(uart: *const UART, parity: Parity) void {
+        const regs = uart.regs;
+        switch (parity) {
+            .none => {
+                regs.CR1.modify(.{
+                    .PCE = 0,
+                });
+            },
+            else => |ps| {
+                const val: PS = @fromBackingInt(@intCast(@backingInt(ps) - 1));
+                regs.CR1.modify(.{
+                    .PCE = 1,
+                    .PS = val,
+                });
+            },
+        }
+    }
+
+    fn set_flowcontrol(uart: *const UART, flowcontrol: FlowControl) void {
+        const regs = uart.regs;
+        var RTS: u1 = 0;
+        var CTS: u1 = 0;
+
+        switch (flowcontrol) {
+            .CTS => CTS = 1,
+            .RTS => RTS = 1,
+            .CTS_RTS => {
+                CTS = 1;
+                RTS = 1;
+            },
+            else => {},
+        }
+
+        regs.CR3.modify(.{
+            .RTSE = RTS,
+            .CTSE = CTS,
+        });
+    }
+
+    pub inline fn is_readable(uart: *const UART) bool {
+        return (0 != uart.regs.SR.read().RXNE);
+    }
+
+    pub inline fn is_writeable(uart: *const UART) bool {
+        return (0 != uart.regs.SR.read().TXE);
+    }
+
+    pub fn writev_blocking(uart: *const UART, payloads: []const []const u8, timeout: ?Duration) TransmitError!usize {
+        const deadline = Deadline.init_relative(time.get_time_since_boot(), timeout);
+        const regs = uart.regs;
+        var n: usize = 0;
+        for (payloads) |pkgs| {
+            for (pkgs) |byte| {
+                while (!uart.is_writeable()) {
+                    if (deadline.is_reached_by(time.get_time_since_boot())) return error.Timeout;
+                }
+                regs.DR.raw = @intCast(byte);
+                n += 1;
+            }
+        }
+        return n;
+    }
+
+    pub fn readv_blocking(uart: *const UART, buffers: []const []u8, timeout: ?Duration) ReceiveError!usize {
+        const deadline = Deadline.init_relative(time.get_time_since_boot(), timeout);
+        const regs = uart.regs;
+        var n: usize = 0;
+        for (buffers) |buf| {
+            for (buf) |*bytes| {
+                while (!uart.is_readable()) {
+                    if (deadline.is_reached_by(time.get_time_since_boot())) return n;
+                }
+                const SR = regs.SR.read();
+
+                if (SR.ORE != 0) {
+                    return error.OverrunError;
+                } else if (SR.NE != 0) {
+                    return error.NoiseError;
+                } else if (SR.FE != 0) {
+                    return error.FramingError;
+                } else if (SR.PE != 0) {
+                    return error.ParityError;
+                }
+                const rx = regs.DR.raw;
+
+                bytes.* = @intCast(0xFF & rx);
+                n += 1;
+            }
+        }
+        return n;
+    }
+
+    pub fn get_errors(uart: *const UART) ErrorStates {
+        const regs = uart.regs;
+        const read_val = regs.SR.read();
+        return .{
+            .overrun_error = read_val.ORE == 1,
+            .noise_error = read_val.NE == 1,
+            .parity_error = read_val.PE == 1,
+            .framing_error = read_val.FE == 1,
+        };
+    }
+
+    pub inline fn clear_errors(uart: *const UART) void {
+        const regs = uart.regs;
+        std.mem.doNotOptimizeAway(regs.SR.raw);
+        std.mem.doNotOptimizeAway(regs.DR.raw);
+    }
+
+    pub fn write_blocking(uart: *const UART, data: []const u8, timeout: ?Duration) TransmitError!usize {
+        return uart.writev_blocking(&.{data}, timeout);
+    }
+
+    pub fn read_blocking(uart: *const UART, data: []u8, timeout: ?Duration) ReceiveError!usize {
+        return uart.readv_blocking(&.{data}, timeout);
+    }
+
+    pub fn writer(uart: *const UART, buffer: []u8) Writer {
+        return Writer{
+            .uart = uart,
+            .intf = .{
+                .buffer = buffer,
+                .vtable = &.{
+                    .drain = drain,
+                },
+            },
+        };
+    }
+
+    pub fn reader(uart: *const UART, buffer: []u8) Reader {
+        return .{
+            .uart = uart,
+            .intf = .{
+                .buffer = buffer,
+                .vtable = &.{
+                    .stream = stream,
+                },
+            },
+        };
+    }
+
+    pub const Writer = struct {
+        uart: *const UART,
+        intf: std.Io.Writer,
+    };
+
+    pub const Reader = struct {
+        uart: *const UART,
+        intf: std.Io.Reader,
+    };
+
+    fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
+        const uart_writer: *Writer = @fieldParentPtr("intf", w);
+        const uart = uart_writer.uart;
+
+        // bytes from buffer are not included in count.
+        w.end -= uart.write_blocking(w.buffer[0..w.end], null) catch |err| switch (err) {
+            error.Timeout => unreachable,
+        };
+        assert(w.end == 0);
+
+        var n: usize = 0;
+        n += uart.writev_blocking(data[0 .. data.len - 1], null) catch |err| switch (err) {
+            error.Timeout => unreachable,
+        };
+        for (0..splat) |_|
+            n += uart.write_blocking(data[data.len - 1], null) catch |err| switch (err) {
+                error.Timeout => unreachable,
+            };
+
+        return n;
+    }
+
+    fn stream(io_reader: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
+        const r: *Reader = @fieldParentPtr("intf", io_reader);
+        return switch (limit) {
+            .nothing => 0,
+            else => blk: {
+                var buf: [1]u8 = undefined;
+                const n = r.uart.read_blocking(&buf, null) catch |err| switch (err) {
+                    error.ReceiveError => return error.ReadError,
+                };
+
+                break :blk switch (n) {
+                    0 => 0,
+                    1 => try w.writeByte(buf[0]),
+                    else => unreachable,
+                };
+            },
+        };
+    }
+
+    pub fn init(comptime uart: Instances) UART {
+        return .{ .regs = enums.get_regs(USART_Peripheral, uart) };
+    }
+};
+
+var uart_logger: ?UART.Writer = null;
+
+/// Set a specific uart instance to be used for logging.
+///
+/// Allows system logging over uart via:
+/// pub const microzig_options = .{
+///     .logFn = hal.uart.log,
+/// };
+pub fn init_logger(uart: *const UART) void {
+    uart_logger = uart.writer(&.{});
+    if (uart_logger) |*writer| {
+        writer.intf.writeAll("\r\n================ STARTING NEW LOGGER ================\r\n") catch {};
+    }
+}
+
+/// Disable logging via the UART instance.
+pub fn deinit_logger() void {
+    uart_logger = null;
+}
+
+pub fn log(comptime level: std.log.Level, comptime scope: @TypeOf(.EnumLiteral), comptime format: []const u8, args: anytype) void {
+    const prefix = comptime level.asText() ++ switch (scope) {
+        .default => ": ",
+        else => " (" ++ @tagName(scope) ++ "): ",
+    };
+
+    if (uart_logger) |*writer| {
+        writer.intf.print(prefix ++ format ++ "\r\n", args) catch {};
+    }
+}

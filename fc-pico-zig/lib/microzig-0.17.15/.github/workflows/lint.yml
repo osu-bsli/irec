@@ -1,0 +1,60 @@
+name: Code Linting
+
+on:
+  pull_request_target:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # SECURITY: Checkout base branch for linter binary
+      - name: Checkout base branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - run: cp base/build.zig.zon .
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+
+      # Build linter from trusted base branch code
+      - name: Build linter
+        working-directory: base/tools/linter
+        run: zig build --release=safe
+
+      # Now checkout PR code to analyze (but not execute)
+      - name: Checkout PR code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          fetch-depth: 0
+          allow-unsafe-pr-checkout: true
+
+      - name: Run linter
+        working-directory: pr
+        run: |
+          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
+          echo "Head SHA: ${{ github.event.pull_request.head.sha }}"
+
+          # Get changed .zig files
+          FILES=$(git diff --name-only --diff-filter=d ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep '\.zig$' || true)
+          echo "Changed files: $FILES"
+
+          if [ -n "$FILES" ]; then
+            echo "$FILES" | xargs ../base/tools/linter/zig-out/bin/linter > lint_results_raw.json
+          else
+            echo "[]" > lint_results_raw.json
+          fi
+
+          # Debug output
+          echo "Raw lint results:"
+          cat lint_results_raw.json

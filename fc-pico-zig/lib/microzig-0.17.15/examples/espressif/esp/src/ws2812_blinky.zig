@@ -1,0 +1,58 @@
+const std = @import("std");
+const microzig = @import("microzig");
+const WS2812 = microzig.drivers.led.WS2812;
+const Color = microzig.drivers.led.ws2812.Color;
+const hal = microzig.hal;
+const gpio = hal.gpio;
+
+pub const panic = microzig.panic;
+
+pub const std_options = microzig.std_options(.{
+    .logFn = hal.usb_serial_jtag.logger.log,
+});
+
+comptime {
+    _ = microzig.export_startup();
+}
+
+const led_pin = gpio.num(8);
+const spi_bus = hal.spi.instance.SPI2;
+
+pub fn main() !void {
+    led_pin.apply(.{ .output_enable = true });
+
+    spi_bus.connect_pins(.{
+        .data = .{ .single_one_wire = led_pin },
+    });
+    spi_bus.apply(.{
+        .clock_config = hal.clock_config,
+        .baud_rate = 3_000_000,
+        .bit_order = .msb_first,
+    });
+
+    const spi_dev: hal.drivers.SPI_Device = .init(spi_bus, .single_one_wire, null);
+
+    var ws2812: WS2812(.{
+        .max_led_count = 1,
+        .DatagramDevice = hal.drivers.SPI_Device,
+    }) = .init(
+        spi_dev,
+        hal.drivers.clock_device(),
+    );
+
+    const red: Color = .{ .r = 10, .g = 0, .b = 0 };
+    const green: Color = .{ .r = 0, .g = 10, .b = 0 };
+    const blue: Color = .{ .r = 0, .g = 0, .b = 10 };
+
+    while (true) {
+        try ws2812.write(&.{red});
+        std.log.info("red", .{});
+        hal.time.sleep_ms(1_000);
+        try ws2812.write(&.{green});
+        std.log.info("green", .{});
+        hal.time.sleep_ms(1_000);
+        try ws2812.write(&.{blue});
+        std.log.info("blue", .{});
+        hal.time.sleep_ms(1_000);
+    }
+}

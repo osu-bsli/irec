@@ -1,0 +1,13 @@
+.{
+    .name = .mz_drivers,
+    .fingerprint = 0x576453eedc5af46e,
+    .dependencies = .{
+        .link = .{ .path = "../modules/network/link" },
+    },
+    .version = "0.0.1",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

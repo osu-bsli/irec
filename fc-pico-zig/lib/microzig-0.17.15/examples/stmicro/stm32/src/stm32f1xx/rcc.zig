@@ -1,0 +1,56 @@
+const std = @import("std");
+const microzig = @import("microzig");
+
+const stm32 = microzig.hal;
+const rcc = stm32.rcc;
+const gpio = stm32.gpio;
+
+const MCO = gpio.Pin.from_port(.A, 8);
+
+const uart = stm32.uart.UART.init(.USART1);
+const TX = gpio.Pin.from_port(.A, 9);
+
+pub const panic = microzig.panic;
+
+pub const std_options = microzig.std_options(.{
+    .logFn = stm32.uart.log,
+});
+
+comptime {
+    _ = microzig.export_startup();
+}
+
+const clk_config = rcc.Config{
+    .PLLSourceVirtual = .HSE_Div_PREDIV,
+    .HSEDivPLL = .Div2,
+    .PLLMUL = .Mul2,
+    .SYSCLKSource = .PLL1_P,
+    .APB1CLKDivider = .Div2,
+    .RCC_MCOSource = .SYS,
+    .flags = .{
+        .HSEOscillator = true,
+        .MCOUsed_ForRCC = true,
+        .MCOConfig = true,
+    },
+};
+
+pub fn main() !void {
+    _ = try rcc.apply(clk_config);
+    rcc.enable_clock(.GPIOA);
+    rcc.enable_clock(.AFIO);
+    rcc.enable_clock(.USART1);
+
+    TX.set_output_mode(.alternate_function_push_pull, .max_50MHz);
+
+    try uart.apply_runtime(.{
+        .clock_speed = rcc.get_clock(.USART1),
+    });
+
+    stm32.uart.init_logger(&uart);
+
+    //the value seen in the uart should be equal to the value of the MCO
+    std.log.info("sys freq: {d}", .{rcc.get_sys_clk()});
+
+    MCO.set_output_mode(.alternate_function_push_pull, .max_50MHz);
+    while (true) {}
+}

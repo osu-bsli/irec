@@ -1,0 +1,685 @@
+const std = @import("std");
+const Database = @import("Database.zig");
+const Arch = @import("arch.zig").Arch;
+const arm = @import("arch/arm.zig");
+
+pub const ChipFile = struct {
+    name: []const u8,
+    family: []const u8,
+    line: []const u8,
+    die: []const u8,
+    device_id: u16,
+    packages: []const Package,
+    memory: []const Memory,
+    docs: []const Doc,
+    cores: []const Core,
+
+    pub const Package = struct {
+        name: []const u8,
+        package: []const u8,
+        pins: []const Pin,
+
+        pub const Pin = struct {
+            position: []const u8,
+            signals: []const []const u8,
+        };
+    };
+
+    pub const Memory = struct {
+        name: []const u8,
+        kind: Kind,
+        address: u32,
+        size: u32,
+        settings: ?Settings = null,
+        access: ?Access = null,
+
+        pub const Kind = enum {
+            flash,
+            ram,
+        };
+
+        pub const Settings = struct {
+            erase_size: u32,
+            write_size: u32,
+            erase_value: u8,
+        };
+
+        pub const Access = struct {
+            read: bool,
+            write: bool,
+            execute: bool,
+        };
+    };
+
+    pub const Doc = struct {
+        type: []const u8,
+        title: []const u8,
+        name: []const u8,
+        url: []const u8,
+    };
+
+    pub const Core = struct {
+        name: []const u8,
+        peripherals: []const Peripheral,
+        nvic_priority_bits: ?u8 = null,
+        interrupts: []const Interrupt,
+        dma_channels: []const DMA_Channel,
+
+        pub const Peripheral = struct {
+            name: []const u8,
+            address: u32,
+            registers: ?Registers = null,
+            rcc: ?Rcc = null,
+            pins: ?[]const Pin = null,
+            interrupts: ?[]const Peripheral.Interrupt = null,
+            dma_channels: ?[]const Peripheral.DMA_Channel = null,
+
+            pub const Registers = struct {
+                kind: []const u8,
+                version: []const u8,
+                block: []const u8,
+            };
+
+            pub const Rcc = struct {
+                bus_clock: []const u8,
+                kernel_clock: std.json.Value,
+                enable: Field,
+                reset: ?Field = null,
+                stop_mode: StopMode = .Stop1,
+
+                pub const Field = struct {
+                    register: []const u8,
+                    field: []const u8,
+                };
+
+                pub const StopMode = enum {
+                    // this is the default if its null
+                    Stop1,
+                    Stop2,
+                    Standby,
+                };
+            };
+
+            pub const Pin = struct {
+                pin: []const u8,
+                signal: []const u8,
+                af: ?u8 = null,
+            };
+
+            pub const Interrupt = struct {
+                signal: []const u8,
+                interrupt: []const u8,
+            };
+
+            pub const DMA_Channel = struct {
+                signal: []const u8,
+                dma: ?[]const u8 = null,
+                channel: ?[]const u8 = null,
+                dmamux: ?[]const u8 = null,
+                request: ?u8 = null,
+            };
+        };
+
+        pub const Interrupt = struct {
+            name: []const u8,
+            number: u8,
+        };
+
+        pub const DMA_Channel = struct {
+            name: []const u8,
+            dma: []const u8,
+            channel: u8,
+            dmamux: ?[]const u8 = null,
+            dmamux_channel: ?u8 = null,
+            supports_2d: ?bool = null,
+        };
+    };
+
+    pub fn less_than(_: void, lhs: std.json.Parsed(ChipFile), rhs: std.json.Parsed(ChipFile)) bool {
+        return std.ascii.lessThanIgnoreCase(lhs.value.name, rhs.value.name);
+    }
+};
+
+pub fn load_into_db(db: *Database, io: std.Io, path: []const u8, device: ?[]const u8) !void {
+    var package_dir = try std.Io.Dir.cwd().openDir(io, path, .{});
+    defer package_dir.close(io);
+
+    var data_dir = try package_dir.openDir(io, "data", .{});
+    defer data_dir.close(io);
+
+    var arena = std.heap.ArenaAllocator.init(db.gpa);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+
+    var chip_files: std.ArrayList(std.json.Parsed(ChipFile)) = .empty;
+    defer {
+        for (chip_files.items) |chip_file|
+            chip_file.deinit();
+        chip_files.deinit(allocator);
+    }
+
+    var register_files: std.StringArrayHashMapUnmanaged(std.json.Parsed(std.json.Value)) = .empty;
+    defer {
+        for (register_files.values()) |*value|
+            value.deinit();
+
+        register_files.deinit(allocator);
+    }
+
+    var chips_dir = try data_dir.openDir(io, "chips", .{ .iterate = true });
+    defer chips_dir.close(io);
+
+    var it = chips_dir.iterate();
+    while (try it.next(io)) |entry| {
+        if (entry.kind != .file)
+            continue;
+
+        // Filter to specific device if requested
+        if (device) |d| {
+            const chip_name = entry.name[0 .. entry.name.len - ".json".len];
+            if (!std.mem.eql(u8, d, chip_name)) {
+                continue;
+            }
+        }
+
+        std.log.info("file: {s}", .{entry.name});
+
+        const chip_file_text = try chips_dir.readFileAlloc(io, entry.name, allocator, .unlimited);
+        defer allocator.free(chip_file_text);
+
+        var scanner = std.json.Scanner.initCompleteInput(allocator, chip_file_text);
+        defer scanner.deinit();
+
+        var diags = std.json.Diagnostics{};
+        scanner.enableDiagnostics(&diags);
+        errdefer {
+            std.log.err("Issue found at {}:{}", .{ diags.getLine(), diags.getColumn() });
+        }
+
+        const chips_file = try std.json.parseFromTokenSource(ChipFile, allocator, &scanner, .{
+            .allocate = .alloc_always,
+        });
+        errdefer chips_file.deinit();
+
+        try chip_files.append(allocator, chips_file);
+    }
+
+    // Error if device was specified but not found
+    if (device != null and chip_files.items.len == 0) {
+        return error.DeviceMissing;
+    }
+
+    var registers_dir = try data_dir.openDir(io, "registers", .{ .iterate = true });
+    defer registers_dir.close(io);
+
+    it = registers_dir.iterate();
+    while (try it.next(io)) |entry| {
+        if (entry.kind != .file)
+            continue;
+
+        std.log.info("file: {s}", .{entry.name});
+
+        const register_file_text = try registers_dir.readFileAlloc(io, entry.name, allocator, .unlimited);
+        defer allocator.free(register_file_text);
+
+        var scanner = std.json.Scanner.initCompleteInput(allocator, register_file_text);
+        defer scanner.deinit();
+
+        var diags = std.json.Diagnostics{};
+        scanner.enableDiagnostics(&diags);
+        errdefer {
+            std.log.err("Issue found at {}:{}", .{ diags.getLine(), diags.getColumn() });
+        }
+
+        var register_file = try std.json.parseFromTokenSource(std.json.Value, allocator, &scanner, .{
+            .allocate = .alloc_always,
+        });
+        errdefer register_file.deinit();
+
+        try handle_extends(allocator, &register_file.value);
+
+        const register_name = try allocator.dupe(u8, entry.name[0 .. entry.name.len - std.fs.path.extension(entry.name).len]);
+        try register_files.put(allocator, register_name, register_file);
+    }
+
+    // sort to try to keep things somewhat in order
+    std.sort.insertion(std.json.Parsed(ChipFile), chip_files.items, {}, ChipFile.less_than);
+
+    for (register_files.keys(), register_files.values()) |name, register_file| {
+        const periph_id = try db.create_peripheral(.{
+            .name = name,
+        });
+
+        var enums: std.StringArrayHashMapUnmanaged(Database.EnumID) = .empty;
+        defer enums.deinit(allocator);
+
+        for (register_file.value.object.keys(), register_file.value.object.values()) |key, obj| {
+            if (!std.mem.startsWith(u8, key, "enum/"))
+                continue;
+
+            const enum_description: ?[]const u8 = if (obj.object.get("description")) |desc| desc.string else null;
+            const size = obj.object.get("bit_size").?.integer;
+
+            const struct_id = try db.get_peripheral_struct(periph_id);
+            const enum_id = try db.create_enum(struct_id, .{
+                .name = key["enum/".len..],
+                .description = enum_description,
+                .size_bits = @intCast(size),
+            });
+
+            try enums.put(allocator, key["enum/".len..], enum_id);
+
+            for (obj.object.get("variants").?.array.items) |item| {
+                const enum_field_name = item.object.get("name").?.string;
+                const enum_field_description: ?[]const u8 = if (item.object.get("description")) |desc| desc.string else null;
+                const value = item.object.get("value").?.integer;
+
+                try db.add_enum_field(enum_id, .{
+                    .name = enum_field_name,
+                    .description = enum_field_description,
+                    .value = @intCast(value),
+                });
+            }
+        }
+
+        for (register_file.value.object.keys(), register_file.value.object.values()) |key, obj| {
+            if (!std.mem.startsWith(u8, key, "block/"))
+                continue;
+
+            const struct_id = try db.get_peripheral_struct(periph_id);
+            const group_id = try db.create_nested_struct(struct_id, .{
+                .name = key["block/".len..],
+                .description = if (obj.object.get("description")) |desc|
+                    desc.string
+                else
+                    null,
+            });
+
+            for (obj.object.get("items").?.array.items) |item| {
+                var register_ids: std.ArrayList(Database.RegisterID) = .empty;
+                defer register_ids.deinit(allocator);
+                const register_name = item.object.get("name").?.string;
+                const description: ?[]const u8 = if (item.object.get("description")) |desc| desc.string else null;
+                const byte_offset: u64 = @intCast(item.object.get("byte_offset").?.integer);
+                const item_bit_size = if (item.object.get("bit_size")) |v| v.integer else 32;
+                const maybe_count: ?u64, const maybe_stride: ?u64 = if (item.object.get("array")) |array| blk: {
+                    if (array.object.get("len")) |count| {
+                        if (count.integer == 1) break :blk .{ null, null };
+                        if (array.object.get("stride")) |stride| {
+                            if (stride.integer > 4) {
+                                break :blk .{ @intCast(count.integer), @intCast(stride.integer) };
+                            }
+                        }
+                        break :blk .{ @intCast(count.integer), null };
+                    }
+
+                    break :blk .{ null, null };
+                } else .{ null, null };
+
+                // This register can be a cluster. In this case we can reference its type only.
+                // We still need to handle the stride. This is the reason we need to compute size
+                // of cluster.
+                if (item.object.get("block")) |block| {
+                    const ref_type = block.string;
+                    const block_key = try std.fmt.allocPrint(allocator, "block/{s}", .{ref_type});
+                    const block_value = (register_file.value.object.get(block_key) orelse continue).object;
+                    var max_bytes: u64 = 0;
+                    for (block_value.get("items").?.array.items) |nested_item| {
+                        // Let's assume we do not recurse on block
+                        const offset: u64 = @intCast(nested_item.object.get("byte_offset").?.integer);
+                        if (nested_item.object.get("array")) |array| {
+                            if (array.object.get("len")) |count| {
+                                if (array.object.get("stride")) |stride| {
+                                    max_bytes = @max(offset + 4 + @as(u64, @intCast(stride.integer * (count.integer - 1))), max_bytes);
+                                    continue;
+                                }
+                            }
+                        }
+                        max_bytes = @max(offset + 4, max_bytes);
+                    }
+
+                    if (maybe_stride == max_bytes) {
+                        // We have a contiguous cluster array
+                        _ = try db.create_register(group_id, .{
+                            .name = register_name,
+                            .description = description,
+                            .ref_type = ref_type,
+                            .offset_bytes = @intCast(byte_offset),
+                            .size_bits = max_bytes * 8,
+                            .count = maybe_count,
+                        });
+                        continue;
+                    } else if (maybe_stride) |stride| {
+                        // We have spread cluster
+                        for (0..maybe_count.?) |id| {
+                            const register_part_name = try std.fmt.allocPrint(allocator, "{s}[{d}]", .{
+                                register_name,
+                                id,
+                            });
+                            _ = try db.create_register(group_id, .{
+                                .name = register_part_name,
+                                .description = description,
+                                .ref_type = ref_type,
+                                .offset_bytes = byte_offset + (id * stride),
+                                .size_bits = max_bytes * 8,
+                                .count = null,
+                            });
+                        }
+                        continue;
+                    } else if (maybe_stride == null) {
+                        // We have a single cluster
+                        _ = try db.create_register(group_id, .{
+                            .name = register_name,
+                            .description = description,
+                            .ref_type = ref_type,
+                            .offset_bytes = @intCast(byte_offset),
+                            .size_bits = max_bytes * 8,
+                            .count = null,
+                        });
+                        continue;
+                    }
+                    // No match default to u32
+                    // At this point it should be unreachable.
+                    // I leave this comment as a placeholder for other special cases.
+                }
+
+                // Not a cluster but a fieldset
+                if (maybe_stride) |stride| {
+                    if (maybe_count) |count| {
+                        // We spread the register as it jumps over other registers
+                        for (0..count) |id| {
+                            const register_part_name = try std.fmt.allocPrint(allocator, "{s}[{d}]", .{
+                                register_name,
+                                id,
+                            });
+                            const register_id = try db.create_register(group_id, .{
+                                .name = register_part_name,
+                                .description = description,
+                                .offset_bytes = byte_offset + (id * stride),
+                                .size_bits = @intCast(item_bit_size),
+                                .count = null,
+                            });
+                            try register_ids.append(allocator, register_id);
+                        }
+                    }
+                } else {
+                    const register_id = try db.create_register(group_id, .{
+                        .name = register_name,
+                        .description = description,
+                        .offset_bytes = @intCast(byte_offset),
+                        .size_bits = @intCast(item_bit_size),
+                        .count = maybe_count,
+                    });
+                    try register_ids.append(allocator, register_id);
+                }
+
+                if (item.object.get("fieldset")) |fieldset| blk: {
+                    const fieldset_key = try std.fmt.allocPrint(allocator, "fieldset/{s}", .{fieldset.string});
+                    const fieldset_value = (register_file.value.object.get(fieldset_key) orelse break :blk).object;
+                    next_field: for (fieldset_value.get("fields").?.array.items) |field| {
+                        const field_name = field.object.get("name").?.string;
+                        const field_description: ?[]const u8 = if (field.object.get("description")) |desc| desc.string else null;
+                        switch (field.object.get("bit_offset").?) {
+                            .integer => |int| {
+                                // This is the standard bit offset case most items will be in this catigory
+                                const bit_offset = int;
+                                const bit_size = field.object.get("bit_size").?.integer;
+                                const enum_id: ?Database.EnumID = if (field.object.get("enum")) |enum_name|
+                                    if (enums.get(enum_name.string)) |enum_id| enum_id else null
+                                else
+                                    null;
+                                var array_count: ?u16 = null;
+                                var array_stride: ?u8 = null;
+                                if (field.object.get("array")) |array_obj| {
+                                    const object_map = array_obj.object;
+                                    // This is the typical case for array objects e.g., @"A[0]", @"A[1]" registers
+                                    // these are evenly spaced and much nicer to work with.
+
+                                    array_count = if (object_map.get("len")) |len| @intCast(len.integer) else null;
+                                    array_stride = if (object_map.get("stride")) |field_stride| @intCast(field_stride.integer) else null;
+
+                                    // This category where there is an array of items, but it is given by
+                                    // individual offsets as opposed to a count + stride. This is used when strides are
+                                    // inconsistent between elements
+
+                                    if (object_map.get("offsets")) |positions| {
+                                        for (positions.array.items, 0..) |position, idx| {
+                                            const field_name_irregular_stride = try std.fmt.allocPrint(allocator, "{s}[{}]", .{ field_name, idx });
+                                            for (register_ids.items) |register_id| {
+                                                try db.add_register_field(register_id, .{
+                                                    .name = field_name_irregular_stride,
+                                                    .description = field_description,
+                                                    .offset_bits = @intCast(position.integer + bit_offset),
+                                                    .size_bits = @intCast(bit_size),
+                                                    .enum_id = enum_id,
+                                                    .count = null,
+                                                    .stride = null,
+                                                });
+                                            }
+                                        }
+                                        continue :next_field;
+                                    }
+                                }
+                                for (register_ids.items) |register_id| {
+                                    try db.add_register_field(register_id, .{
+                                        .name = field_name,
+                                        .description = field_description,
+                                        .offset_bits = @intCast(bit_offset),
+                                        .size_bits = @intCast(bit_size),
+                                        .enum_id = enum_id,
+                                        .count = array_count,
+                                        .stride = array_stride,
+                                    });
+                                }
+                            },
+                            .array => |arr| {
+                                // This case is for discontinuous fields where the first few bits are
+                                // separated from the rest of the field by padding or other fields
+                                if (arr.items.len != 2) {
+                                    //This should never happen, because the input data as of yet doesn't contain this.
+                                    std.log.warn("skipping {s}, it's an non-consecutive field with more than two parts", .{field_name});
+                                    continue;
+                                }
+                                const cont_field = try std.fmt.allocPrint(allocator, "{s}_CONT", .{field_name});
+                                const field_names = [2][]const u8{ field_name, cont_field };
+
+                                for (arr.items, field_names) |non_contiguous_offset, non_contiguous_field_name| {
+                                    const bit_offset = non_contiguous_offset.object.get("start").?.integer;
+                                    const bit_size = non_contiguous_offset.object.get("end").?.integer - bit_offset + 1;
+
+                                    const enum_id = null; //These can't handle the ENUM size but it will still be avaiable to use.
+
+                                    var array_count: ?u16 = null;
+                                    var array_stride: ?u8 = null;
+                                    if (field.object.get("array")) |array| {
+                                        array_count = if (array.object.get("len")) |len| @intCast(len.integer) else null;
+                                        array_stride = if (array.object.get("stride")) |field_stride| @intCast(field_stride.integer) else null;
+                                    }
+                                    for (register_ids.items) |register_id| {
+                                        try db.add_register_field(register_id, .{
+                                            .name = non_contiguous_field_name,
+                                            .description = field_description,
+                                            .offset_bits = @intCast(bit_offset),
+                                            .size_bits = @intCast(bit_size),
+                                            .enum_id = enum_id,
+                                            .count = array_count,
+                                            .stride = array_stride,
+                                        });
+                                    }
+                                }
+                            },
+                            else => |val| {
+                                std.log.warn("skipping {s}, it's a {}", .{ field_name, val });
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (chip_files.items) |chip_file| {
+        const core = chip_file.value.cores[0];
+        const arch: Arch = .from_string(core.name);
+        const device_id = try db.create_device(.{
+            .name = chip_file.value.name,
+            .arch = arch,
+        });
+
+        try arm.load_system_interrupts(db, device_id, arch);
+
+        // TODO: how do we want to handle multi core MCUs?
+        //
+        // For now we're only using the first core. We'll likely have to combine the
+        // sets of peripherals, there will potentially be overlap, but if there
+        // are differences between cores that's something the user will have
+        // to keep track of.
+
+        var has_fpu = false;
+        var dma_channel_count: u32 = 0;
+        for (core.interrupts) |interrupt| {
+            _ = try db.create_interrupt(device_id, .{
+                .name = interrupt.name,
+                .idx = interrupt.number,
+            });
+
+            if (std.mem.indexOf(u8, interrupt.name, "FPU")) |_| {
+                has_fpu = true;
+            }
+
+            if (std.mem.indexOf(u8, interrupt.name, "DMA")) |_| {
+                dma_channel_count += 1;
+            }
+        }
+
+        try db.add_device_property(device_id, .{
+            .key = "cpu.fpuPresent",
+            .value = if (has_fpu) "true" else "false",
+        });
+
+        try db.add_device_property(device_id, .{
+            .key = "cpu.dmaChannelCount",
+            .value = try std.fmt.allocPrint(allocator, "{d}", .{dma_channel_count}),
+        });
+
+        for (core.peripherals) |peripheral| {
+            // Don't know what to do if registers is null, so skipping
+            const registers = peripheral.registers orelse continue;
+
+            const periph_name = try std.fmt.allocPrint(allocator, "{s}_{s}", .{ registers.kind, registers.version });
+            // get the register group representing the peripheral instance
+            const periph_id = try db.get_peripheral_by_name(periph_name) orelse return error.MissingPeripheral;
+            const struct_id = try db.get_peripheral_struct(periph_id);
+            const struct_decl = try db.get_struct_decl_by_name(arena.allocator(), struct_id, registers.block);
+            _ = try db.create_device_peripheral(device_id, .{
+                .struct_id = struct_decl.struct_id,
+                .name = peripheral.name,
+                .offset_bytes = peripheral.address,
+            });
+        }
+    }
+}
+
+/// Reads through the json data handles the "extends" inheritance.
+fn handle_extends(gpa: std.mem.Allocator, root_json: *std.json.Value) !void {
+    var it = root_json.object.iterator();
+    while (it.next()) |entry| {
+        const item_name = entry.key_ptr.*;
+        const item_value = entry.value_ptr;
+
+        if (item_value.*.object.contains("extends")) {
+
+            // This Collects unique items from the ancestors.
+            var arr: std.json.ObjectMap = .empty;
+            defer arr.deinit(gpa);
+
+            // Get child value and kind holder of inherting items
+            var child = root_json.object.get(item_name).?;
+            const list_name = get_section(item_name);
+
+            // Add child items to dictionary so they are not overwritten.
+            for (child.object.get(list_name).?.array.items) |child_item| {
+                const child_item_name = child_item.object.get("name").?.string;
+                try arr.put(gpa, child_item_name, child_item);
+            }
+
+            // Handle all parents and grandparents of the current child.
+            try resolve_inheritance_recursively(gpa, root_json, item_name, &arr);
+
+            var new_list = std.json.Array.init(gpa);
+            for (arr.values()) |value| {
+                try new_list.append(value);
+            }
+
+            try child.object.put(gpa, list_name, std.json.Value{ .array = new_list });
+            try root_json.object.put(gpa, item_name, child);
+        }
+    }
+}
+
+// General function to handle inheritance
+fn resolve_inheritance_recursively(gpa: std.mem.Allocator, json_data: *std.json.Value, child_full_name: []const u8, accumulator: *std.json.ObjectMap) !void {
+    const child = json_data.object.get(child_full_name).?;
+    const list_name = get_section(child_full_name);
+
+    //This element has a parent ! so it needs to be handled.
+    const extended = child.object.get("extends");
+    if (extended) |parent_unqualified_name| {
+
+        //Get access to the parent and its list of items.
+        const parent = try get_parent(gpa, json_data, child_full_name, parent_unqualified_name.string);
+        const parent_section_array = parent.value_ptr.object.get(list_name).?.array;
+
+        // If our dictionary doesn't contain an item present in the child add it to the list
+        for (parent_section_array.items) |parent_element| {
+            const parent_element_name = if (parent_element.object.get("name")) |name| name.string else @panic("No Name exist in array properties");
+            if (!accumulator.contains(parent_element_name)) {
+                try accumulator.put(gpa, parent_element_name, parent_element);
+            }
+        }
+
+        if (parent.value_ptr.object.contains("extends")) {
+            try resolve_inheritance_recursively(gpa, json_data, parent.key_ptr.*, accumulator);
+        }
+    }
+}
+
+fn get_parent(gpa: std.mem.Allocator, json_data: *std.json.Value, child_full_name: []const u8, parent_name: []const u8) !std.json.ObjectMap.Entry {
+    //Get Family name eg Block, Fieldset
+    var name_iterator = std.mem.splitScalar(u8, child_full_name, '/');
+    const family_name = name_iterator.first();
+
+    //Get qualified parent name
+    const parent_full_name = try std.fmt.allocPrint(gpa, "{s}/{s}", .{ family_name, parent_name });
+    defer gpa.free(parent_full_name);
+
+    return json_data.object.getEntry(parent_full_name).?;
+}
+
+/// In the json data
+/// blocks inherit their "items"
+/// fieldsets inherit their "feilds"
+/// This picks the appropriate item based on its name.
+fn get_section(child_full_name: []const u8) []const u8 {
+    const Item_t = struct {
+        data_type: []const u8,
+        section: []const u8,
+    };
+
+    const items = [_]Item_t{
+        Item_t{ .data_type = "block", .section = "items" },
+        Item_t{ .data_type = "fieldset", .section = "fields" },
+    };
+
+    //Get Family name eg Block, Fieldset
+    var name_iterator = std.mem.splitScalar(u8, child_full_name, '/');
+    const family_name = name_iterator.first();
+
+    inline for (items) |item| {
+        if (std.mem.eql(u8, item.data_type, family_name)) {
+            return item.section;
+        }
+    }
+    @panic("Unhandled extends Type");
+}

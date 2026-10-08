@@ -1,0 +1,823 @@
+const builtin = @import("builtin");
+const std = @import("std");
+const assert = std.debug.assert;
+
+const microzig = @import("microzig.zig");
+
+/// Fills .bss with zeroes and *maybe* copies .data from flash into ram. May be
+/// called by the cpu module at startup.
+pub inline fn initialize_system_memories(which: enum {
+    /// Decides between .all and .bss_only based on whether we are in a RAM
+    /// image or not. `initialize_system_memories(.auto)` is equivalent to:
+    /// ```zig
+    /// if (!microzig.config.ram_image) {
+    ///     microzig.utilities.initialize_system_memories(.all);
+    /// } else {
+    ///     microzig.utilities.initialize_system_memories(.bss_only);
+    /// }
+    /// ```
+    pub const auto: @This() = if (!microzig.config.ram_image) .all else .bss_only;
+
+    all,
+    bss_only,
+}) void {
+
+    // Contains references to the microzig .data and .bss sections, also
+    // contains the initial load address for .data if it is in flash.
+    const sections = struct {
+        extern var microzig_data_start: anyopaque;
+        extern var microzig_data_end: anyopaque;
+        extern var microzig_bss_start: anyopaque;
+        extern var microzig_bss_end: anyopaque;
+        extern const microzig_data_load_start: anyopaque;
+    };
+
+    // fill .bss with zeroes
+    {
+        const bss_start: [*]u8 = @ptrCast(&sections.microzig_bss_start);
+        const bss_end: [*]u8 = @ptrCast(&sections.microzig_bss_end);
+        const bss_len = @intFromPtr(bss_end) - @intFromPtr(bss_start);
+
+        @memset(bss_start[0..bss_len], 0);
+    }
+
+    // load .data from flash
+    if (which != .bss_only) {
+        const data_start: [*]u8 = @ptrCast(&sections.microzig_data_start);
+        const data_end: [*]u8 = @ptrCast(&sections.microzig_data_end);
+        const data_len = @intFromPtr(data_end) - @intFromPtr(data_start);
+        const data_src: [*]const u8 = @ptrCast(&sections.microzig_data_load_start);
+
+        @memcpy(data_start[0..data_len], data_src[0..data_len]);
+    }
+}
+
+/// A helper class that allows operating on a slice of slices
+/// with similar operations to those of a slice.
+pub fn SliceVector(comptime Slice: type) type {
+    const type_info = @typeInfo(Slice);
+    if (type_info != .pointer)
+        @compileError("Slice must have a slice type!");
+    if (type_info.pointer.size != .slice)
+        @compileError("Slice must have a slice type!");
+
+    return struct {
+        const Vector = @This();
+
+        pub const Item = type_info.pointer.child;
+        pub const ItemPtr = @Pointer(.one, .{
+            .@"align" = type_info.pointer.attrs.@"align" orelse @alignOf(type_info.pointer.child),
+            .@"addrspace" = type_info.pointer.attrs.@"addrspace",
+            .@"const" = type_info.pointer.attrs.@"const",
+            .@"volatile" = type_info.pointer.attrs.@"volatile",
+            .@"allowzero" = type_info.pointer.attrs.@"allowzero",
+        }, type_info.pointer.child, null);
+
+        /// The slice of slices. The first and the last slice of this slice must
+        /// be non-empty or the slice-of-slices must be empty.
+        ///
+        /// Use `init()` to ensure this.
+        slices: []const Slice,
+
+        /// Initializes a new vector with the given slice of slices.
+        /// Optimizes the `slices` array by removing all empty slices from the start and the end.
+        pub fn init(slices: []const Slice) Vector {
+            var view = slices;
+
+            // trim start:
+            while (view.len > 0) {
+                if (view[0].len > 0)
+                    break;
+                view = view[1..];
+            }
+
+            // trail end:
+            while (view.len > 0) {
+                if (view[view.len - 1].len > 0)
+                    break;
+                view = view[0 .. view.len - 1];
+            }
+
+            if (view.len > 0) {
+                std.debug.assert(view[0].len > 0);
+                std.debug.assert(view[view.len - 1].len > 0);
+            }
+
+            return .{ .slices = view };
+        }
+
+        /// Returns the total length of all contained slices.
+        pub fn size(vec: Vector) usize {
+            var len: usize = 0;
+            for (vec.slices) |slice| {
+                len += slice.len;
+            }
+            return len;
+        }
+
+        ///
+        /// Returns the element at `index`.
+        ///
+        /// NOTE: Will iterate over the contained slices.
+        pub fn at(vec: Vector, index: usize) Item {
+            var offset: usize = 0;
+            for (vec.slices) |slice| {
+                const rel = index - offset;
+                if (rel < slice.len)
+                    return slice[rel];
+                offset += slice.len;
+            }
+            @panic("index out of bounds");
+        }
+
+        /// Returns an iterator for the slices.
+        pub fn iterator(vec: Vector) Iterator {
+            return .{ .slices = vec.slices };
+        }
+
+        pub const Iterator = struct {
+            slices: []const Slice,
+            slice_index: usize = 0,
+            slice_offset: usize = 0,
+            element_index: usize = 0,
+
+            // Advances the iterator by a single element.
+            pub fn next_element(iter: *Iterator) ?Element {
+                const ptr = iter.next_element_ptr() orelse return null;
+                return .{
+                    .last = ptr.last,
+                    .first = ptr.first,
+                    .index = ptr.index,
+                    .value = ptr.value_ptr.*,
+                };
+            }
+
+            // Advances the iterator by a single element.
+            pub fn next_element_ptr(iter: *Iterator) ?ElementPtr {
+                if (iter.slice_index >= iter.slices.len)
+                    return null;
+
+                var current_slice = iter.slices[iter.slice_index];
+                std.debug.assert(iter.slice_offset < current_slice.len);
+
+                const first = (iter.slice_index == 0) and (iter.slice_offset == 0);
+                const last = (iter.slice_index == (iter.slices.len - 1)) and (iter.slice_offset == (iter.slices[iter.slices.len - 1].len - 1));
+
+                const element: ElementPtr = .{
+                    .first = first,
+                    .last = last,
+                    .index = iter.element_index,
+                    .value_ptr = &current_slice[iter.slice_offset],
+                };
+
+                iter.element_index += 1;
+                iter.slice_offset += 1;
+                while (iter.slice_offset >= current_slice.len) {
+                    iter.slice_offset = 0;
+                    iter.slice_index += 1;
+
+                    if (iter.slice_index >= iter.slices.len) {
+                        break;
+                    }
+                    current_slice = iter.slices[iter.slice_index];
+                }
+
+                return element;
+            }
+
+            /// Returns the next available chunk of data.
+            ///
+            /// If `max_length` is given, that chunk never exceeds `max_length` elements.
+            pub fn next_chunk(iter: *Iterator, max_length: ?usize) ?Slice {
+                if (iter.slice_index >= iter.slices.len)
+                    return null;
+
+                var current_slice = iter.slices[iter.slice_index];
+                std.debug.assert(iter.slice_offset < current_slice.len);
+
+                const rest = current_slice[iter.slice_offset..];
+
+                const chunk: Slice = if (max_length) |limit|
+                    rest[0..@min(rest.len, limit)]
+                else
+                    rest;
+
+                iter.slice_offset += chunk.len;
+                std.debug.assert(iter.slice_offset <= current_slice.len);
+
+                while (iter.slice_offset == current_slice.len) {
+                    iter.slice_offset = 0;
+                    iter.slice_index += 1;
+                    if (iter.slice_index >= iter.slices.len)
+                        break;
+                    current_slice = iter.slices[iter.slice_index];
+                }
+
+                return chunk;
+            }
+
+            pub const Element = struct {
+                first: bool,
+                last: bool,
+                index: usize,
+                value: Item,
+            };
+
+            pub const ElementPtr = struct {
+                first: bool,
+                last: bool,
+                index: usize,
+                value_ptr: ItemPtr,
+            };
+        };
+    };
+}
+
+pub fn max_enum_tag(T: type) @typeInfo(T).@"enum".tag_type {
+    if (@typeInfo(T) != .@"enum") @compileError("expected an enum type");
+
+    const tag_type = @typeInfo(T).@"enum".tag_type;
+    var max_tag: tag_type = std.math.minInt(tag_type);
+    for (@typeInfo(T).@"enum".field_values) |field_value| {
+        if (field_value > max_tag) {
+            max_tag = field_value;
+        }
+    }
+    return max_tag;
+}
+
+pub fn GenerateInterruptEnum(TagType: type) type {
+    if (@typeInfo(TagType) != .int)
+        @compileError("expected an int type");
+
+    const count = microzig.chip.interrupts.len;
+    var field_names: [count][]const u8 = undefined;
+    var field_values: [count]TagType = undefined;
+
+    for (microzig.chip.interrupts, &field_names, &field_values) |interrupt, *field_name, *field_value| {
+        field_name.* = interrupt.name;
+        field_value.* = interrupt.index;
+    }
+
+    return @Enum(TagType, .exhaustive, &field_names, &field_values);
+}
+
+pub const Source = struct {
+    InterruptEnum: type,
+    HandlerFn: type,
+};
+
+pub fn GenerateInterruptOptions(sources: []const Source) type {
+    const count = blk: {
+        var count: usize = 0;
+        for (sources) |source| {
+            if (@typeInfo(source.InterruptEnum) != .@"enum") @compileError("expected an enum type");
+
+            count += @typeInfo(source.InterruptEnum).@"enum".field_names.len;
+        }
+
+        break :blk count;
+    };
+
+    var field_names: [count][]const u8 = undefined;
+    var field_types: [count]type = undefined;
+    var field_attrs: [count]std.lang.Type.Struct.FieldAttributes = undefined;
+
+    var i: usize = 0;
+    for (sources) |source| {
+        for (@typeInfo(source.InterruptEnum).@"enum".field_names) |field_name| {
+            field_names[i] = field_name;
+            field_types[i] = ?source.HandlerFn;
+            field_attrs[i] = .{ .default_value_ptr = @ptrCast(&@as(?source.HandlerFn, null)) };
+
+            i += 1;
+        }
+    }
+
+    return @Struct(.auto, null, &field_names, &field_types, &field_attrs);
+}
+
+test SliceVector {
+    const vec = SliceVector([]const u8).init(&.{
+        "Hello,",
+        " ",
+        "World!",
+    });
+
+    try std.testing.expectEqual(u8, @TypeOf(vec).Item);
+    try std.testing.expectEqual(*const u8, @TypeOf(vec).ItemPtr);
+
+    try std.testing.expectEqual(13, vec.size());
+
+    for ("Hello, World!", 0..) |char, index| {
+        try std.testing.expectEqual(char, vec.at(index));
+    }
+}
+
+test "SliceVector.init" {
+    const vec_strip_head = SliceVector([]const u8).init(&.{
+        &.{},
+        &.{},
+        &.{},
+        &.{},
+        "hello",
+    });
+    try std.testing.expectEqual(1, vec_strip_head.slices.len);
+    try std.testing.expectEqualStrings("hello", vec_strip_head.slices[0]);
+
+    const vec_strip_tail = SliceVector([]const u8).init(&.{
+        "hello",
+        &.{},
+        &.{},
+        &.{},
+        &.{},
+    });
+    try std.testing.expectEqual(1, vec_strip_tail.slices.len);
+    try std.testing.expectEqualStrings("hello", vec_strip_tail.slices[0]);
+
+    const vec_strip_both = SliceVector([]const u8).init(&.{
+        &.{},
+        &.{},
+        "hello",
+        &.{},
+        &.{},
+    });
+    try std.testing.expectEqual(1, vec_strip_both.slices.len);
+    try std.testing.expectEqualStrings("hello", vec_strip_both.slices[0]);
+
+    const vec_keep_center = SliceVector([]const u8).init(&.{
+        &.{},
+        "hello",
+        &.{},
+        &.{},
+        "world",
+        &.{},
+    });
+    try std.testing.expectEqual(4, vec_keep_center.slices.len);
+    try std.testing.expectEqualStrings("hello", vec_keep_center.slices[0]);
+    try std.testing.expectEqualStrings("", vec_keep_center.slices[1]);
+    try std.testing.expectEqualStrings("", vec_keep_center.slices[2]);
+    try std.testing.expectEqualStrings("world", vec_keep_center.slices[3]);
+}
+
+test "SliceVector.iterator" {
+    const vec = SliceVector([]const u8).init(&.{
+        &.{},
+        &.{},
+        "Hello,",
+        &.{},
+        " ",
+        &.{},
+        "World!",
+        &.{},
+        &.{},
+    });
+
+    const expected = "Hello, World!";
+
+    {
+        var index: usize = 0;
+        var iter = vec.iterator();
+        while (iter.next_element()) |element| : (index += 1) {
+            try std.testing.expectEqual(index, element.index);
+            try std.testing.expectEqual((index == 0), element.first);
+            try std.testing.expectEqual((index == expected.len - 1), element.last);
+            try std.testing.expectEqual(expected[index], element.value);
+        }
+    }
+    {
+        var index: usize = 0;
+        var iter = vec.iterator();
+        while (iter.next_element_ptr()) |element| : (index += 1) {
+            try std.testing.expectEqual(index, element.index);
+            try std.testing.expectEqual((index == 0), element.first);
+            try std.testing.expectEqual((index == expected.len - 1), element.last);
+            try std.testing.expectEqual(expected[index], element.value_ptr.*);
+        }
+    }
+}
+
+test "SliceVector.iterator (mutable)" {
+    var buffer: [8]u8 = undefined;
+    const expected = "01234567";
+
+    const vec = SliceVector([]u8).init(&.{
+        &.{},
+        &.{},
+        buffer[0..3],
+        &.{},
+        buffer[3..5],
+        &.{},
+        buffer[5..8],
+        &.{},
+        &.{},
+    });
+
+    {
+        var index: usize = 0;
+        var iter = vec.iterator();
+        while (iter.next_element_ptr()) |element| : (index += 1) {
+            element.value_ptr.* = expected[index];
+        }
+    }
+
+    try std.testing.expectEqualStrings(expected, &buffer);
+}
+
+test "SliceVector.Iterator.next_chunk" {
+    const vec = SliceVector([]const u8).init(&.{
+        &.{},
+        &.{},
+        "Hello,",
+        &.{},
+        "0123456789",
+        &.{},
+        " ",
+        &.{},
+        "World!",
+        &.{},
+        &.{},
+    });
+
+    // Unlimited:
+    {
+        const expected = [_][]const u8{
+            "Hello,",
+            "0123456789",
+            " ",
+            "World!",
+        };
+        var index: usize = 0;
+        var iter = vec.iterator();
+        while (iter.next_chunk(null)) |chunk| : (index += 1) {
+            try std.testing.expectEqualStrings(expected[index], chunk);
+        }
+    }
+
+    // Limited:
+    {
+        const expected = [_][]const u8{
+            "Hello",
+            ",",
+            "01234",
+            "56789",
+            " ",
+            "World",
+            "!",
+        };
+        var index: usize = 0;
+        var iter = vec.iterator();
+        while (iter.next_chunk(5)) |chunk| : (index += 1) {
+            try std.testing.expectEqualStrings(expected[index], chunk);
+        }
+    }
+}
+
+pub fn dump_stack_trace(trace: *std.lang.StackTrace) usize {
+    const frame_count = @min(trace.index, trace.instruction_addresses.len);
+
+    var frame_index: usize = 0;
+    var frames_left: usize = frame_count;
+    while (frames_left != 0) : ({
+        frames_left -= 1;
+        frame_index = (frame_index + 1) % trace.instruction_addresses.len;
+    }) {
+        const address = trace.instruction_addresses[frame_index];
+        std.log.err("{d: >3}: 0x{X:0>8}", .{ frame_index, address });
+    }
+
+    return frame_count;
+}
+
+pub fn get_end_of_stack() *const anyopaque {
+    if (microzig.config.end_of_stack.address) |address| {
+        return @ptrFromInt(address);
+    } else if (microzig.config.end_of_stack.symbol_name) |sym_name| {
+        return @extern(*const anyopaque, .{ .name = sym_name });
+    } else {
+        @panic("expected at least one of end_of_stack.address or end_of_stack.symbol_name to be set");
+    }
+}
+
+/// A naive circular buffer implementation. At time of writing, it's intended
+/// to fill in where the deleted std.fifo.LinearFifo was used, so the API might
+/// seem unfinished.
+pub fn CircularBuffer(comptime T: type, comptime len: usize) type {
+    return struct {
+        items: [len]T,
+        start: usize,
+        end: usize,
+        full: bool,
+
+        const Self = @This();
+        pub const empty: Self = .{
+            .items = undefined,
+            .start = 0,
+            .end = 0,
+            .full = false,
+        };
+
+        fn assert_valid(buffer: *const Self) void {
+            assert(buffer.start < len);
+            assert(buffer.end < len);
+        }
+
+        pub fn get_writable_len(buffer: *const Self) usize {
+            buffer.assert_valid();
+            return len - buffer.get_readable_len();
+        }
+
+        pub fn is_empty(buffer: *const Self) bool {
+            return !buffer.full and (buffer.start == buffer.end);
+        }
+
+        pub fn get_readable_len(buffer: *const Self) usize {
+            buffer.assert_valid();
+            if (buffer.full)
+                return len;
+            return if (buffer.start <= buffer.end)
+                buffer.end - buffer.start
+            else
+                len - buffer.start + buffer.end;
+        }
+
+        fn increment_end(buffer: *Self) void {
+            increment(&buffer.end);
+        }
+
+        fn increment_start(buffer: *Self) void {
+            increment(&buffer.start);
+        }
+
+        fn increment(counter: *usize) void {
+            if (counter.* >= (len - 1)) {
+                counter.* = 0;
+            } else {
+                counter.* += 1;
+            }
+        }
+
+        pub fn write_assume_capacity(buffer: *Self, values: []const T) void {
+            buffer.assert_valid();
+            defer buffer.assert_valid();
+
+            var first = true;
+            for (values) |value| {
+                if (first) {
+                    first = false;
+                } else {
+                    assert(buffer.start != buffer.end);
+                }
+
+                buffer.items[buffer.end] = value;
+                buffer.increment_end();
+            }
+
+            if (buffer.start == buffer.end)
+                buffer.full = true;
+        }
+
+        pub fn read(buffer: *Self, out: []T) usize {
+            buffer.assert_valid();
+            defer buffer.assert_valid();
+
+            var count: usize = 0;
+            while (!buffer.is_empty() and count < out.len) {
+                out[count] = buffer.pop().?;
+                count += 1;
+            }
+
+            return count;
+        }
+
+        pub fn write(buffer: *Self, data: []const T) error{Full}!void {
+            buffer.assert_valid();
+            defer buffer.assert_valid();
+            for (data) |d| {
+                if (buffer.full)
+                    return error.Full;
+
+                buffer.items[buffer.end] = d;
+                buffer.increment_end();
+                if (buffer.start == buffer.end)
+                    buffer.full = true;
+            }
+        }
+
+        /// Pop item from front of buffer. Return null if empty
+        pub fn pop(buffer: *Self) ?T {
+            buffer.assert_valid();
+            defer buffer.assert_valid();
+
+            if (buffer.is_empty())
+                return null;
+
+            defer {
+                buffer.increment_start();
+                if (buffer.full) {
+                    buffer.full = false;
+                }
+            }
+            return buffer.items[buffer.start];
+        }
+
+        pub fn reset(buffer: *Self) void {
+            buffer.assert_valid();
+            defer buffer.assert_valid();
+
+            buffer.start = 0;
+            buffer.end = 0;
+            buffer.full = false;
+        }
+    };
+}
+
+test "CircularBuffer bounds" {
+    const expectEqual = std.testing.expectEqual;
+    const bufsize: usize = 64;
+    const FIFO = CircularBuffer(u8, bufsize);
+    var fifo: FIFO = .empty;
+    try expectEqual(bufsize, fifo.get_writable_len());
+
+    const one_data: [1]u8 = .{42};
+    try fifo.write(one_data[0..]);
+    try expectEqual(bufsize - 1, fifo.get_writable_len());
+    try expectEqual(1, fifo.get_readable_len());
+
+    var buf: [100]u8 = undefined;
+    const big_data = buf[0..];
+    @memset(big_data, 42);
+    try expectEqual(big_data.len, 100);
+    const maybe_err = fifo.write(big_data);
+
+    try std.testing.expectError(error.Full, maybe_err);
+}
+
+pub fn IntFracDiv(int_bits: comptime_int, frac_bits: comptime_int) type {
+    const FixedPoint = @Int(.unsigned, int_bits + frac_bits);
+    return packed struct(FixedPoint) {
+        pub const Int = @Int(.unsigned, int_bits);
+        pub const Frac = @Int(.unsigned, frac_bits);
+        pub const FixedP = FixedPoint;
+
+        frac: Frac,
+        int: Int,
+
+        /// Writes upper bits to int and lower bits to frac
+        pub fn from_fixedp(fixedp: FixedP) !@This() {
+            const ret: @This() = @bitCast(fixedp);
+            return if (ret.int > 0) ret else error.DividerTooSmall;
+        }
+
+        /// Returns clock configuration that most closely matches the given ratio
+        pub fn from_float(ratio: anytype) @This() {
+            const info = @typeInfo(@TypeOf(ratio));
+            if (info != .float and info != .comptime_float)
+                @compileError("Expected ratio to be a float, got " ++ @typeName(@TypeOf(ratio)));
+
+            const fixedp = ratio * (1 << frac_bits);
+            if (comptime info == .comptime_float and fixedp >= (1 << (int_bits + frac_bits)))
+                @compileError("Divider too big");
+
+            return from_fixedp(@round(fixedp)) catch unreachable;
+        }
+
+        /// Returns clock configuration that most closely matches the ratio of in/out
+        pub fn from_ratio(in: comptime_int, out: comptime_int) @This() {
+            // Maybe use rounding instead of truncating division?
+            return comptime from_fixedp((in << frac_bits) / out) catch unreachable;
+        }
+
+        /// Useful for ratio comparisons
+        pub fn to_fixedp(self: @This()) FixedP {
+            return @bitCast(self);
+        }
+
+        /// Returns a ratio that most closely matches this configuration
+        pub fn to_float(self: @This(), Float: type) Float {
+            if (@typeInfo(Float) != .float and @typeInfo(Float) != .comptime_float)
+                @compileError("Expected return type to be a float, got " ++ @typeName(Float));
+
+            const int_shifted = @shlExact(@as(FixedP, self.int), frac_bits);
+            const combined = int_shifted | @as(FixedP, self.frac);
+
+            return @as(Float, @floatFromInt(combined)) / (1 << frac_bits);
+        }
+    };
+}
+
+pub fn dump_error_trace(trace: *std.lang.StackTrace) usize {
+    const frame_count = @min(trace.index, trace.instruction_addresses.len);
+
+    var frame_index: usize = 0;
+    var frames_left: usize = frame_count;
+    while (frames_left != 0) : ({
+        frames_left -= 1;
+        frame_index = (frame_index + 1) % trace.instruction_addresses.len;
+    }) {
+        const address = trace.instruction_addresses[frame_index];
+        dump_trace_line(frame_index, address);
+    }
+
+    return frame_count;
+}
+
+pub fn dump_trace_line(index: usize, address: usize) void {
+    std.log.err("{d: >3}: 0x{X:0>8}", .{ index, address });
+}
+
+pub const StackIterator = struct {
+    const native_arch = builtin.cpu.arch;
+
+    // Last known value of the frame pointer register.
+    fp: usize,
+    first_address: ?usize,
+
+    pub fn init(first_address: ?usize, fp: ?usize) StackIterator {
+        if (native_arch.isSPARC()) {
+            // Flush all the register windows on stack.
+            asm volatile (if (builtin.cpu.has(.sparc, .v9))
+                    "flushw"
+                else
+                    "ta 3" // ST_FLUSH_WINDOWS
+                ::: .{ .memory = true });
+        }
+
+        return .{
+            .first_address = first_address,
+            // TODO: this is a workaround for #16876
+            //.fp = fp orelse @frameAddress(),
+            .fp = fp orelse blk: {
+                const fa = @frameAddress();
+                break :blk fa;
+            },
+        };
+    }
+
+    // Offset of the saved BP wrt the frame pointer.
+    const fp_offset = if (native_arch.isRISCV())
+        // On RISC-V the frame pointer points to the top of the saved register
+        // area, on pretty much every other architecture it points to the stack
+        // slot where the previous frame pointer is saved.
+        2 * @sizeOf(usize)
+    else if (native_arch.isSPARC())
+        // On SPARC the previous frame pointer is stored at 14 slots past %fp+BIAS.
+        14 * @sizeOf(usize)
+    else
+        0;
+
+    const fp_bias = if (native_arch.isSPARC())
+        // On SPARC frame pointers are biased by a constant.
+        2047
+    else
+        0;
+
+    // Positive offset of the saved PC wrt the frame pointer.
+    const pc_offset = if (native_arch == .powerpc64le)
+        2 * @sizeOf(usize)
+    else
+        @sizeOf(usize);
+
+    pub fn next(it: *StackIterator) ?usize {
+        var address = it.next_internal() orelse return null;
+
+        if (it.first_address) |first_address| {
+            while (address != first_address) {
+                address = it.next_internal() orelse return null;
+            }
+            it.first_address = null;
+        }
+
+        return address;
+    }
+
+    pub fn next_internal(it: *StackIterator) ?usize {
+        if (builtin.omit_frame_pointer) return null;
+
+        const fp = if (comptime native_arch.isSPARC())
+            // On SPARC the offset is positive. (!)
+            std.math.add(usize, it.fp, fp_offset) catch return null
+        else
+            std.math.sub(usize, it.fp, fp_offset) catch return null;
+
+        // Sanity check.
+        if (fp == 0 or !std.mem.isAligned(fp, @alignOf(usize))) return null;
+        const new_fp = std.math.add(usize, load(usize, fp), fp_bias) catch
+            return null;
+
+        // Sanity check: the stack grows down thus all the parent frames must be
+        // be at addresses that are greater (or equal) than the previous one.
+        // A zero frame pointer often signals this is the last frame, that case
+        // is gracefully handled by the next call to next_internal.
+        if (new_fp != 0 and new_fp < it.fp) return null;
+        const new_pc = load(usize, std.math.add(usize, fp, pc_offset) catch return null);
+
+        it.fp = new_fp;
+
+        return new_pc;
+    }
+
+    fn load(T: type, address: usize) T {
+        return @as(*const T, @ptrFromInt(address)).*;
+    }
+};

@@ -1,0 +1,44 @@
+.{
+    .name = .microzig,
+    // Note: This should be changed if you fork microzig!
+    .fingerprint = 0x605a83a849186d0f,
+    .version = "0.17.15",
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        .@"build-internals" = .{ .path = "build-internals" },
+        .core = .{ .path = "core" },
+        .drivers = .{ .path = "drivers" },
+
+        // tools
+        .@"tools/esp-image" = .{ .path = "tools/esp-image" },
+        .@"tools/regz" = .{ .path = "tools/regz" },
+        .@"tools/uf2" = .{ .path = "tools/uf2" },
+        .@"tools/dfu" = .{ .path = "tools/dfu" },
+
+        // ports
+        .@"port/espressif/esp" = .{ .path = "port/espressif/esp", .lazy = true },
+        .@"port/gigadevice/gd32" = .{ .path = "port/gigadevice/gd32", .lazy = true },
+        .@"port/microchip/atmega" = .{ .path = "port/microchip/atmega", .lazy = true },
+        .@"port/microchip/attiny" = .{ .path = "port/microchip/attiny", .lazy = true },
+        .@"port/microchip/samd51" = .{ .path = "port/microchip/samd51", .lazy = true },
+        .@"port/nordic/nrf5x" = .{ .path = "port/nordic/nrf5x", .lazy = true },
+        .@"port/nxp/lpc" = .{ .path = "port/nxp/lpc", .lazy = true },
+        .@"port/nxp/mcx" = .{ .path = "port/nxp/mcx", .lazy = true },
+        .@"port/raspberrypi/rp2xxx" = .{ .path = "port/raspberrypi/rp2xxx", .lazy = true },
+        .@"port/stmicro/stm32" = .{ .path = "port/stmicro/stm32", .lazy = true },
+        .@"port/texasinstruments/msp430" = .{ .path = "port/texasinstruments/msp430", .lazy = true },
+        .@"port/texasinstruments/mspm0" = .{ .path = "port/texasinstruments/mspm0", .lazy = true },
+        .@"port/texasinstruments/tm4c" = .{ .path = "port/texasinstruments/tm4c", .lazy = true },
+        .@"port/wch/ch32v" = .{ .path = "port/wch/ch32v", .lazy = true },
+
+        .@"modules/riscv32-common" = .{ .path = "modules/riscv32-common" },
+        .@"modules/rtt" = .{ .path = "modules/rtt" },
+    },
+    .paths = .{
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+        "LICENSE",
+        "tools/generate_linker_script.zig",
+    },
+}

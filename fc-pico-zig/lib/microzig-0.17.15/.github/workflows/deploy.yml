@@ -1,0 +1,43 @@
+name: Continuous Deployment
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+jobs:
+  deploy-packages:
+    runs-on: macos-latest
+    steps:
+      - name: Extract tag name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+
+      - run: zig build -Doptimize=ReleaseSafe
+        working-directory: ./tools/release
+
+      - name: Extract version
+        run: echo "MICROZIG_VERSION=$(./tools/release/zig-out/bin/release get-version)" >> $GITHUB_ENV
+
+      - name: Assemble Packages
+        run: ./tools/release/zig-out/bin/release https://github.com/ZigEmbeddedGroup/microzig/releases/download
+
+      - name: Create Release Draft
+        uses: ncipollo/release-action@v1
+        id: create_release
+        with:
+          tag: ${{ env.TAG_NAME }}
+          artifactErrorsFailBuild: true
+          draft: false
+          generateReleaseNotes: true
+          artifacts: release-out/${{ env.MICROZIG_VERSION }}/*

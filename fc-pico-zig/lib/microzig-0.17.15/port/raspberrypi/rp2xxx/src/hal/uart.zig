@@ -1,0 +1,631 @@
+const std = @import("std");
+const assert = std.debug.assert;
+
+const microzig = @import("microzig");
+const mdf = microzig.drivers;
+const peripherals = microzig.chip.peripherals;
+const UART0_reg = peripherals.UART0;
+const UART1_reg = peripherals.UART1;
+
+const clocks = @import("clocks.zig");
+const dma = @import("dma.zig");
+const time = @import("time.zig");
+
+const UartRegs = microzig.chip.types.peripherals.UART0;
+
+pub const BaudrateDivider = microzig.utilities.IntFracDiv(16, 6);
+
+pub const WordBits = enum {
+    five,
+    six,
+    seven,
+    eight,
+};
+
+pub const StopBits = enum {
+    one,
+    two,
+};
+
+pub const Parity = enum {
+    none,
+    even,
+    odd,
+};
+
+pub const FlowControl = enum {
+    none,
+    CTS,
+    RTS,
+    CTS_RTS,
+};
+
+pub const ConfigError = error{
+    UnsupportedBaudRate,
+};
+
+pub const Config = struct {
+    clock_config: clocks.config.Global,
+    baud_rate: u32 = 115200,
+    word_bits: WordBits = .eight,
+    stop_bits: StopBits = .one,
+    parity: Parity = .none,
+    flow_control: FlowControl = .none,
+};
+
+pub const TransmitError = error{
+    Timeout,
+};
+
+pub const ReceiveError = error{
+    OverrunError,
+    BreakError,
+    ParityError,
+    FramingError,
+    Timeout,
+};
+
+pub const ReceiveBlockingError = ReceiveError || error{Timeout};
+
+pub const ErrorStates = packed struct(u4) {
+    overrun_error: bool = false,
+    break_error: bool = false,
+    parity_error: bool = false,
+    framing_error: bool = false,
+};
+
+fn comptime_fail_or_error(msg: []const u8, fmt_args: anytype, err: ConfigError) ConfigError {
+    if (@inComptime()) {
+        @compileError(std.fmt.comptimePrint(msg, fmt_args));
+    } else {
+        return err;
+    }
+}
+
+/// Checks against datasheet settings for invalid baud rates.
+///
+/// Returns an error at runtime, and raises a compile error at comptime.
+fn validate_baudrate(baud_rate: u32, peri_freq: u32) ConfigError!void {
+    if (peri_freq < 16 * baud_rate) {
+        return comptime_fail_or_error(
+            "Peripheral clock: {d} too low for baudrate: {d}",
+            .{ peri_freq, baud_rate },
+            ConfigError.UnsupportedBaudRate,
+        );
+    } else if ((peri_freq / 65535) > 16 * baud_rate) {
+        return comptime_fail_or_error(
+            "Peripheral clock: {d} too high for baudrate: {d}",
+            .{ peri_freq, baud_rate },
+            ConfigError.UnsupportedBaudRate,
+        );
+    }
+}
+
+test "uart.validate_baudrate" {
+    const peripheral_clk = 125_000_000;
+    inline for (&.{
+        4800,
+        9600,
+        19200,
+        38400,
+        57600,
+        115200,
+        230400,
+        460800,
+        921600,
+    }) |baud_rate| {
+        try std.testing.expectEqual(validate_baudrate(baud_rate, peripheral_clk), {});
+    }
+    inline for (&.{
+        0,
+        peripheral_clk,
+        peripheral_clk / 2,
+        peripheral_clk / 4,
+        peripheral_clk / 8,
+    }) |baud_rate| {
+        try std.testing.expectError(ConfigError.UnsupportedBaudRate, validate_baudrate(baud_rate, peripheral_clk));
+    }
+}
+
+pub const instance = struct {
+    pub const UART0: UART = @fromBackingInt(0);
+    pub const UART1: UART = @fromBackingInt(1);
+    pub fn num(n: u1) UART {
+        return @fromBackingInt(n);
+    }
+};
+
+pub const TimeFrontier = union(enum) {
+    timeout_us: u64,
+    deadline: mdf.time.Deadline,
+
+    pub const no_deadline: TimeFrontier = .{ .deadline = .no_deadline };
+};
+
+/// An API for interacting with the RP2040's UART driver.
+///
+/// Note: Assumes proper GPIO configuration, does NOT configure GPIO pins.
+///
+/// Features of the peripheral that are explicitly NOT supported by this API are:
+/// - CTS/RTS Hardware flow control
+/// - Interrupt Driven/Asynchronous writes/reads
+/// - DMA based writes/reads
+pub const UART = enum(u1) {
+    _,
+
+    pub const Writer = struct {
+        uart: UART,
+        time_frontier: TimeFrontier,
+        interface: std.Io.Writer,
+
+        pub fn set_deadline(self: *Writer, deadline: mdf.time.Deadline) void {
+            self.time_frontier = TimeFrontier{ .deadline = deadline };
+        }
+    };
+
+    pub const Reader = struct {
+        uart: UART,
+        time_frontier: TimeFrontier,
+        interface: std.Io.Reader,
+
+        pub fn set_deadline(self: *Reader, deadline: mdf.time.Deadline) void {
+            self.time_frontier = TimeFrontier{ .deadline = deadline };
+        }
+    };
+
+    pub fn writer(uart: UART, time_frontier: TimeFrontier, buffer: []u8) Writer {
+        return .{
+            .uart = uart,
+            .time_frontier = time_frontier,
+            .interface = .{
+                .buffer = buffer,
+                .vtable = &.{
+                    .drain = drain,
+                },
+            },
+        };
+    }
+
+    pub fn reader(uart: UART, time_frontier: TimeFrontier, buffer: []u8) Reader {
+        return .{
+            .uart = uart,
+            .time_frontier = time_frontier,
+            .interface = .{
+                .buffer = buffer,
+                .seek = 0,
+                .end = 0,
+                .vtable = &.{
+                    .stream = stream,
+                },
+            },
+        };
+    }
+
+    fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
+        const uart_writer: *Writer = @alignCast(@fieldParentPtr("interface", w));
+        const uart = uart_writer.uart;
+
+        const deadline: mdf.time.Deadline = switch (uart_writer.time_frontier) {
+            .deadline => |d| d,
+            .timeout_us => |t| time.deadline_in_us(t),
+        };
+
+        // bytes from buffer are not included in count.
+        w.end -= uart.write_blocking(w.buffer[0..w.end], deadline) catch |err| switch (err) {
+            error.Timeout => unreachable,
+        };
+        assert(w.end == 0);
+
+        var n: usize = 0;
+        n += uart.writev_blocking(data[0 .. data.len - 1], deadline) catch |err| switch (err) {
+            error.Timeout => unreachable,
+        };
+        for (0..splat) |_|
+            n += uart.write_blocking(data[data.len - 1], deadline) catch |err| switch (err) {
+                error.Timeout => unreachable,
+            };
+
+        return n;
+    }
+
+    fn stream(r: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
+        const uart_reader: *Reader = @alignCast(@fieldParentPtr("interface", r));
+        const uart = uart_reader.uart;
+
+        const deadline: mdf.time.Deadline = switch (uart_reader.time_frontier) {
+            .deadline => |d| d,
+            .timeout_us => |t| time.deadline_in_us(t),
+        };
+
+        return switch (limit) {
+            .nothing => 0,
+            else => {
+                const b = uart.read_word_blocking(deadline) catch return error.ReadFailed;
+                try w.writeByte(b);
+                return 1;
+            },
+        };
+    }
+
+    pub inline fn get_regs(uart: UART) *volatile UartRegs {
+        return switch (@backingInt(uart)) {
+            0 => UART0_reg,
+            1 => UART1_reg,
+        };
+    }
+
+    fn apply_internal(uart: UART, config: Config) void {
+        const uart_regs = uart.get_regs();
+        const peri_freq = config.clock_config.peri.?.frequency();
+        uart.set_baudrate(config.baud_rate, peri_freq);
+        uart.set_format(config.word_bits, config.stop_bits, config.parity);
+        uart.set_flow_control(config.flow_control);
+        uart_regs.UARTLCR_H.modify(.{ .FEN = 1 });
+
+        // always enable DREQ signals -- no harm if dma isn't listening
+        uart_regs.UARTDMACR.modify(.{
+            .TXDMAE = 1,
+            .RXDMAE = 1,
+        });
+
+        uart_regs.UARTCR.modify(.{
+            .UARTEN = 1,
+            .TXE = 1,
+            .RXE = 1,
+        });
+    }
+
+    /// Apply a configuration to the UART peripheral, takes in a comptime known config to enable
+    /// validation of parameters at compile time. See apply_runtime() if configuration using
+    /// parameters known ONLY at runtime is needed.
+    pub fn apply(uart: UART, comptime config: Config) void {
+        const peri_freq = comptime config.clock_config.peri.?.frequency();
+        comptime validate_baudrate(config.baud_rate, peri_freq) catch unreachable;
+        uart.apply_internal(config);
+    }
+
+    /// Same as apply(), but due to parameters being runtime known, returns an error on invalid
+    /// configurations.
+    pub fn apply_runtime(uart: UART, config: Config) ConfigError!void {
+        const peri_freq = config.clock_config.peri.?.frequency();
+        try validate_baudrate(config.baud_rate, peri_freq);
+        uart.apply_internal(config);
+    }
+
+    /// Disable Uart transmission, pre-fill the TX FIFO as much as possible, and then re-enable to start transmission.
+    fn prime_tx_fifo(uart: UART, src: []const u8) usize {
+        const uart_regs = uart.get_regs();
+        uart_regs.UARTCR.modify(.{
+            .TXE = 0,
+        });
+        var tx_remaining = src.len;
+        while (tx_remaining > 0 and uart.is_writeable()) {
+            uart_regs.UARTDR.write_raw(src[src.len - tx_remaining]);
+            tx_remaining -= 1;
+        }
+        uart_regs.UARTCR.modify(.{
+            .TXE = 1,
+        });
+        return src.len - tx_remaining;
+    }
+
+    pub inline fn is_readable(uart: UART) bool {
+        return (0 == uart.get_regs().UARTFR.read().RXFE);
+    }
+
+    pub inline fn is_writeable(uart: UART) bool {
+        return (0 == uart.get_regs().UARTFR.read().TXFF);
+    }
+
+    pub inline fn is_busy(uart: UART) bool {
+        return (1 == uart.get_regs().UARTFR.read().BUSY);
+    }
+
+    pub fn tx(uart: UART) dma.DMA_WriteTarget {
+        return .{
+            .dreq = if (@backingInt(uart) == 0) .uart0_tx else .uart1_tx,
+            .addr = @intFromPtr(&uart.get_regs().UARTDR),
+        };
+    }
+
+    pub fn rx(uart: UART) dma.DMA_ReadTarget {
+        return .{
+            .dreq = if (@backingInt(uart) == 0) .uart0_rx else .uart1_rx,
+            .addr = @intFromPtr(&uart.get_regs().UARTDR),
+        };
+    }
+
+    /// Enables/disables interrupts for a given UART.
+    pub inline fn set_interrupts_enabled(uart: UART, enable: struct {
+        rim: ?bool = null,
+        ctsm: ?bool = null,
+        dcdm: ?bool = null,
+        dsrm: ?bool = null,
+        rx: ?bool = null,
+        tx: ?bool = null,
+        rt: ?bool = null,
+        fe: ?bool = null,
+        pe: ?bool = null,
+        be: ?bool = null,
+        oe: ?bool = null,
+    }) void {
+        const uart_regs = uart.get_regs();
+        const reg = uart_regs.UARTIMSC.read();
+        uart_regs.UARTIMSC.write(.{
+            .RIMIM = if (enable.rim) |e| @intFromBool(e) else reg.RIMIM,
+            .CTSMIM = if (enable.ctsm) |e| @intFromBool(e) else reg.CTSMIM,
+            .DCDMIM = if (enable.dcdm) |e| @intFromBool(e) else reg.DCDMIM,
+            .DSRMIM = if (enable.dsrm) |e| @intFromBool(e) else reg.DSRMIM,
+            .TXIM = if (enable.tx) |e| @intFromBool(e) else reg.TXIM,
+            .RXIM = if (enable.rx) |e| @intFromBool(e) else reg.RXIM,
+            .RTIM = if (enable.rt) |e| @intFromBool(e) else reg.RTIM,
+            .FEIM = if (enable.fe) |e| @intFromBool(e) else reg.FEIM,
+            .PEIM = if (enable.pe) |e| @intFromBool(e) else reg.PEIM,
+            .BEIM = if (enable.be) |e| @intFromBool(e) else reg.BEIM,
+            .OEIM = if (enable.oe) |e| @intFromBool(e) else reg.OEIM,
+        });
+    }
+
+    /// Write bytes to uart TX line and block until transaction is complete.
+    ///
+    /// Note that this does NOT disable reception while this is happening,
+    /// so if this takes too long the RX FIFO can potentially overflow.
+    pub fn write_blocking(uart: UART, payload: []const u8, deadline: mdf.time.Deadline) TransmitError!usize {
+        return try uart.writev_blocking(&.{payload}, deadline);
+    }
+
+    /// Write bytes to uart TX line and block until transaction is complete.
+    ///
+    /// NOTE: This function is a vectored version of `write_blocking` and takes an array of arrays.
+    ///       This pattern allows one to create better zero-copy send routines as message prefixes and
+    ///       suffixes won't need to be concatenated/inserted to the original buffer, but can be managed
+    ///       in a separate memory.
+    ///
+    /// Note that this does NOT disable reception while this is happening,
+    /// so if this takes too long the RX FIFO can potentially overflow.
+    pub fn writev_blocking(uart: UART, payloads: []const []const u8, deadline: mdf.time.Deadline) TransmitError!usize {
+        const uart_regs = uart.get_regs();
+
+        var written: usize = 0;
+        var iter = microzig.utilities.SliceVector([]const u8).init(payloads).iterator();
+        while (iter.next_chunk(null)) |payload| {
+            var offset: usize = uart.prime_tx_fifo(payload);
+            written += offset;
+            while (offset < payload.len) {
+                while (!uart.is_writeable()) {
+                    try deadline.check(time.get_time_since_boot());
+                }
+                uart_regs.UARTDR.write_raw(payload[offset]);
+                offset += 1;
+                written += 1;
+            }
+        }
+
+        while (uart.is_busy()) {
+            try deadline.check(time.get_time_since_boot());
+        }
+
+        return written;
+    }
+
+    // TODO: Will potentially be modified in a future DMA overhaul
+    pub fn dreq_tx(uart: UART) dma.Dreq {
+        return switch (@backingInt(uart)) {
+            0 => .uart0_tx,
+            1 => .uart1_tx,
+        };
+    }
+
+    /// Returns a struct with the current status of UART errors.
+    pub fn get_errors(uart: UART) ErrorStates {
+        const uart_regs = uart.get_regs();
+        const read_val = uart_regs.UARTRSR.read();
+        return .{
+            .overrun_error = read_val.OE == 1,
+            .break_error = read_val.BE == 1,
+            .parity_error = read_val.PE == 1,
+            .framing_error = read_val.FE == 1,
+        };
+    }
+
+    /// Clears all UART errors
+    pub inline fn clear_errors(uart: UART) void {
+        const uart_regs = uart.get_regs();
+        uart_regs.UARTRSR.write(.{
+            .OE = 1,
+            .BE = 1,
+            .PE = 1,
+            .FE = 1,
+        });
+    }
+
+    /// Returns the first active error encountered while reading a byte from the RX FIFO.
+    fn read_rx_fifo_with_error_check(uart: UART) ReceiveError!u8 {
+        const uart_regs = uart.get_regs();
+        const read_val = uart_regs.UARTDR.read();
+
+        if (read_val.OE == 1) {
+            return ReceiveError.OverrunError;
+        } else if (read_val.BE == 1) {
+            return ReceiveError.BreakError;
+        } else if (read_val.PE == 1) {
+            return ReceiveError.ParityError;
+        } else if (read_val.FE == 1) {
+            return ReceiveError.FramingError;
+        }
+        return read_val.DATA;
+    }
+
+    /// Read bytes from uart RX line and block until transaction is complete.
+    ///
+    /// Returns a transaction error immediately if it occurs and doesn't
+    /// complete the transaction. Errors are preserved for further inspection,
+    /// so must be cleared with clear_errors() before another transaction is attempted.
+    pub fn read_blocking(uart: UART, buffer: []u8, deadline: mdf.time.Deadline) ReceiveError!void {
+        return uart.readv_blocking(&.{buffer}, deadline);
+    }
+
+    /// Read bytes from uart RX line and block until transaction is complete.
+    ///
+    /// NOTE: This function is a vectored version of `read_blocking` and takes an array of arrays.
+    ///       This pattern allows one to create better zero-copy send routines as message prefixes and
+    ///       suffixes won't need to be concatenated/inserted to the original buffer, but can be managed
+    ///       in a separate memory.
+    ///
+    /// Returns a transaction error immediately if it occurs and doesn't
+    /// complete the transaction. Errors are preserved for further inspection,
+    /// so must be cleared with clear_errors() before another transaction is attempted.
+    pub fn readv_blocking(uart: UART, buffers: []const []u8, deadline: mdf.time.Deadline) ReceiveError!void {
+        var iter = microzig.utilities.SliceVector([]u8).init(buffers).iterator();
+        while (iter.next_chunk(null)) |buffer| {
+            for (buffer) |*byte| {
+                while (!uart.is_readable()) {
+                    try deadline.check(time.get_time_since_boot());
+                }
+                byte.* = try uart.read_rx_fifo_with_error_check();
+            }
+        }
+    }
+
+    /// Convenience function for waiting for a single byte to come across the RX line.
+    pub fn read_word_blocking(uart: UART, deadline: mdf.time.Deadline) ReceiveBlockingError!u8 {
+        var byte: [1]u8 = undefined;
+        try uart.read_blocking(&byte, deadline);
+        return byte[0];
+    }
+
+    /// Read a single byte from the RX line if available otherwise returns `null`.
+    pub fn read_word(uart: UART) ReceiveError!?u8 {
+        if (!uart.is_readable()) return null;
+        return try uart.read_rx_fifo_with_error_check();
+    }
+
+    pub fn set_format(
+        uart: UART,
+        word_bits: WordBits,
+        stop_bits: StopBits,
+        parity: Parity,
+    ) void {
+        const uart_regs = uart.get_regs();
+        uart_regs.UARTLCR_H.modify(.{
+            .WLEN = switch (word_bits) {
+                .eight => @as(u2, 0b11),
+                .seven => @as(u2, 0b10),
+                .six => @as(u2, 0b01),
+                .five => @as(u2, 0b00),
+            },
+            .STP2 = switch (stop_bits) {
+                .one => @as(u1, 0),
+                .two => @as(u1, 1),
+            },
+            .PEN = switch (parity) {
+                .none => @as(u1, 0),
+                .even, .odd => @as(u1, 1),
+            },
+            .EPS = switch (parity) {
+                .even => @as(u1, 1),
+                .odd, .none => @as(u1, 0),
+            },
+        });
+    }
+
+    /// Deprecated, use set_divider instead
+    pub fn set_baudrate(uart: UART, baud_rate: u32, peri_freq: u32) void {
+        const baud_rate_div = (8 * peri_freq / baud_rate);
+        var baud_ibrd = @as(u16, @intCast(baud_rate_div >> 7));
+
+        const baud_fbrd: u6 = if (baud_ibrd == 0) baud_fbrd: {
+            baud_ibrd = 1;
+            break :baud_fbrd 0;
+        } else if (baud_ibrd >= 65535) baud_fbrd: {
+            baud_ibrd = 65535;
+            break :baud_fbrd 0;
+        } else @as(u6, @intCast(((@as(u7, @truncate(baud_rate_div))) + 1) / 2));
+
+        uart.set_divider(.{ .int = baud_ibrd, .frac = baud_fbrd });
+    }
+
+    /// Remember that there is a builtin by-16 divider
+    pub fn set_divider(uart: UART, div: BaudrateDivider) void {
+        const uart_regs = uart.get_regs();
+        uart_regs.UARTIBRD.write(.{ .BAUD_DIVINT = div.int });
+        uart_regs.UARTFBRD.write(.{ .BAUD_DIVFRAC = div.frac });
+
+        // PL011 needs a (dummy) LCR_H write to latch in the divisors.
+        // We don't want to actually change LCR_H contents here.
+        uart_regs.UARTLCR_H.modify(.{});
+    }
+
+    pub fn set_flow_control(uart: UART, hw_fc: FlowControl) void {
+        const uart_regs = uart.get_regs();
+        var cts_bit: u1 = 0;
+        var rts_bit: u1 = 0;
+        switch (hw_fc) {
+            .none => {},
+            .CTS => cts_bit = 1,
+            .RTS => rts_bit = 1,
+            .CTS_RTS => {
+                cts_bit = 1;
+                rts_bit = 1;
+            },
+        }
+        uart_regs.UARTCR.modify(.{
+            .CTSEN = cts_bit,
+            .RTSEN = rts_bit,
+        });
+    }
+};
+
+var uart_logger: ?UART.Writer = null;
+
+/// Set a specific uart instance to be used for logging.
+///
+/// Allows system logging over uart via:
+/// pub const microzig_options = .{
+///     .logFn = hal.uart.log,
+/// };
+pub fn init_logger(uart: UART) void {
+    uart_logger = uart.writer(.no_deadline, &.{});
+    uart_logger.?.interface.writeAll("\r\n================ STARTING NEW LOGGER ================\r\n") catch {};
+}
+
+/// Disables logging via the uart instance.
+pub fn deinit_logger() void {
+    uart_logger = null;
+}
+
+pub fn log(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const level_prefix = comptime "[{}.{:0>6}] " ++ level.asText();
+    const prefix = comptime level_prefix ++ switch (scope) {
+        .default => ": ",
+        else => " (" ++ @tagName(scope) ++ "): ",
+    };
+
+    if (uart_logger) |*writer| {
+        const current_time = time.get_time_since_boot();
+        const seconds = current_time.to_us() / std.time.us_per_s;
+        const microseconds = current_time.to_us() % std.time.us_per_s;
+
+        writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
+    }
+}
+
+var log_mutex: microzig.hal.mutex.Mutex = .{};
+
+/// This log function wraps `log` in a semaphore so that calls to it from
+/// different cores or interrupts don't collide.
+pub fn log_threadsafe(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    log_mutex.lock();
+    log(level, scope, format, args);
+    log_mutex.unlock();
+}

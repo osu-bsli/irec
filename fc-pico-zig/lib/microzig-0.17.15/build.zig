@@ -1,0 +1,831 @@
+const std = @import("std");
+const Build = std.Build;
+const LazyPath = Build.LazyPath;
+const assert = std.debug.assert;
+
+const internals = @import("build-internals");
+pub const Target = internals.Target;
+pub const Cpu = internals.Cpu;
+pub const Chip = internals.Chip;
+pub const HardwareAbstractionLayer = internals.HardwareAbstractionLayer;
+pub const Board = internals.Board;
+pub const BinaryFormat = internals.BinaryFormat;
+pub const LinkerScript = internals.LinkerScript;
+pub const Stack = internals.Stack;
+pub const MemoryRegion = internals.MemoryRegion;
+
+// If more ports are available, the error "error: evaluation exceeded 1000 backwards branches" may occur.
+// In such cases, consider increasing the argument value for @setEvalBranchQuota().
+const port_list: []const struct {
+    name: [:0]const u8,
+    dep_name: [:0]const u8,
+} = &.{
+    .{ .name = "esp", .dep_name = "port/espressif/esp" },
+    .{ .name = "gd32", .dep_name = "port/gigadevice/gd32" },
+    .{ .name = "samd51", .dep_name = "port/microchip/samd51" },
+    .{ .name = "atmega", .dep_name = "port/microchip/atmega" },
+    .{ .name = "attiny", .dep_name = "port/microchip/attiny" },
+    .{ .name = "nrf5x", .dep_name = "port/nordic/nrf5x" },
+    .{ .name = "lpc", .dep_name = "port/nxp/lpc" },
+    .{ .name = "mcx", .dep_name = "port/nxp/mcx" },
+    .{ .name = "rp2xxx", .dep_name = "port/raspberrypi/rp2xxx" },
+    .{ .name = "stm32", .dep_name = "port/stmicro/stm32" },
+    .{ .name = "ch32v", .dep_name = "port/wch/ch32v" },
+    .{ .name = "msp430", .dep_name = "port/texasinstruments/msp430" },
+    .{ .name = "mspm0", .dep_name = "port/texasinstruments/mspm0" },
+    .{ .name = "tm4c", .dep_name = "port/texasinstruments/tm4c" },
+};
+
+pub fn build(b: *Build) void {
+    const optimize = b.standardOptimizeOption(.{});
+
+    const generate_linker_script_mod = b.createModule(.{
+        .root_source_file = b.path("tools/generate_linker_script.zig"),
+        .target = b.graph.host,
+        .optimize = optimize,
+    });
+
+    const generate_linker_script_exe = b.addExecutable(.{
+        .name = "generate_linker_script",
+        .root_module = generate_linker_script_mod,
+    });
+
+    generate_linker_script_exe.root_module.addImport(
+        "build-internals",
+        b.dependency("build-internals", .{}).module("build-internals"),
+    );
+
+    b.installArtifact(generate_linker_script_exe);
+}
+
+pub const PortSelect = struct {
+    esp: bool = false,
+    gd32: bool = false,
+    samd51: bool = false,
+    atmega: bool = false,
+    attiny: bool = false,
+    nrf5x: bool = false,
+    lpc: bool = false,
+    mcx: bool = false,
+    rp2xxx: bool = false,
+    stm32: bool = false,
+    ch32v: bool = false,
+    msp430: bool = false,
+    mspm0: bool = false,
+    tm4c: bool = false,
+
+    pub const all: PortSelect = blk: {
+        var ret: PortSelect = undefined;
+        for (@typeInfo(PortSelect).@"struct".field_names) |field_name| {
+            @field(ret, field_name) = true;
+        }
+
+        break :blk ret;
+    };
+
+    comptime {
+        const info = @typeInfo(PortSelect).@"struct";
+        // assumes fields are in the same order as the port list
+        for (port_list, info.field_names, info.field_attrs) |port_entry, field_name, field_attr| {
+            assert(std.mem.eql(u8, port_entry.name, field_name));
+            const default_value_ptr: *const bool = @ptrCast(field_attr.default_value_ptr);
+            assert(false == default_value_ptr.*);
+        }
+    }
+};
+
+/// The MicroZig build system.
+///
+/// # Example usage:
+/// ```zig
+/// const std = @import("std");
+/// const microzig = @import("microzig");
+///
+/// const MicroBuild = microzig.MicroBuild(.{
+///     .rp2xxx = true,
+/// });
+///
+/// pub fn build(b: *std.Build) void {
+///     const optimize = b.standardOptimizeOption(.{});
+///
+///     const mz_dep = b.dependency("microzig", .{});
+///     const mb = MicroBuild.init(b, mz_dep) orelse return;
+///
+///     const fw = mb.add_firmware(.{
+///         .name = "test",
+///         .root_source_file = b.path("src/main.zig"),
+///         .target = mb.ports.rp2xxx.boards.raspberrypi.pico,
+///         .optimize = optimize,
+///     });
+///     mb.install_firmware(fw, .{});
+/// }
+/// ```
+pub fn MicroBuild(port_select: PortSelect) type {
+    return struct {
+        builder: *Build,
+        dep: *Build.Dependency,
+        core_dep: *Build.Dependency,
+        drivers_dep: *Build.Dependency,
+
+        /// Contains all the ports you selected.
+        ports: SelectedPorts,
+
+        const Self = @This();
+
+        const SelectedPorts = blk: {
+            const count = count_blk: {
+                var count: usize = 0;
+                for (port_list) |port| {
+                    if (@field(port_select, port.name)) {
+                        count += 1;
+                    }
+                }
+
+                break :count_blk count;
+            };
+
+            var field_names: [count][]const u8 = undefined;
+            var field_types: [count]type = undefined;
+            var field_attrs: [count]std.builtin.Type.Struct.FieldAttributes = undefined;
+
+            if (count > 0) {
+                var i: usize = 0;
+                for (port_list) |port| {
+                    if (@field(port_select, port.name)) {
+                        const typ = custom_lazy_import(port.dep_name) orelse struct {};
+
+                        field_names[i] = port.name;
+                        field_types[i] = typ;
+                        field_attrs[i] = .{};
+
+                        i += 1;
+                    }
+                }
+            }
+
+            break :blk @Struct(.auto, null, &field_names, &field_types, &field_attrs);
+        };
+
+        const InitReturnType = blk: {
+            @setEvalBranchQuota(5000);
+
+            var ok = true;
+            for (port_list) |port| {
+                if (@field(port_select, port.name)) {
+                    ok = ok and custom_lazy_import(port.dep_name) != null;
+                }
+            }
+            if (ok) {
+                break :blk *Self;
+            } else {
+                break :blk noreturn;
+            }
+        };
+
+        /// Initializes the microzig build system. Returns null when there are ports
+        /// that haven't been fetched yet (it uses lazy dependencies internally).
+        pub fn init(b: *Build, dep: *Build.Dependency) ?InitReturnType {
+            if (InitReturnType == noreturn) {
+                inline for (port_list) |port| {
+                    if (@field(port_select, port.name)) {
+                        _ = dep.builder.lazyDependency(port.dep_name, .{});
+                    }
+                }
+                return null;
+            }
+
+            var ports: SelectedPorts = undefined;
+            inline for (port_list) |port| {
+                if (@field(port_select, port.name)) {
+                    const port_dep = dep.builder.lazyDependency(port.dep_name, .{}) orelse return null;
+                    @field(ports, port.name) = custom_lazy_import(port.dep_name).?.init(port_dep) orelse return null;
+                }
+            }
+
+            const mb = b.allocator.create(Self) catch @panic("out of memory");
+            mb.* = .{
+                .builder = b,
+                .dep = dep,
+                .core_dep = dep.builder.dependency("core", .{}),
+                .drivers_dep = dep.builder.dependency("drivers", .{}),
+                .ports = ports,
+            };
+            return mb;
+        }
+
+        /// Configuration options for the `add_firmware` function.
+        pub const CreateFirmwareOptions = struct {
+            /// The name of the firmware file.
+            name: []const u8,
+
+            /// The MicroZig target that the firmware is built for. Either a board or a chip.
+            target: *const Target,
+
+            /// The optimization level that should be used. Usually `ReleaseSmall` or `Debug` is a good choice.
+            /// Also using `std.Build.standardOptimizeOption` is a good idea.
+            optimize: std.builtin.OptimizeMode,
+
+            /// The root source file for the application. This is your `src/main.zig` file.
+            root_source_file: LazyPath,
+
+            /// Imports for the application.
+            imports: []const Build.Module.Import = &.{},
+
+            /// If set, overrides the `single_threaded` property of the target.
+            single_threaded: ?bool = null,
+
+            /// If set, overrides the `bundle_compiler_rt` property of the target.
+            bundle_compiler_rt: ?bool = null,
+
+            bundle_ubsan_rt: ?bool = null,
+
+            /// If set, overrides the `zig_target` property of the target.
+            zig_target: ?std.Target.Query = null,
+
+            /// If set, overrides the `cpu` property of the target.
+            cpu: ?Cpu = null,
+
+            /// If set, overrides the `hal` property of the target.
+            hal: ?HardwareAbstractionLayer = null,
+
+            /// If set, overrides the `board` property of the target.
+            board: ?Board = null,
+
+            /// If set, overrides the `linker_script` property of the target.
+            linker_script: ?LinkerScript = null,
+
+            /// If set, overrides the `stack` property of the target.
+            stack: ?Stack = null,
+
+            /// If set, overrides the default `entry` property of the arget.
+            entry: ?Build.Step.Compile.Entry = null,
+
+            /// Strips stack trace info from final executable.
+            strip: bool = false,
+
+            /// Enables the following build options for the firmware executable
+            /// to support stripping unused symbols in all modes (not just Release):
+            ///     exe.link_gc_sections = true;
+            ///     exe.link_data_sections = true;
+            ///     exe.link_function_sections = true;
+            strip_unused_symbols: bool = true,
+
+            /// Unwind tables option for the firmware executable.
+            unwind_tables: ?std.builtin.UnwindTables = null,
+
+            /// Error tracing option for the firmware executable.
+            error_tracing: ?bool = null,
+
+            /// Dwarf format option for the firmware executable.
+            dwarf_format: ?std.dwarf.Format = null,
+
+            /// On embedded systems you're likely to use release-small for the
+            /// optimization mode in order to make your code fit on hardware.
+            /// This unfortunately turns off safety checks. Enabling this allows
+            /// you to have asserts run in release builds.
+            asserts: bool = false,
+        };
+
+        /// Creates a new firmware for a given target.
+        pub fn add_firmware(mb: *Self, options: CreateFirmwareOptions) *Firmware {
+            const b = mb.dep.builder;
+
+            const target = options.target;
+
+            // validate that tagged memory regions meet the requirements
+            for (target.chip.memory_regions) |region| {
+                region.validate_tag();
+            }
+
+            // TODO: use unions when they are supported in the build system
+            const EndOfStack = struct {
+                address: ?usize = null,
+                symbol_name: ?[]const u8 = null,
+            };
+
+            const end_of_stack: EndOfStack = switch (options.stack orelse options.target.stack) {
+                .address => |address| .{ .address = address },
+                .ram_region_index => |index| blk: {
+                    var i: usize = 0;
+                    for (target.chip.memory_regions) |region| {
+                        if (region.tag == .ram) {
+                            if (i == index)
+                                break :blk .{ .address = region.offset + region.length };
+                            i += 1;
+                        }
+                    } else @panic("no ram memory region found for setting the end-of-stack address");
+                },
+                .ram_region_name => |name| blk: {
+                    for (target.chip.memory_regions) |region| {
+                        if (region.name) |region_name| {
+                            if (std.mem.eql(u8, region_name, name)) {
+                                if (region.tag == .ram) {
+                                    break :blk .{ .address = region.offset + region.length };
+                                } else @panic("Named region found is not a ram region");
+                            }
+                        }
+                    } else @panic("no ram memory named region found for setting the end-of-stack address");
+                },
+                .symbol_name => |name| .{ .symbol_name = name },
+            };
+
+            const zig_resolved_target = b.resolveTargetQuery(options.zig_target orelse target.zig_target);
+
+            const cpu = options.cpu orelse target.cpu orelse mb.get_default_cpu(zig_resolved_target.result);
+            const maybe_hal = options.hal orelse target.hal;
+            const maybe_board = options.board orelse target.board;
+
+            const config = b.addOptions();
+            config.addOption(bool, "has_hal", maybe_hal != null);
+            config.addOption(bool, "has_board", maybe_board != null);
+
+            config.addOption([]const u8, "cpu_name", cpu.name);
+            config.addOption([]const u8, "chip_name", target.chip.name);
+            config.addOption(?[]const u8, "board_name", if (maybe_board) |board| board.name else null);
+            config.addOption(EndOfStack, "end_of_stack", end_of_stack);
+            config.addOption(bool, "ram_image", target.ram_image);
+            config.addOption(bool, "asserts", options.asserts);
+
+            const core_mod = b.createModule(.{
+                .root_source_file = mb.core_dep.path("src/microzig.zig"),
+                .imports = &.{
+                    .{
+                        .name = "config",
+                        .module = config.createModule(),
+                    },
+                    .{
+                        .name = "drivers",
+                        .module = mb.drivers_dep.module("drivers"),
+                    },
+                },
+            });
+
+            const cpu_mod = b.createModule(.{
+                .root_source_file = cpu.root_source_file,
+                .imports = cpu.imports,
+            });
+            cpu_mod.addImport("microzig", core_mod);
+            core_mod.addImport("cpu", cpu_mod);
+
+            const regz_exe = b.dependency("tools/regz", .{ .optimize = .ReleaseSafe }).artifact("regz");
+            const chip_source = switch (target.chip.register_definition) {
+                .atdf, .svd => |file| blk: {
+                    const regz_run = b.addRunArtifact(regz_exe);
+
+                    regz_run.addArg("--format");
+                    regz_run.addArg(@tagName(target.chip.register_definition));
+
+                    regz_run.addArg("--output_path"); // Write to a file
+                    const chips_dir = regz_run.addOutputDirectoryArg("chips");
+
+                    for (target.chip.patch_files) |patch_file| {
+                        regz_run.addArg("--patch_path");
+                        regz_run.addFileArg(patch_file);
+                    }
+
+                    regz_run.addFileArg(file);
+                    break :blk chips_dir.path(b, b.fmt("{s}.zig", .{target.chip.name}));
+                },
+                .embassy => |embassy| blk: {
+                    const regz_run = b.addRunArtifact(regz_exe);
+
+                    regz_run.addArg("--format");
+                    regz_run.addArg(@tagName(target.chip.register_definition));
+
+                    regz_run.addArg("--output_path"); // Write to a file
+                    const chips_dir = regz_run.addOutputDirectoryArg("chips");
+
+                    for (target.chip.patch_files) |patch_file| {
+                        regz_run.addArg("--patch_path");
+                        regz_run.addFileArg(patch_file);
+                    }
+
+                    if (embassy.device) |device| {
+                        regz_run.addArg("--device");
+                        regz_run.addArg(device);
+                    }
+
+                    regz_run.addDirectoryArg(embassy.path);
+                    break :blk chips_dir.path(b, b.fmt("{s}.zig", .{target.chip.name}));
+                },
+                .targetdb => |targetdb| blk: {
+                    const regz_run = b.addRunArtifact(regz_exe);
+
+                    regz_run.addArg("--format");
+                    regz_run.addArg(@tagName(target.chip.register_definition));
+
+                    regz_run.addArg("--output_path"); // Write to a file
+                    const chips_dir = regz_run.addOutputDirectoryArg("chips");
+
+                    for (target.chip.patch_files) |patch_file| {
+                        regz_run.addArg("--patch_path");
+                        regz_run.addFileArg(patch_file);
+                    }
+
+                    regz_run.addArg("--device");
+                    regz_run.addArg(targetdb.device);
+
+                    regz_run.addDirectoryArg(targetdb.path);
+                    break :blk chips_dir.path(b, b.fmt("{s}.zig", .{target.chip.name}));
+                },
+                .zig => |src| src,
+            };
+            const chip_mod = b.createModule(.{
+                .root_source_file = chip_source,
+            });
+
+            chip_mod.addImport("microzig", core_mod);
+            core_mod.addImport("chip", chip_mod);
+
+            if (maybe_hal) |hal| {
+                const hal_mod = b.createModule(.{
+                    .root_source_file = hal.root_source_file,
+                    .imports = hal.imports,
+                });
+                hal_mod.addImport("microzig", core_mod);
+                core_mod.addImport("hal", hal_mod);
+            }
+
+            if (maybe_board) |board| {
+                const board_mod = b.createModule(.{
+                    .root_source_file = board.root_source_file,
+                    .imports = board.imports,
+                });
+                board_mod.addImport("microzig", core_mod);
+                core_mod.addImport("board", board_mod);
+            }
+
+            const root_mod = mb.builder.createModule(.{
+                .root_source_file = options.root_source_file,
+                .imports = options.imports,
+                .target = zig_resolved_target,
+                .optimize = options.optimize,
+                .single_threaded = options.single_threaded orelse target.single_threaded,
+                .strip = options.strip,
+                .unwind_tables = options.unwind_tables,
+                .error_tracing = options.error_tracing,
+                .dwarf_format = options.dwarf_format,
+            });
+            root_mod.addImport("microzig", core_mod);
+
+            const fw = mb.builder.allocator.create(Firmware) catch @panic("out of memory");
+            fw.* = .{
+                .mb = mb,
+                .core_mod = core_mod,
+                .exe = mb.builder.addExecutable(.{
+                    .name = options.name,
+                    .root_module = root_mod,
+                    .linkage = .static,
+                }),
+                .target = target,
+                .emitted_files = Firmware.EmittedFiles.init(mb.builder.allocator),
+            };
+
+            fw.exe.bundle_compiler_rt = options.bundle_compiler_rt orelse target.bundle_compiler_rt;
+            fw.exe.bundle_ubsan_rt = options.bundle_ubsan_rt orelse target.bundle_ubsan_rt;
+
+            fw.exe.link_gc_sections = options.strip_unused_symbols;
+            fw.exe.link_function_sections = options.strip_unused_symbols;
+            fw.exe.link_data_sections = options.strip_unused_symbols;
+            fw.exe.entry = options.entry orelse target.entry orelse .default;
+
+            const linker_script_options = options.linker_script orelse target.linker_script;
+            const linker_script = blk: {
+                const GenerateLinkerScriptArgs = @import("tools/generate_linker_script.zig").Args;
+
+                if (linker_script_options.file == null and linker_script_options.generate != .memory_regions_and_sections) {
+                    @panic("linker script: no file provided and no sections are auto-generated");
+                }
+
+                const generate_linker_script_exe = mb.dep.artifact("generate_linker_script");
+
+                const generate_linker_script_args: GenerateLinkerScriptArgs = .{
+                    .cpu_name = cpu.name,
+                    .cpu_arch = zig_resolved_target.result.cpu.arch,
+                    .chip_name = target.chip.name,
+                    .memory_regions = target.chip.memory_regions,
+                    .generate = linker_script_options.generate,
+                    .ram_image = target.ram_image,
+                    .assert_microzig_main = linker_script_options.assert_microzig_main,
+                };
+
+                const args_str = std.json.Stringify.valueAlloc(
+                    b.allocator,
+                    generate_linker_script_args,
+                    .{},
+                ) catch @panic("out of memory");
+
+                const generate_linker_script_run = b.addRunArtifact(generate_linker_script_exe);
+                generate_linker_script_run.addArg(args_str);
+                const output = generate_linker_script_run.addOutputFileArg("linker.ld");
+                if (linker_script_options.file) |file| {
+                    generate_linker_script_run.addFileArg(file);
+                }
+                break :blk output;
+            };
+            fw.exe.setLinkerScript(linker_script);
+
+            return fw;
+        }
+
+        /// Configuration options for firmware installation.
+        pub const InstallFirmwareOptions = struct {
+            format: ?BinaryFormat = null,
+        };
+
+        /// Adds a new dependency to the `install` step that will install the `firmware` into the folder `$prefix/firmware`.
+        pub fn install_firmware(mb: *Self, fw: *Firmware, options: InstallFirmwareOptions) void {
+            std.debug.assert(mb == fw.mb);
+
+            const install_step = add_install_firmware(mb, fw, options);
+            mb.builder.getInstallStep().dependOn(&install_step.step);
+        }
+
+        /// Creates a new `std.Build.Step.InstallFile` instance that will install the given firmware to `$prefix/firmware`.
+        ///
+        /// **NOTE:** This does not actually install the firmware yet. You have to add the returned step as a dependency to another step.
+        ///           If you want to just install the firmware, use `installFirmware` instead!
+        pub fn add_install_firmware(mb: *Self, fw: *Firmware, options: InstallFirmwareOptions) *Build.Step.InstallFile {
+            std.debug.assert(mb == fw.mb);
+
+            const format = options.format orelse fw.target.preferred_binary_format orelse .elf;
+
+            const basename = mb.builder.fmt("{s}{s}", .{
+                fw.exe.name,
+                format.get_extension(),
+            });
+
+            return mb.builder.addInstallFileWithDir(fw.get_emitted_bin(format), .{ .custom = "firmware" }, basename);
+        }
+
+        /// Declaration of a firmware build.
+        pub const Firmware = struct {
+            pub const EmittedFiles = std.AutoHashMap(BinaryFormat, LazyPath);
+
+            mb: *Self,
+
+            /// The artifact that is built by MicroZig.
+            exe: *Build.Step.Compile,
+
+            // The @import("microzig") module
+            core_mod: *Build.Module,
+
+            /// The target to which the firmware is built.
+            target: *const Target,
+
+            emitted_elf: ?LazyPath = null,
+            emitted_files: EmittedFiles,
+            emitted_docs: ?LazyPath = null,
+
+            /// Returns the emitted ELF file for this firmware. This is useful if you need debug information
+            /// or want to use a debugger like Segger, ST-Link or similar.
+            ///
+            /// **NOTE:** This is similar, but not equivalent to `std.Build.Step.Compile.getEmittedBin`. The call on the compile step does
+            ///           not include post processing of the ELF files necessary by certain targets.
+            pub fn get_emitted_elf(fw: *Firmware) LazyPath {
+                if (fw.emitted_elf == null) {
+                    const raw_elf = fw.exe.getEmittedBin();
+                    fw.emitted_elf = if (fw.target.patch_elf) |patch_elf|
+                        patch_elf(fw.target.dep, raw_elf)
+                    else
+                        raw_elf;
+                }
+                return fw.emitted_elf.?;
+            }
+
+            /// Returns the emitted binary for this firmware. The file is either in the preferred file format for
+            /// the target or in `format` if not null.
+            ///
+            /// **NOTE:** The file returned here is the same file that will be installed.
+            pub fn get_emitted_bin(fw: *Firmware, format: ?BinaryFormat) LazyPath {
+                const resolved_format = format orelse fw.target.preferred_binary_format orelse .elf;
+
+                const result = fw.emitted_files.getOrPut(resolved_format) catch @panic("out of memory");
+                if (!result.found_existing) {
+                    const elf_file = fw.get_emitted_elf();
+
+                    const basename = fw.mb.builder.fmt("{s}{s}", .{
+                        fw.exe.name,
+                        resolved_format.get_extension(),
+                    });
+
+                    result.value_ptr.* = switch (resolved_format) {
+                        .elf => elf_file,
+
+                        .binary => blk: {
+                            const objcopy = fw.mb.builder.addObjCopy(elf_file, .{
+                                .basename = basename,
+                                .format = .binary,
+                            });
+
+                            break :blk objcopy.getOutput();
+                        },
+
+                        .hex => blk: {
+                            const objcopy = fw.mb.builder.addObjCopy(elf_file, .{
+                                .basename = basename,
+                                .format = .hex,
+                            });
+
+                            break :blk objcopy.getOutput();
+                        },
+
+                        .uf2 => |options| @import("tools/uf2").from_elf(
+                            fw.mb.dep.builder.dependency("tools/uf2", .{
+                                .optimize = .ReleaseSafe,
+                            }),
+                            elf_file,
+                            options,
+                        ),
+
+                        .dfu => |options| @import("tools/dfu").from_elf(
+                            fw.mb.dep.builder.dependency("tools/dfu", .{
+                                .optimize = .ReleaseSafe,
+                            }),
+                            elf_file,
+                            options,
+                        ),
+
+                        .esp => |options| @import("tools/esp-image").from_elf(
+                            fw.mb.dep.builder.dependency("tools/esp-image", .{
+                                .optimize = .ReleaseSafe,
+                            }),
+                            elf_file,
+                            options,
+                        ),
+
+                        .custom => |generator| generator.convert(fw.target.dep, elf_file),
+                    };
+                }
+
+                return result.value_ptr.*;
+            }
+
+            /// Returns the emitted docs folder for this firmware.
+            ///
+            /// Example usage:
+            /// ```zig
+            /// const install_docs = b.addInstallDirectory(.{
+            ///     .source_dir = fw.get_emitted_docs(),
+            ///     .install_dir = .prefix,
+            ///     .install_subdir = "docs",
+            /// });
+            ///
+            /// const install_docs_step = b.step("docs", "Install documentation.");
+            /// install_docs_step.dependOn(&install_docs.step);
+            /// ```
+            pub fn get_emitted_docs(fw: *Firmware) LazyPath {
+                if (fw.emitted_docs == null) {
+                    const docs_test = fw.mb.builder.addTest(.{
+                        .name = fw.exe.name,
+                        .root_module = fw.exe.root_module,
+                    });
+
+                    fw.emitted_docs = docs_test.getEmittedDocs();
+                }
+                return fw.emitted_docs.?;
+            }
+
+            /// Configuration options for the `add_app_import` function.
+            pub const AppDependencyOptions = struct {
+                depend_on_microzig: bool = false,
+            };
+
+            /// Adds an import to your application.
+            pub fn add_app_import(fw: *Firmware, name: []const u8, module: *Build.Module, options: AppDependencyOptions) void {
+                if (options.depend_on_microzig) {
+                    module.addImport("microzig", fw.core_mod);
+                }
+                fw.exe.root_module.addImport(name, module);
+            }
+
+            /// Adds an include path to the firmware.
+            pub fn add_include_path(fw: *Firmware, path: LazyPath) void {
+                fw.exe.addIncludePath(path);
+            }
+
+            /// Adds a system include path to the firmware.
+            pub fn add_system_include_path(fw: *Firmware, path: LazyPath) void {
+                fw.exe.addSystemIncludePath(path);
+            }
+
+            /// Adds a c source file to the firmware.
+            pub fn add_c_source_file(fw: *Firmware, source: Build.Module.CSourceFile) void {
+                fw.exe.addCSourceFile(source);
+            }
+
+            /// Adds options to your application.
+            pub fn add_options(fw: *Firmware, module_name: []const u8, options: *Build.Step.Options) void {
+                fw.exe.root_module.addOptions(module_name, options);
+            }
+
+            /// Adds an object file to the firmware.
+            pub fn add_object_file(fw: *Firmware, source: LazyPath) void {
+                fw.exe.root_module.addObjectFile(source);
+            }
+        };
+
+        fn get_default_cpu(mb: *Self, target: std.Target) Cpu {
+            if (std.mem.eql(u8, target.cpu.model.name, "avr5")) {
+                return .{
+                    .name = "avr5",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_avr5"),
+                };
+            } else if (std.mem.eql(u8, target.cpu.model.name, "avr25")) {
+                return .{
+                    .name = "avr25",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_avr25"),
+                };
+            } else if (std.mem.eql(u8, target.cpu.model.name, "avr35")) {
+                return .{
+                    .name = "avr35",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_avr5"),
+                };
+            } else if (std.mem.eql(u8, target.cpu.model.name, "avrxmega3")) {
+                return .{
+                    .name = "avrxmega3",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_avr5"),
+                };
+            } else if (std.mem.startsWith(u8, target.cpu.model.name, "cortex_m")) {
+                return .{
+                    .name = target.cpu.model.name,
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_cortex_m"),
+                    .imports = mb.builder.allocator.dupe(Build.Module.Import, &.{
+                        .{
+                            .name = "rtt",
+                            .module = mb.dep.builder.dependency("modules/rtt", .{}).module("rtt"),
+                        },
+                    }) catch @panic("OOM"),
+                };
+            } else if (target.cpu.arch.isRISCV() and target.ptrBitWidth() == 32) {
+                return .{
+                    .name = "riscv32",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_riscv32"),
+                    .imports = mb.builder.allocator.dupe(Build.Module.Import, &.{
+                        .{
+                            .name = "riscv32-common",
+                            .module = mb.dep.builder.dependency("modules/riscv32-common", .{}).module("riscv32-common"),
+                        },
+                    }) catch @panic("OOM"),
+                };
+            } else if (target.cpu.model == &std.Target.msp430.cpu.msp430) {
+                return .{
+                    .name = "MSP430",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_msp430"),
+                };
+            } else if (target.cpu.model == &std.Target.msp430.cpu.msp430x) {
+                return .{
+                    .name = "MSP430X",
+                    .root_source_file = mb.core_dep.namedLazyPath("cpu_msp430x"),
+                };
+            }
+
+            std.debug.panic(
+                "No default cpu configuration for `{s}`. Please specify a cpu either in the target or in the options for creating the firmware.",
+                .{target.cpu.model.name},
+            );
+        }
+    };
+}
+
+pub inline fn custom_lazy_import(
+    comptime dep_name: []const u8,
+) ?type {
+    const build_runner = @import("root");
+    const deps = build_runner.dependencies;
+    const pkg_hash = custom_find_import_pkg_hash_or_fatal(dep_name);
+
+    inline for (@typeInfo(deps.packages).@"struct".decl_names) |decl_name| {
+        if (comptime std.mem.eql(u8, decl_name, pkg_hash)) {
+            const pkg = @field(deps.packages, decl_name);
+            const available = !@hasDecl(pkg, "available") or pkg.available;
+            if (!available) {
+                return null;
+            }
+            return if (@hasDecl(pkg, "build_zig"))
+                pkg.build_zig
+            else
+                @compileError("dependency '" ++ dep_name ++ "' does not have a build.zig");
+        }
+    }
+
+    comptime unreachable; // Bad @dependencies source
+}
+
+inline fn custom_find_import_pkg_hash_or_fatal(comptime dep_name: []const u8) []const u8 {
+    @setEvalBranchQuota(5000);
+    const build_runner = @import("root");
+    const deps = build_runner.dependencies;
+
+    const pkg_deps = comptime for (@typeInfo(deps.packages).@"struct".decl_names) |decl_name| {
+        const pkg_hash = decl_name;
+        const pkg = @field(deps.packages, pkg_hash);
+        if (@hasDecl(pkg, "build_zig") and pkg.build_zig == @This()) break pkg.deps;
+    } else deps.root_deps;
+
+    comptime for (pkg_deps) |dep| {
+        if (std.mem.eql(u8, dep[0], dep_name)) return dep[1];
+    };
+
+    @panic("dependency not found");
+}

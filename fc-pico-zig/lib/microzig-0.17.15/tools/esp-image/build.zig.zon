@@ -1,0 +1,14 @@
+.{
+    .name = .mz_tools_espimage,
+    .fingerprint = 0x7e1bc55e5a45fa73,
+    .version = "0.1.0",
+    .dependencies = .{
+        .flags = .{ .path = "../flags" },
+    },
+    .paths = .{
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

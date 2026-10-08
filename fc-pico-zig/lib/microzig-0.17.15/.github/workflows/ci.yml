@@ -1,0 +1,242 @@
+name: CI
+on:
+  push:
+    branches: [main, zig-master]
+  pull_request:
+    branches: [main, zig-master]
+  workflow_dispatch:
+
+jobs:
+  formatting-check:
+    name: Formatting check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Run zig fmt
+        run: zig fmt --check .
+
+  # Make sure that we are building examples and invoking tests for each port.
+  # Some may need to be skipped, but that's okay because then it's explicitly
+  # listed instead of forgotten.
+  validate-ports-checks:
+    name: Validate Port Checks
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - run: sudo apt install -y yq
+      - name: Checkout
+        uses: actions/checkout@v7
+      - run: |
+          set -e
+
+          find port -mindepth 2 -maxdepth 2 -type d | sed 's|^port/||' | sort > ports
+          yq -r '.jobs["unit-test"].steps[] | select(.run == "zig build test") | .["working-directory"]' .github/workflows/ports.yml | sed 's|^port/||' | sort > unit_tested_ports
+          yq -r '.jobs.build.steps[] | select(.run == "zig build -Doptimize=ReleaseSmall") | .["working-directory"]' .github/workflows/ports.yml | grep -v no_hal | sed 's|^examples/||' | sort > exampled_ports
+
+          comm -23 ports unit_tested_ports > missing_unit_tests
+          comm -23 ports exampled_ports > missing_examples
+
+          EXIT_CODE=0
+          if [ -s missing_unit_tests ]
+          then
+            EXIT_CODE=1
+            echo "These ports are not running unit tests in CI:" >&2
+            echo "" >&2
+            cat missing_unit_tests >&2
+            echo "" >&2
+          fi
+
+          if [ -s missing_examples ]
+          then
+            EXIT_CODE=1
+            echo "These ports are not building examples in CI:" >&2
+            echo "" >&2
+            cat missing_examples >&2
+            echo "" >&2
+          fi
+
+          exit $EXIT_CODE
+
+  unit-test-regz:
+    name: Unit Test Regz
+    continue-on-error: true
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Unit Test Regz
+        run: zig build test
+        working-directory: tools/regz
+
+  unit-test-uf2:
+    name: Unit Test UF2
+    continue-on-error: true
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Unit Test UF2
+        run: zig build test
+        working-directory: tools/uf2
+
+  unit-test-esp-image:
+    name: Unit Test ESP Image
+    continue-on-error: true
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Unit Test ESP Image
+        run: zig build test
+        working-directory: tools/esp-image
+
+  test-printer:
+    name: Test Printer
+    continue-on-error: true
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Build Printer
+        run: zig build
+        working-directory: tools/printer
+      - name: Test Printer
+        run: zig build test
+        working-directory: tools/printer
+
+  build-sorcerer:
+    name: Build Sorcerer
+    if: false # Temporarily disabled: Sorcerer dependency fetches are flaky on CI. https://github.com/ZigEmbeddedGroup/microzig/issues/949
+    continue-on-error: true
+    strategy:
+      matrix:
+        # Skip Ubuntu - sorcerer is a GUI tool with complex dependencies (SDL3, dvui)
+        # that are difficult to satisfy in headless CI environments
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Build Sorcerer
+        run: zig build
+        working-directory: tools/sorcerer
+      - name: Test Sorcerer
+        run: zig build test
+        working-directory: tools/sorcerer
+
+  stm32-gen-check:
+    name: Check that stm32 generated code is up to date
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Generate Code
+        run: zig build -Dgenerate
+        working-directory: port/stmicro/stm32
+      - name: Check for code diffs
+        run: |
+          if [[ $(git status --porcelain | grep -v '^??') ]]; then
+            echo "Code differences detected:"
+            git diff
+            echo "Please commit or fix these changes to proceed."
+            exit 1
+          else
+            echo "No code differences detected."
+          fi
+
+  build:
+    name: Build
+    continue-on-error: true
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Build
+        run: zig build -Doptimize=ReleaseSmall
+
+  validate-foundation-libc:
+    name: Test Foundation Libc
+    if: false # TODO: fix foundation libc
+    continue-on-error: true
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Generate and test packages
+        working-directory: modules/foundation-libc/test
+        run: |
+          zig build test
+
+  build-website:
+    name: Build Website
+    continue-on-error: true
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0-dev.1471+ff10b90bc
+      - name: Build Website
+        run: zig build
+        working-directory: website
+
+  package-dry-run:
+    name: Package Dry Run
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+
+      - run: zig build -Doptimize=ReleaseSafe
+        working-directory: ./tools/release
+
+      - name: Assemble Packages
+        run: ./tools/release/zig-out/bin/release -- https://github.com/ZigEmbeddedGroup/microzig/releases/download
