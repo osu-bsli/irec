@@ -17,7 +17,18 @@ The repository is structured as follows.
 1. [Style](#Style)
 
 # Flight Computer Pico Zig
+
+The ```fc-pico-zig``` folder contains our most thoroughly tested and modern firmware for the SRAD Flight Computer.
+The entire codebase is hand written in Zig and compiles for the Raspberry Pi Pico 2 (RP2350 chipset).
+For additional design details and intent refer to (fc-pico-zig/README.md)[fc-pico-zig].
+
 # Flight Computer Pico C
+
+The ```fc-pico-c``` folder contains our obsolete firmware for the SRAD Flight Computer.
+This firmware has inhereted code structure and design from several flight computer's and cohorts prior.
+While some of the previous design decisions are acceptable, there are substantial flaws and the code base reached a degree of complexity that needs to be remidied.
+For our most modern and sophisticated firmware please refer to [Flight Computer Pico Zig](#Flight Computer Pico Zig).
+
 # Data Visualization & Processing
 
 The ```DVAP``` folder contains the source code and documentation for the *Data Visualization And Processing* desktop software.
@@ -25,13 +36,31 @@ The ```DVAP``` folder contains the source code and documentation for the *Data V
 *DVAP* can also be used to visualize the flight logs in "offline" mode meaning you can play back and step through the rocket moment to moment in flight.
 *DVAP* can also be used to produce a visual from live telemetry data for integration with *Open Broadcasting Software* (*OBS*) for live streaming during the competition.
 
-Additional information about the *DVAP* can be found here: [DVAP/README.MD](README.MD)
+Additional information about the *DVAP* can be found here: [DVAP/README.MD](DVAP)
 
 # Flight Computer Testing Suite
+
+The *Flight Computer Testing Suite* is a collection of our utilities to perform *Machine-In-Loop* (MIL), *Software-In-Loop* (SIL), *Processor-In-Loop* (PIL), *Hardware-In-Loop* (HIL), and Real World reproducible testing.
+These utilities will be used to automatically thoroughly test, verify, and validate our SRAD controls and firmware for competition.
 
 # Flight Data Logs
 
 The ```flight-data-logs``` folder contains all data records of previous IREC flights in binary and CSV formats.
+
+# Obsolete
+
+The ```obsolete``` folder contains old projects that are not important enough for us to have in the root of this repository.
+Many of these have been used as references for our current software/firmware.
+
+# Style
+
+Structs Are CamelCase.
+functions are snake_case.
+constants are ALL_CAPS.
+
+Adhere to the zig style guide, its good.
+
+For the most part just let the unofficial zig linter/formatter do its thing.
 
 <!-- 1. [Credit](#credit) -->
 
