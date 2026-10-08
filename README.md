@@ -20,7 +20,7 @@ The repository is structured as follows.
 
 The ```fc-pico-zig``` folder contains our most thoroughly tested and modern firmware for the SRAD Flight Computer.
 The entire codebase is hand written in Zig and compiles for the Raspberry Pi Pico 2 (RP2350 chipset).
-For additional design details and intent refer to (FC pico Zig)[fc-pico-zig].
+For additional design details and intent refer to [fc-pico-zig](fc-pico-zig).
 
 # FC-PICO-C
 
