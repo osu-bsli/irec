@@ -25,7 +25,7 @@ const DVAPError = error{
 };
 
 var camera = camera_lib.Camera{
-    .pos = .{ 0.0, 0.0, 0.0, 0.0 },
+    .pos = zm.f32x4(0.0, 0.0, 5.0, 1.0),
 };
 var window_width: c_int = 800;
 var window_height: c_int = 600;
@@ -61,12 +61,14 @@ pub fn main(init: std.process.Init) !void {
 
     // Make the window the user's selected window
     glfw.glfwMakeContextCurrent(graphics_context.window);
+    glfw.glfwSetInputMode(graphics_context.window, glfw.GLFW_CURSOR, glfw.GLFW_CURSOR_DISABLED);
+    _ = glfw.glfwSetCursorPosCallback(graphics_context.window, mouseCallback);
 
     // Window resizing
     const set_frame_buffer_status = glfw.glfwSetFramebufferSizeCallback(graphics_context.window, framebufferSizeCallback);
     _ = &set_frame_buffer_status;
-    const set_key_callback_status = glfw.glfwSetKeyCallback(graphics_context.window, processInput);
-    _ = &set_key_callback_status;
+    // const set_key_callback_status = glfw.glfwSetKeyCallback(graphics_context.window, processInput);
+    // _ = &set_key_callback_status;
     // TODO add new Error type and return if unable to set framebuffer size
 
     // const a = c.e.chicken(0);
@@ -108,6 +110,8 @@ pub fn main(init: std.process.Init) !void {
     // Where opengl knows to set the values for the variables
     const projection_loc = gl.glGetUniformLocation(shader.ID, "projection");
     const view_loc: c_int = gl.glGetUniformLocation(shader.ID, "view");
+    gl.glUniformMatrix4fv(projection_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.projection));
+    gl.glUniformMatrix4fv(view_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.view));
     // ^^^ moved to global scope
 
     // const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
@@ -143,6 +147,10 @@ pub fn main(init: std.process.Init) !void {
         gl.glClearColor(0.2, 0.3, 0.3, 1.0);
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT);
 
+        processInput(graphics_context.window);
+
+        delta_time_lib.updateDeltaTime(); // find time between frames
+
         // processInput(graphics_context.window);
 
         // Bind VBO and VAO
@@ -152,7 +160,8 @@ pub fn main(init: std.process.Init) !void {
         camera.updateView();
         const window_width_float: f32 = @floatFromInt(window_width);
         const window_height_float: f32 = @floatFromInt(window_height);
-        camera.updateProjection(std.math.degreesToRadians(45), (window_width_float / window_height_float), 0.1, 1000.0);
+        const fov: f32 = std.math.degreesToRadians(45.0);
+        camera.updateProjection(fov, (window_width_float / window_height_float), 0.1, 1000.0);
 
         // Set the vertex shader uniform variables
         gl.glUniformMatrix4fv(projection_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.projection));
@@ -181,34 +190,108 @@ pub export fn framebufferSizeCallback(window: ?*glfw.GLFWwindow, width: c_int, h
     gl.glViewport(0, 0, width, height);
 }
 
-pub export fn processInput(window: ?*glfw.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) void {
-    _ = &key;
-    _ = &scancode;
-    _ = &action;
-    _ = &mods;
+// pub export fn processInput(window: ?*glfw.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) void {
+//     _ = &key;
+//     _ = &scancode;
+//     _ = &action;
+//     _ = &mods;
+//     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_ESCAPE) == glfw.GLFW_PRESS) {
+//         glfw.glfwSetWindowShouldClose(window, glfw.GLFW_TRUE);
+//     }
+
+//     // Movement
+//     const camera_speed: f32 = 10.0 * delta_time_lib.delta_time;
+//     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_W) == glfw.GLFW_PRESS) {
+//         camera.move(camera_lib.MOVE_DIR.MOVE_FORWARD, camera_speed);
+//     }
+//     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_A) == glfw.GLFW_PRESS) {
+//         camera.move(camera_lib.MOVE_DIR.MOVE_LEFT, camera_speed);
+//     }
+//     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_S) == glfw.GLFW_PRESS) {
+//         camera.move(camera_lib.MOVE_DIR.MOVE_BACKWARD, camera_speed);
+//     }
+//     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_D) == glfw.GLFW_PRESS) {
+//         camera.move(camera_lib.MOVE_DIR.MOVE_RIGHT, camera_speed);
+//     }
+// }
+
+pub export fn processInput(window: ?*glfw.GLFWwindow) void {
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_ESCAPE) == glfw.GLFW_PRESS) {
         glfw.glfwSetWindowShouldClose(window, glfw.GLFW_TRUE);
     }
 
     // Movement
+    const camera_speed: f32 = 5.0 * delta_time_lib.delta_time;
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_W) == glfw.GLFW_PRESS) {
-        camera.move(camera_lib.MOVE_DIR.MOVE_FORWARD, 0.005);
+        camera.move(camera_lib.MOVE_DIR.MOVE_FORWARD, camera_speed);
     }
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_A) == glfw.GLFW_PRESS) {
-        camera.move(camera_lib.MOVE_DIR.MOVE_LEFT, 0.005);
+        camera.move(camera_lib.MOVE_DIR.MOVE_LEFT, camera_speed);
     }
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_S) == glfw.GLFW_PRESS) {
-        camera.move(camera_lib.MOVE_DIR.MOVE_BACKWARD, 0.005);
+        camera.move(camera_lib.MOVE_DIR.MOVE_BACKWARD, camera_speed);
     }
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_D) == glfw.GLFW_PRESS) {
-        camera.move(camera_lib.MOVE_DIR.MOVE_RIGHT, 0.005);
+        camera.move(camera_lib.MOVE_DIR.MOVE_RIGHT, camera_speed);
+    }
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_SPACE) == glfw.GLFW_PRESS) {
+        camera.move(camera_lib.MOVE_DIR.MOVE_UP, camera_speed);
+    }
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_LEFT_SHIFT) == glfw.GLFW_PRESS) {
+        camera.move(camera_lib.MOVE_DIR.MOVE_DOWN, camera_speed);
+    }
+
+    // View wiremesh
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_X) == glfw.GLFW_PRESS) {
+        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE);
+    } else {
+        gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL);
     }
 }
 
-fn mouseCallback(window: *glfw.GLFWwindow, mouse_x: f32, mouse_y: f32) void {
+var last_mouse_x: f64 = 0.0;
+var last_mouse_y: f64 = 0.0;
+var first_mouse: bool = true;
+pub export fn mouseCallback(window: ?*glfw.GLFWwindow, mouse_x: f64, mouse_y: f64) void {
     _ = &window;
-    _ = &mouse_x;
-    _ = &mouse_y;
+
+    // Check whether the program just started
+    // Handle the mouse such that there is no jerky motion when the mouse first enters the screen
+    if (first_mouse) {
+        last_mouse_x = mouse_x;
+        last_mouse_y = mouse_y;
+        first_mouse = false;
+    }
+
+    // Find how far the mouse moved between frames
+    var mouse_offset_x: f64 = mouse_x - last_mouse_x;
+    var mouse_offset_y: f64 = mouse_y - last_mouse_y;
+    last_mouse_x = mouse_x;
+    last_mouse_y = mouse_y;
+
+    // Convert the mouse change in position to a reasonable change in position for the camera
+    const sensitivity: f64 = 500.0 * delta_time_lib.delta_time;
+    mouse_offset_x *= sensitivity;
+    mouse_offset_y *= sensitivity;
+
+    camera.yaw += mouse_offset_x;
+    camera.pitch -= mouse_offset_y; // Had to make this -= to invert the y axis
+
+    // Make sure the camera can't look too far up
+    // Like how your neck stops you from looking too far up
+    if (camera.pitch > 89.0) {
+        camera.pitch = 89.0;
+    } else if (camera.pitch < -89.0) {
+        camera.pitch = -89.0;
+    }
+
+    // Update camera front
+    var direction: zm.Vec = .{ 1.0, 1.0, 1.0, 0.0 };
+    direction[0] = @floatCast(std.math.cos(std.math.degreesToRadians(camera.yaw)) * std.math.cos(std.math.degreesToRadians(camera.pitch)));
+    direction[1] = @floatCast(std.math.sin(std.math.degreesToRadians(camera.pitch)));
+    direction[2] = @floatCast(std.math.sin(std.math.degreesToRadians(camera.yaw)) * std.math.cos(std.math.degreesToRadians(camera.pitch)));
+    camera.front = zm.normalize4(direction);
+    // std.debug.print
 }
 
 fn scrollCallback(window: *glfw.GLFWwindow, offset_x: f32, offset_y: f32) void {

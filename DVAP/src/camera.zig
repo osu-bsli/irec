@@ -15,19 +15,19 @@ pub const MOVE_DIR = enum {
 };
 
 pub const Camera = struct {
-    pos: zm.Vec,
-    front: zm.Vec = .{ 0.0, 0.0, 1.0, 0.0 },
+    pos: zm.Vec = .{ 0.0, 0.0, 5.0, 1.0 },
+    front: zm.Vec = .{ 0.0, 0.0, -1.0, 0.0 },
     up: zm.Vec = .{ 0.0, 1.0, 0.0, 0.0 },
 
     is_using_mouse: bool = false,
-    yaw: f32 = 0.0,
-    pitch: f32 = 0.0,
+    yaw: f64 = -90.0,
+    pitch: f64 = 0.0,
 
     view: zm.Mat = zm.identity(),
     projection: zm.Mat = zm.identity(),
 
     pub fn setPos(self: *Camera, pos_x: f32, pos_y: f32, pos_z: f32) void {
-        self.pos = zm.f32x3(pos_x, pos_y, pos_z);
+        self.pos = zm.f32x4(pos_x, pos_y, pos_z, 1.0);
     }
 
     pub fn move(self: *Camera, direction: MOVE_DIR, value: f32) void {
@@ -52,7 +52,6 @@ pub const Camera = struct {
             self.*.pos -= result;
         }
 
-        std.debug.print("Position: {}, {}, {}\n", .{ self.*.pos[0], self.*.pos[1], self.*.pos[2] });
         return;
     }
 
@@ -62,16 +61,16 @@ pub const Camera = struct {
     }
 
     pub fn updateView(self: *Camera) void {
-        self.*.view = zm.lookAtLh(
-            self.*.pos,
-            self.*.front,
-            self.*.up,
+        self.view = zm.lookAtRh(
+            self.pos,
+            self.pos + self.front,
+            self.up,
         );
     }
 
     pub fn updateProjection(self: *Camera, fov: f32, aspect_ratio: f32, near_clip_plane: f32, far_clip_plane: f32) void {
         // Use `perspectiveFovRhGl` for OpenGL [-1, 1] clip space
-        self.*.projection = zm.perspectiveFovRhGl(
+        self.projection = zm.perspectiveFovRhGl(
             fov,
             aspect_ratio,
             near_clip_plane,
