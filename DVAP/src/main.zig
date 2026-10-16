@@ -7,6 +7,7 @@ const zm = @import("zmath");
 
 const rocket_verts = @import("rocket_vertices.zig");
 
+const delta_time_lib = @import("delta_time.zig");
 const shader_lib = @import("shader.zig");
 const camera_lib = @import("camera.zig");
 // const gl = @import("glad");
@@ -22,6 +23,12 @@ const DVAPError = error{
     NullWindow,
     OpenGLLoadFailure,
 };
+
+var camera = camera_lib.Camera{
+    .pos = .{ 0.0, 0.0, 0.0, 0.0 },
+};
+var window_width: c_int = 800;
+var window_height: c_int = 600;
 
 pub fn main(init: std.process.Init) !void {
     const arena: std.mem.Allocator = init.arena.allocator();
@@ -50,7 +57,7 @@ pub fn main(init: std.process.Init) !void {
     const window_name = "DVAP";
 
     // Make window
-    graphics_context.window = glfw.glfwCreateWindow(800, 600, &window_name.*, null, null) orelse return DVAPError.NullWindow;
+    graphics_context.window = glfw.glfwCreateWindow(window_width, window_height, &window_name.*, null, null) orelse return DVAPError.NullWindow;
 
     // Make the window the user's selected window
     glfw.glfwMakeContextCurrent(graphics_context.window);
@@ -92,10 +99,16 @@ pub fn main(init: std.process.Init) !void {
     );
     shader.use();
 
-    var camera = camera_lib.Camera{
-        .pos = .{ 0.0, 0.0, 0.0, 0.0 },
-    };
-    camera.enable_mouse_looking(true);
+    // var camera = camera_lib.Camera{
+    //     .pos = .{ 0.0, 0.0, 0.0, 0.0 },
+    // };
+    camera.enableMouseLooking(true);
+
+    // Location of the projection and view matrixes in vertex.glsl
+    // Where opengl knows to set the values for the variables
+    const projection_loc = gl.glGetUniformLocation(shader.ID, "projection");
+    const view_loc: c_int = gl.glGetUniformLocation(shader.ID, "view");
+    // ^^^ moved to global scope
 
     // const verts = [_]f32{ // Placeholder Vertices -- should render a triangle w/ interpolated colors
     //     -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
@@ -136,6 +149,15 @@ pub fn main(init: std.process.Init) !void {
         gl.glBindVertexArray(VAO);
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
 
+        camera.updateView();
+        const window_width_float: f32 = @floatFromInt(window_width);
+        const window_height_float: f32 = @floatFromInt(window_height);
+        camera.updateProjection(std.math.degreesToRadians(45), (window_width_float / window_height_float), 0.1, 1000.0);
+
+        // Set the vertex shader uniform variables
+        gl.glUniformMatrix4fv(projection_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.projection));
+        gl.glUniformMatrix4fv(view_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.view));
+
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts.len / 6); // Divide by 6 because thats the number of floats per vertex
 
         glfw.glfwSwapBuffers(graphics_context.window);
@@ -154,22 +176,32 @@ pub fn main(init: std.process.Init) !void {
 
 pub export fn framebufferSizeCallback(window: ?*glfw.GLFWwindow, width: c_int, height: c_int) void {
     _ = &window;
+    window_width = width;
+    window_height = height;
     gl.glViewport(0, 0, width, height);
 }
 
-pub export fn processInput(
-    window: ?*glfw.GLFWwindow,
-    key: c_int,
-    scancode: c_int,
-    action: c_int,
-    mods: c_int,
-) void {
+pub export fn processInput(window: ?*glfw.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) void {
     _ = &key;
     _ = &scancode;
     _ = &action;
     _ = &mods;
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_ESCAPE) == glfw.GLFW_PRESS) {
         glfw.glfwSetWindowShouldClose(window, glfw.GLFW_TRUE);
+    }
+
+    // Movement
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_W) == glfw.GLFW_PRESS) {
+        camera.move(camera_lib.MOVE_DIR.MOVE_FORWARD, 0.005);
+    }
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_A) == glfw.GLFW_PRESS) {
+        camera.move(camera_lib.MOVE_DIR.MOVE_LEFT, 0.005);
+    }
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_S) == glfw.GLFW_PRESS) {
+        camera.move(camera_lib.MOVE_DIR.MOVE_BACKWARD, 0.005);
+    }
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_D) == glfw.GLFW_PRESS) {
+        camera.move(camera_lib.MOVE_DIR.MOVE_RIGHT, 0.005);
     }
 }
 

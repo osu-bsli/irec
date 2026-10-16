@@ -5,7 +5,7 @@ const c_libs = @import("clibs.zig");
 const gl = c_libs.gl;
 const glfw = c_libs.glfw;
 
-const MOVE_DIR = enum {
+pub const MOVE_DIR = enum {
     MOVE_FORWARD,
     MOVE_BACKWARD,
     MOVE_LEFT,
@@ -22,6 +22,9 @@ pub const Camera = struct {
     is_using_mouse: bool = false,
     yaw: f32 = 0.0,
     pitch: f32 = 0.0,
+
+    view: zm.Mat = zm.identity(),
+    projection: zm.Mat = zm.identity(),
 
     pub fn setPos(self: *Camera, pos_x: f32, pos_y: f32, pos_z: f32) void {
         self.pos = zm.f32x3(pos_x, pos_y, pos_z);
@@ -48,11 +51,31 @@ pub const Camera = struct {
         } else if (direction == MOVE_DIR.MOVE_DOWN or direction == MOVE_DIR.MOVE_LEFT or direction == MOVE_DIR.MOVE_BACKWARD) {
             self.*.pos -= result;
         }
+
+        std.debug.print("Position: {}, {}, {}\n", .{ self.*.pos[0], self.*.pos[1], self.*.pos[2] });
         return;
     }
 
-    pub fn enable_mouse_looking(self: *Camera, value: bool) void {
+    pub fn enableMouseLooking(self: *Camera, value: bool) void {
         self.*.is_using_mouse = value;
         return;
+    }
+
+    pub fn updateView(self: *Camera) void {
+        self.*.view = zm.lookAtLh(
+            self.*.pos,
+            self.*.front,
+            self.*.up,
+        );
+    }
+
+    pub fn updateProjection(self: *Camera, fov: f32, aspect_ratio: f32, near_clip_plane: f32, far_clip_plane: f32) void {
+        // Use `perspectiveFovRhGl` for OpenGL [-1, 1] clip space
+        self.*.projection = zm.perspectiveFovRhGl(
+            fov,
+            aspect_ratio,
+            near_clip_plane,
+            far_clip_plane,
+        );
     }
 };
