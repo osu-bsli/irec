@@ -7,6 +7,7 @@ firmware to a more modern standard.
 
 Glossary:
 1. [Build](#Build)
+1. [Debug](#Debug)
 1. [Contributing](#Contributing)
 1. [Bugs](#Bugs)
 1. [Credit](#credit)
@@ -16,6 +17,14 @@ Glossary:
 Run ```zig build``` to compile the UF2 binary for use with the RP2350 target. The binary is in the zig-out/firmware/ folder.
 
 Mount the RP2350 to a directory and drag and drop the UF2 file into it's directory. This will flash your code onto the RP2350, your code will run upon restart.
+
+# Debug
+
+SWD debugging is your best option if you aren't able to get serial out.
+
+```probe-rs run --chip RP235x *firmware location* ``` Flashes the firmware onto the chip
+
+```probe-rs attach --chip RP235x``` reads the RTT buffer back to the host
 
 # Bugs
 

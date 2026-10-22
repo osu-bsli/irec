@@ -16,7 +16,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
     });
 
-    micro_build.install_firmware(firmware, .{});
+    micro_build.install_firmware(firmware, .{ .format = .elf });
 
     // const mod_tests = b.addTest(.{
     //     .root_module = mod,
