@@ -20,6 +20,18 @@
 /// This function finds the bmi323 on our i2c line and configures it.
 bmi323_init() void
 {
+  Wire.begin();
+  Wire.setClock(400000);
+
+  Wire.beginTransmission(CHIP_ID);
+
+  Wire.requestFrom(CHIP_ID, 1);
+  while (Wire.available())
+  {
+    //is it supposed to be a char?
+    char result = Wire.read();
+  }
+  Wire.end();
 }
 
 /// This function acquires angular velocity and accelation data from the bmi323.
