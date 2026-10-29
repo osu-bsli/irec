@@ -20,13 +20,20 @@ Mount the RP2350 to a directory and drag and drop the UF2 file into it's directo
 
 # Debug
 
+```probe-rs run --chip RP235x <firmware location> ``` Flashes the firmware onto the chip
+
 SWD debugging is your best option if you aren't able to get serial out.
 
-```probe-rs run --chip RP235x *firmware location* ``` Flashes the firmware onto the chip
+The base memory address of the SRAM is 0x20000000 and has a total size of 520KB (520 * 1024 bytes).
+The base memory address of the ROM is 0x0 and has a total size of 32KB (32 * 1024 bytes).
 
-```probe-rs attach --chip RP235x``` reads the RTT buffer back to the host
+```probe-rs attach --chip RP235x --scan-region <start-memory-address>..<end-memory-address>``` reads the RTT buffer back to the host.
+Make sure your scan range is correct otherwise you will not recieve any messages.
+A good starting range is 0x20000000..0x20000400.
 
-```probe-rs gdb --chip <chip-name>``` start a gdb server connected to the probe.
+```probe-rs read --format binary --chip RP235x <word-size> <base-address> <word-count>``` dumps specified memory space into stdio.
+
+```probe-rs gdb --chip RP235x``` start a gdb server connected to the probe.
 
 # Bugs
 

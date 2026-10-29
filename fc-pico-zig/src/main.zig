@@ -30,6 +30,7 @@ pub fn log(
         const current_time = time.get_time_since_boot();
         const seconds = current_time.to_us() / std.time.us_per_s;
         const microseconds = current_time.to_us() % std.time.us_per_s;
+
         writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
         // Don't forget to flush! This never returns an error with how the Writer interface is implemented
         // so unreachable is appropriate here.
@@ -53,8 +54,6 @@ const rtt_instance = rtt.RTT(.{});
 
 var rtt_logger: ?rtt_instance.Writer = null;
 
-// const log = std.log.scoped(.main);
-
 pub export fn main() void {
     const pins = pin_config.apply();
 
@@ -65,20 +64,19 @@ pub export fn main() void {
     // rp.uart.init_logger(uart);
 
     rtt_instance.init();
+    rtt_logger = rtt_instance.writer(0, &.{});
 
-    // _ = rtt_instance.write(0, "Hello World!\n");
+    // std.log.info("Hello World!", .{});
+    if (rtt_logger == null) {
+        _ = rtt_instance.write(0, "RTT logger is NULL\n");
+    }
 
-    // rtt_logger = rtt_instance.writer(0, &.{});
-
-    // std.log.info("Hello World\n", .{});
-
+    var count: f32 = 0.0;
     while (true) {
-        log(.info, .default, "Hello World!\n", .{});
+        std.log.info("{} Hello World!", .{count});
         // _ = rtt_instance.write(0, "Hello World!\n");
-        // std.log.err("Hello World ", .{});
-        // _ = rtt_instance.write(0, "Hello World!\n");
-        // try rtt_logger.?.interface.flush();
         pins.led.toggle();
         time.sleep_ms(500);
+        count += 0.24;
     }
 }
