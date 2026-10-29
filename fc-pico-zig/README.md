@@ -26,6 +26,8 @@ SWD debugging is your best option if you aren't able to get serial out.
 
 ```probe-rs attach --chip RP235x``` reads the RTT buffer back to the host
 
+```probe-rs gdb --chip <chip-name>``` start a gdb server connected to the probe.
+
 # Bugs
 
 We are not accepting public issues or pull requests at this time.
