@@ -6,16 +6,18 @@
 #![no_main]
 
 pub mod bmi323;
+pub mod buzzer;
 
 use defmt::*;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
-use embassy_rp::{bind_interrupts, gpio, i2c::{self, I2c}, peripherals, time::Hertz};
+use embassy_rp::{bind_interrupts, gpio, i2c::{self, I2c}, pac, peripherals, pwm::{self, Pwm, SetDutyCycle}, time::Hertz};
 use embassy_time::{Duration, Timer};
 use gpio::{Level, Output};
 use panic_probe as _;
 
 use crate::bmi323::Bmi323;
+use crate::buzzer::Buzzer;
 
 // Program metadata for `picotool info`.
 // This isn't needed, but it's recommended to have these minimal entries.
@@ -48,7 +50,15 @@ async fn main(_spawner: Spawner) {
     let mut i2c = I2c::new(p.I2C0, p.PIN_21, p.PIN_20, Irqs, i2c_config);
     let mut bmi323 = Bmi323::init(i2c).await;
 
+    let buzzer_pwm = Pwm::new_output_a(p.PWM_SLICE5, p.PIN_26, pwm::Config::default());
+    let mut buzzer = Buzzer::init(buzzer_pwm);
+
+    // If BMI323 successfully initialized, blink
     if bmi323.is_some() {
+        // Play happy da-ding buzzer sound if BMI323 successfully initializes
+        buzzer.buzz(880, Duration::from_millis(100)).await;
+        buzzer.buzz(880*2, Duration::from_millis(300)).await;
+
         loop {
             info!("led on!");
             led.set_high();
@@ -58,5 +68,9 @@ async fn main(_spawner: Spawner) {
             led.set_low();
             Timer::after_millis(500).await;
         }
+    } else {
+        // Play "wrong" buzzer sound (ER-ERHHHHH) if BMI323 fails to initialize
+        buzzer.buzz(1000, Duration::from_millis(500)).await;
+        buzzer.buzz(707, Duration::from_millis(500)).await;
     }
 }
