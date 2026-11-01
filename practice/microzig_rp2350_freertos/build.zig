@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(firmware.target.zig_target);
 
     const t: Translator = .init(translate_c, .{
-        .c_source_file = b.path("to_translate.h"),
+        .c_source_file = b.path("src/FreeRTOS/list.c"),
         .target = target,
         // This is the optimization mode of the C code being translated and
         // the resulting Zig code.
