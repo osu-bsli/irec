@@ -1,43 +1,43 @@
+//! This example test the RP Pico on board LED.
+//!
+//! It does not work with the RP Pico W board. See `blinky_wifi.rs`.
+
 #![no_std]
 #![no_main]
 
 use defmt::*;
+use defmt_rtt as _;
 use embassy_executor::Spawner;
-use embassy_nrf::Peri;
-use embassy_nrf::gpio::{AnyPin, Input, Level, Output, OutputDrive, Pull};
+use embassy_rp::gpio;
 use embassy_time::Timer;
-use {defmt_rtt as _, panic_probe as _};
+use gpio::{Level, Output};
+use panic_probe as _;
 
-// Declare async tasks
-#[embassy_executor::task]
-async fn blink(pin: Peri<'static, AnyPin>) {
-    let mut led = Output::new(pin, Level::Low, OutputDrive::Standard);
+// Program metadata for `picotool info`.
+// This isn't needed, but it's recommended to have these minimal entries.
+#[unsafe(link_section = ".bi_entries")]
+#[used]
+pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
+    embassy_rp::binary_info::rp_program_name!(c"Blinky Example"),
+    embassy_rp::binary_info::rp_program_description!(
+        c"This example tests the RP Pico on board LED, connected to gpio 25"
+    ),
+    embassy_rp::binary_info::rp_cargo_version!(),
+    embassy_rp::binary_info::rp_program_build_attribute!(),
+];
+
+#[embassy_executor::main(executor = "embassy_rp::executor::Executor", entry = "cortex_m_rt::entry")]
+async fn main(_spawner: Spawner) {
+    let p = embassy_rp::init(Default::default());
+    let mut led = Output::new(p.PIN_25, Level::Low);
 
     loop {
-        // Timekeeping is globally available, no need to mess with hardware timers.
+        info!("led on!");
         led.set_high();
-        Timer::after_millis(150).await;
+        Timer::after_millis(500).await;
+
+        info!("led off!");
         led.set_low();
-        Timer::after_millis(150).await;
+        Timer::after_millis(500).await;
     }
 }
-
-// Main is itself an async task as well.
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
-    // Initialize the embassy-nrf HAL.
-    let p = embassy_nrf::init(Default::default());
-
-    // Spawned tasks run in the background, concurrently.
-    spawner.spawn(blink(p.P0_13.into()).unwrap());
-
-    let mut button = Input::new(p.P0_11, Pull::Up);
-    loop {
-        // Asynchronously wait for GPIO events, allowing other tasks
-        // to run, or the core to sleep.
-        button.wait_for_low().await;
-        info!("Button pressed!");
-        button.wait_for_high().await;
-        info!("Button released!");
-    }
-}``
