@@ -6,14 +6,11 @@ const Io = std.Io;
 const zm = @import("zmath");
 
 const rocket_verts = @import("rocket_vertices.zig");
+const ground_verts = @import("ground_verts.zig");
 
 const delta_time_lib = @import("delta_time.zig");
 const shader_lib = @import("shader.zig");
 const camera_lib = @import("camera.zig");
-// const gl = @import("glad");
-// const glfw = @import("glfw");
-
-// const DVAP = @import("DVAP");
 
 const GraphicsContext = struct {
     window: *glfw.GLFWwindow = undefined,
@@ -120,10 +117,12 @@ pub fn main(init: std.process.Init) !void {
     //     0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
     // };
     const verts = rocket_verts.verts;
+    const verts2 = ground_verts.verts;
 
     // Make VBO and VAO
     var VAO: u32 = 0; // using u32 rather than unsigned int to ensure 32 bits
     var VBO: u32 = 0;
+    var VBO2: u32 = 0;
 
     // Gen and bind VAO
     gl.glGenVertexArrays(1, &VAO);
@@ -133,6 +132,11 @@ pub fn main(init: std.process.Init) !void {
     gl.glGenBuffers(1, &VBO);
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
     gl.glBufferData(gl.GL_ARRAY_BUFFER, @sizeOf(f32) * verts.len, &verts, gl.GL_STATIC_DRAW);
+
+    // Make other VBO
+    gl.glGenBuffers(1, &VBO2);
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO2);
+    gl.glBufferData(gl.GL_ARRAY_BUFFER, @sizeOf(f32) * verts2.len, &verts2, gl.GL_STATIC_DRAW);
 
     // Set XYZ vec3 in location = 0
     gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(0));
@@ -151,11 +155,15 @@ pub fn main(init: std.process.Init) !void {
 
         delta_time_lib.updateDeltaTime(); // find time between frames
 
-        // processInput(graphics_context.window);
-
-        // Bind VBO and VAO
+        // Bind and VAO
         gl.glBindVertexArray(VAO);
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO);
+        // Set XYZ vec3 in location = 0
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(0));
+        gl.glEnableVertexAttribArray(0);
+        // Set RGB vec3 in location = 1
+        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+        gl.glEnableVertexAttribArray(1);
 
         camera.updateView();
         const window_width_float: f32 = @floatFromInt(window_width);
@@ -167,7 +175,21 @@ pub fn main(init: std.process.Init) !void {
         gl.glUniformMatrix4fv(projection_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.projection));
         gl.glUniformMatrix4fv(view_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.view));
 
+        // Set translation
+        const translation: zm.Vec = .{ 0.0, 1.0, 0.0, 0.0 };
+        gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, zm.arrNPtr(&translation));
+
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts.len / 6); // Divide by 6 because thats the number of floats per vertex
+
+        // Draw ground
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO2);
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(0));
+        gl.glEnableVertexAttribArray(0);
+        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+        gl.glEnableVertexAttribArray(1);
+        const translation2: zm.Vec = .{ 0.0, -10.0, 0.0, 0.0 };
+        gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, zm.arrNPtr(&translation2));
+        gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts2.len / 6);
 
         glfw.glfwSwapBuffers(graphics_context.window);
         glfw.glfwPollEvents();
