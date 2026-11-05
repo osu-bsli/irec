@@ -147,6 +147,8 @@ pub fn main(init: std.process.Init) !void {
 
     gl.glEnable(gl.GL_DEPTH_TEST);
 
+    const start_time: f64 = glfw.glfwGetTime();
+
     while (glfw.glfwWindowShouldClose(graphics_context.window) != glfw.GLFW_TRUE) {
         gl.glClearColor(0.2, 0.3, 0.3, 1.0);
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT);
@@ -176,8 +178,10 @@ pub fn main(init: std.process.Init) !void {
         gl.glUniformMatrix4fv(view_loc, 1, gl.GL_FALSE, zm.arrNPtr(&camera.view));
 
         // Set translation
-        const translation: zm.Vec = .{ 0.0, 1.0, 0.0, 0.0 };
-        gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, zm.arrNPtr(&translation));
+        const current_time: f64 = glfw.glfwGetTime();
+        const rocket_y: f32 = launch(start_time, current_time);
+        var translation = [4]f32{ 0.0, rocket_y + 2.0, 0.0, 0.0 };
+        gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, &translation);
 
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts.len / 6); // Divide by 6 because thats the number of floats per vertex
 
@@ -187,8 +191,8 @@ pub fn main(init: std.process.Init) !void {
         gl.glEnableVertexAttribArray(0);
         gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, gl.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
         gl.glEnableVertexAttribArray(1);
-        const translation2: zm.Vec = .{ 0.0, -10.0, 0.0, 0.0 };
-        gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, zm.arrNPtr(&translation2));
+        translation = [4]f32{ 0.0, 0.0, 0.0, 0.0 };
+        gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, &translation);
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, verts2.len / 6);
 
         glfw.glfwSwapBuffers(graphics_context.window);
@@ -203,6 +207,11 @@ pub fn main(init: std.process.Init) !void {
     if (std.debug.runtime_safety == true) {
         glfw.glfwTerminate();
     }
+}
+
+fn launch(start_time: f64, current_time: f64) f32 {
+    const time_diff: f32 = @floatCast(current_time - start_time);
+    return std.math.pow(f32, time_diff, 2);
 }
 
 pub export fn framebufferSizeCallback(window: ?*glfw.GLFWwindow, width: c_int, height: c_int) void {
@@ -243,7 +252,10 @@ pub export fn processInput(window: ?*glfw.GLFWwindow) void {
     }
 
     // Movement
-    const camera_speed: f32 = 5.0 * delta_time_lib.delta_time;
+    var camera_speed: f32 = 5.0 * delta_time_lib.delta_time;
+    if (glfw.glfwGetKey(window, glfw.GLFW_KEY_LEFT_CONTROL) == glfw.GLFW_PRESS) {
+        camera_speed *= 10.0;
+    }
     if (glfw.glfwGetKey(window, glfw.GLFW_KEY_W) == glfw.GLFW_PRESS) {
         camera.move(camera_lib.MOVE_DIR.MOVE_FORWARD, camera_speed);
     }
@@ -292,7 +304,7 @@ pub export fn mouseCallback(window: ?*glfw.GLFWwindow, mouse_x: f64, mouse_y: f6
     last_mouse_y = mouse_y;
 
     // Convert the mouse change in position to a reasonable change in position for the camera
-    const sensitivity: f64 = 500.0 * delta_time_lib.delta_time;
+    const sensitivity: f64 = 250.0 * delta_time_lib.delta_time;
     mouse_offset_x *= sensitivity;
     mouse_offset_y *= sensitivity;
 
