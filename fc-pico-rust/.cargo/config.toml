@@ -1,0 +1,8 @@
+# [target.thumbv8m.main-none-eabihf]
+# runner = 'probe-rs run --chip rp2350x'
+
+[build]
+target = "thumbv8m.main-none-eabihf"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "picotool load --update --verify --execute -t elf"
