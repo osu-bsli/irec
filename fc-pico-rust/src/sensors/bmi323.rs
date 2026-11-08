@@ -155,26 +155,26 @@ pub struct Bmi323Data {
     /* datasheet pg. 22 */
 
     /* Acceleration - in Gs */
-    accel_x: f32,
-    accel_y: f32,
-    accel_z: f32,
+    pub accel_x_g: f32,
+    pub accel_y_g: f32,
+    pub accel_z_g: f32,
     // TODO: accel_x_saturated: f32,
     // TODO: accel_y_saturated: f32,
     // TODO: accel_z_saturated: f32,
 
     /* Gyroscope - in degrees/second */
-    gyro_x: f32,
-    gyro_y: f32,
-    gyro_z: f32,
+    pub gyro_x_deg1s: f32,
+    pub gyro_y_deg1s: f32,
+    pub gyro_z_deg1s: f32,
     // TODO: gyro_x_saturated: f32,
     // TODO: gyro_y_saturated: f32,
     // TODO: gyro_z_saturated: f32,
 
     /* Temperature - in Celcius */
-    temp: f32,
+    pub temp: f32,
 
     // TODO: time: f32, /* sensor keeps timestamps for measurements (datasheet pg. 25) */
-    embassy_timestamp: embassy_time::Instant, /* in kernel ticks */
+    pub embassy_timestamp: embassy_time::Instant, /* in kernel ticks */
 }
 
 pub struct Bmi323<'a> {
@@ -372,6 +372,14 @@ impl<'a> Bmi323<'a> {
     }
 
     pub async fn process(&mut self) -> Result<Bmi323Data, Bmi323Error> {
+        // TODO: Check if we even need to bother waiting for the data ready flag.
+        //       The sensor might be ready before we read it for the first time.
+        //       Plus, we can configure the sensor to give new data faster than we could
+        //       ever possibly read it. From a signal processing standpoint, we can also
+        //       enable the sensor's internal filtering to reduce aliasing.
+        //
+        // TODO: Also think about using actual GPIO interrupts to handle data ready.
+
         let mut sensor_data = [0u16; 8]; // dummy, 3-axis accel, 3-axis gyro, temp
         let read_res = Self::read_regs(
             &mut self.i2c,
@@ -382,14 +390,14 @@ impl<'a> Bmi323<'a> {
 
         if let Ok(()) = read_res {
             return Ok(Bmi323Data {
-                // multiplier to convert an int16_t to the sensor range
-                accel_x: (sensor_data[1] as f32) / 8.19 / 1000.0, // +/-4g, 8.19 LSB/mg
-                accel_y: (sensor_data[2] as f32) / 8.19 / 1000.0,
-                accel_z: (sensor_data[3] as f32) / 8.19 / 1000.0,
+                // multiplier to convert an i16 to the sensor range
+                accel_x_g: (sensor_data[1] as i16 as f32) / 8.19 / 1000.0, // +/-4g, 8.19 LSB/mg
+                accel_y_g: (sensor_data[2] as i16 as f32) / 8.19 / 1000.0,
+                accel_z_g: (sensor_data[3] as i16 as f32) / 8.19 / 1000.0,
 
-                gyro_x: (sensor_data[4] as f32) / 16.4, // +/-2000deg, 16.4 LSB/deg/s
-                gyro_y: (sensor_data[5] as f32) / 16.4,
-                gyro_z: (sensor_data[6] as f32) / 16.4,
+                gyro_x_deg1s: (sensor_data[4] as i16 as f32) / 16.4, // +/-2000deg, 16.4 LSB/deg/s
+                gyro_y_deg1s: (sensor_data[5] as i16 as f32) / 16.4,
+                gyro_z_deg1s: (sensor_data[6] as i16 as f32) / 16.4,
 
                 temp: (sensor_data[7] as f32) / 512.0 + 23.0,
 
