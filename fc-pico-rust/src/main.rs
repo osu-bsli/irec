@@ -1,7 +1,3 @@
-//! This example test the RP Pico on board LED.
-//!
-//! It does not work with the RP Pico W board. See `blinky_wifi.rs`.
-
 #![no_std]
 #![no_main]
 
@@ -54,7 +50,7 @@ async fn main(_spawner: Spawner) {
     let mut buzzer = Buzzer::init(buzzer_pwm);
 
     // If BMI323 successfully initialized, blink
-    if bmi323.is_some() {
+    if bmi323.is_ok() {
         // Play happy da-ding buzzer sound if BMI323 successfully initializes
         buzzer.buzz(880, Duration::from_millis(100)).await;
         buzzer.buzz(880*2, Duration::from_millis(300)).await;
