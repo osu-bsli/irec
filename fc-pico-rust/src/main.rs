@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-pub mod bmi323;
+pub mod sensors;
 pub mod buzzer;
 
 use defmt::*;
@@ -12,7 +12,7 @@ use embassy_time::{Duration, Timer};
 use gpio::{Level, Output};
 use panic_probe as _;
 
-use crate::bmi323::Bmi323;
+use crate::sensors::*;
 use crate::buzzer::Buzzer;
 
 // Program metadata for `picotool info`.

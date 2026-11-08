@@ -262,8 +262,8 @@ impl<'a> Bmi323<'a> {
         }
 
         /* check STATUS */
-        let status_value = Self::read_reg(&mut i2c, I2C_ADDRESS, REGISTER_STATUS).await;
-        if let Err(_) = err_value_res {
+        let status_value_res = Self::read_reg(&mut i2c, I2C_ADDRESS, REGISTER_STATUS).await;
+        if let Err(_) = status_value_res {
             return Err(Bmi323Error::StatusReadFailure);
         }
 
