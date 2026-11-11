@@ -71,6 +71,10 @@ pub fn main(init: std.process.Init) !void {
     // const a = c.e.chicken(0);
     // const b = c.e.amongus(0.003);
 
+    var csv_thing = c_libs.e.csv_init();
+    // _ = &csv_thing;
+    c_libs.e.csv_read(&csv_thing, "C:\\Users\\ianb5\\Desktop\\Github\\irec\\brute_test_flight_2025-11-23_SRAD_flight-only.csv"); // erm it only works on my machine
+
     // _ = &a;
     // _ = &b;
     _ = &window_name;
@@ -150,7 +154,7 @@ pub fn main(init: std.process.Init) !void {
     const start_time: f64 = glfw.glfwGetTime();
 
     while (glfw.glfwWindowShouldClose(graphics_context.window) != glfw.GLFW_TRUE) {
-        gl.glClearColor(0.2, 0.3, 0.3, 1.0);
+        gl.glClearColor(0.529, 0.808, 0.922, 1.0);
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT);
 
         processInput(graphics_context.window);
