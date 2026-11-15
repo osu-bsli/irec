@@ -3,6 +3,7 @@
 
 pub mod sensors;
 pub mod buzzer;
+pub mod lora;
 
 use defmt::*;
 use defmt_rtt as _;
