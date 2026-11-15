@@ -2,11 +2,15 @@
     .name = .DVAP,
     .version = "0.0.0",
     .fingerprint = 0xdf0a6dc4ca833c91, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .zmath = .{
-            .url = "git+https://github.com/zig-gamedev/zmath.git#9e42b04a24c970a297b365f3d3022f92dbf3219d",
-            .hash = "zmath-0.11.0-dev-wjwivTwtAwDOjG2_KGP-HLtHrONfsFfHttalmxFAGVAK",
+            .url = "https://github.com/zig-gamedev/zmath/archive/refs/heads/main.zip",
+            .hash = "zmath-0.11.0-dev-wjwivaAtAwA7W0_rRXAqdwjWGigw6_pxgsYtAdjUbqUj",
+        },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=zig-0.17.x#cfac21f3199b2b02ce3fd7db652aa456421fe4ab",
+            .hash = "translate_c-2.0.2-Q_BUWvBNBwDnyehSiuAJmdFcMYHYGA-Jc3KiYdrV2Dqx",
         },
     },
     .paths = .{

@@ -1,7 +1,8 @@
 const std = @import("std");
-const c_libs = @import("clibs.zig");
-const gl = c_libs.gl;
-const glfw = c_libs.glfw;
+// const c_libs = @import("clibs.zig");
+const gl = @import("gl");
+const glfw = @import("glfw");
+const csv = @import("csv");
 const Io = std.Io;
 const zm = @import("zmath");
 
@@ -71,9 +72,9 @@ pub fn main(init: std.process.Init) !void {
     // const a = c.e.chicken(0);
     // const b = c.e.amongus(0.003);
 
-    var csv_thing = c_libs.e.csv_init();
-    // _ = &csv_thing;
-    c_libs.e.csv_read(&csv_thing, "C:\\Users\\ianb5\\Desktop\\Github\\irec\\brute_test_flight_2025-11-23_SRAD_flight-only.csv"); // erm it only works on my machine
+    var csv_thing = csv.csv_init();
+    _ = &csv_thing;
+    csv.csv_read(&csv_thing, "C:\\Users\\ianb5\\Desktop\\Github\\irec\\brute_test_flight_2025-11-23_SRAD_flight-only.csv"); // erm it only works on my machine
 
     // _ = &a;
     // _ = &b;

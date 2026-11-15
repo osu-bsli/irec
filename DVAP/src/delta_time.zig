@@ -1,6 +1,6 @@
 const std = @import("std");
-const c_libs = @import("clibs.zig");
-const glfw = c_libs.glfw;
+// const c_libs = @import("clibs.zig");
+const glfw = @import("glfw");
 
 pub var delta_time: f32 = 0.0;
 var last_time_check: f32 = 0.0;

@@ -1,9 +1,8 @@
 const std = @import("std");
 const Io = std.io;
 
-const c_libs = @import("clibs.zig");
-const gl = c_libs.gl;
-const glfw = c_libs.glfw;
+const gl = @import("gl");
+const glfw = @import("glfw");
 
 const ShaderError = error{
     CompileError,

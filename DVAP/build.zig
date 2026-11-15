@@ -1,8 +1,35 @@
 const std = @import("std");
+const Translator = @import("translate_c").Translator;
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const translate_c = b.dependency("translate_c", .{});
+
+    const glad_translate = Translator.init(translate_c, .{
+        .c_source_file = b.path("lib/GLAD/include/glad/gl.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_system_libs = &.{},
+    });
+
+    const glfw_translate = Translator.init(translate_c, .{
+        .c_source_file = b.path("lib/GLFW/include/GLFW/glfw3.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_system_libs = &.{
+            .{ .name = "glfw" },
+        },
+    });
+
+    const csv_translate = Translator.init(translate_c, .{
+        .c_source_file = b.path("lib/csv.c"),
+        .target = target,
+        .optimize = optimize,
+        .link_system_libs = &.{},
+    });
+    // csv_translate.addxdc
 
     const dvap = b.addExecutable(.{
         .name = "DVAP",
@@ -11,8 +38,27 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
+            .imports = &.{
+                .{
+                    .name = "gl",
+                    .module = glad_translate.mod,
+                },
+                .{
+                    .name = "glfw",
+                    .module = glfw_translate.mod,
+                },
+                .{
+                    .name = "csv",
+                    .module = csv_translate.mod,
+                },
+            },
         }),
     });
+
+    // dvap.root_module.linkSystemLibrary("glfw", .{
+    //     .needed = true,
+    //     .preferred_link_mode = .static,
+    // });
 
     const zmath = b.dependency("zmath", .{});
     dvap.root_module.addImport("zmath", zmath.module("root"));
@@ -124,10 +170,6 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     run_cmd.step.dependOn(b.getInstallStep());
-
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
 
     // Tests
 
