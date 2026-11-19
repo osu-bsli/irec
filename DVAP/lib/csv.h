@@ -86,6 +86,15 @@ void csv_read(CSV_file* csv, const char* file_path) {
 
     csv->data_columns = line_separater_count;
     csv->data_rows = 0;
+    csv->data = NULL;
+
+    // allocates an arbitrary amount of initial memory
+    unsigned int capacity = 16;
+    csv->data = malloc(capacity * sizeof(*csv->data));
+    if (csv->data == NULL) {
+        fclose(file);
+        return;
+    }
 
     char* fscanf_string = (char*)malloc(sizeof(char) * (line_separater_count * 4) + 1);
     printf("Line separators: %d\n", line_separater_count);
@@ -99,6 +108,30 @@ void csv_read(CSV_file* csv, const char* file_path) {
     }
     fscanf_string[line_separater_count * 4] = '\0';
     printf("scanf string: %s\n", fscanf_string);
+
+    // will comment this later, should work though
+    char line[4096];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (csv->data_rows == capacity) {
+            capacity *= 2;
+            double** temp = realloc(csv->data, capacity * sizeof(*csv->data));
+            if (temp == NULL) break;
+            csv->data = temp;
+        }
+
+        csv->data[csv->data_rows] = malloc(csv->data_columns * sizeof(double));
+        if (csv->data[csv->data_rows] == NULL) break;
+
+        char* token = strtok(line, ",\r\n");
+
+        for (unsigned int col = 0; col < csv->data_columns; col++) {
+            if (token == NULL) break;
+            csv->data[csv->data_rows][col] = strtod(token, NULL);
+            token = strtok(NULL, ",\r\n");
+        }
+
+        ++csv->data_rows;
+    }
     // Loop through the second time for copying data to the csv struct
     // while (fscanf("%ld,%ld,"))
 

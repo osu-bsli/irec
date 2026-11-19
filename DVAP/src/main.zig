@@ -74,7 +74,7 @@ pub fn main(init: std.process.Init) !void {
 
     var csv_thing = csv.csv_init();
     _ = &csv_thing;
-    csv.csv_read(&csv_thing, "C:\\Users\\ianb5\\Desktop\\Github\\irec\\brute_test_flight_2025-11-23_SRAD_flight-only.csv"); // erm it only works on my machine
+    csv.csv_read(&csv_thing, "C:/Users/jerry/Documents/Projects/irec/flight-data-logs/nomad_irec_2026_6_18/analysis/2026-06-17 Nomad IREC EasyMini Poland.csv"); // idk change this or something
 
     // _ = &a;
     // _ = &b;
@@ -184,7 +184,7 @@ pub fn main(init: std.process.Init) !void {
 
         // Set translation
         const current_time: f64 = glfw.glfwGetTime();
-        const rocket_y: f32 = launch(start_time, current_time);
+        const rocket_y: f32 = launch(csv_thing, start_time, current_time);
         var translation = [4]f32{ 0.0, rocket_y + 2.0, 0.0, 0.0 };
         gl.glUniform4fv(gl.glGetUniformLocation(shader.ID, "translation"), 1, &translation);
 
@@ -214,9 +214,36 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-fn launch(start_time: f64, current_time: f64) f32 {
-    const time_diff: f32 = @floatCast(current_time - start_time);
-    return std.math.pow(f32, time_diff, 2);
+fn searchForTime(csv_file: csv.CSV_file, target_time: f32) c_uint {
+    const target: f32 = @floatCast(csv_file.data[0][3] + target_time); // time column currently hardcoded
+    if (target >= csv_file.data[csv_file.data_rows - 1][3]) {
+        return csv_file.data_rows - 1;
+    }
+    var index: c_uint = 0;
+    var low: c_uint = 0;
+    var mid: c_uint = 0;
+    var high: c_uint = csv_file.data_rows - 1;
+
+    // standard binary search algorithm
+    while (low <= high) {
+        mid = (low + high) / 2;
+        if (csv_file.data[mid][3] <= target) {
+            low = mid + 1;
+            index = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return index;
+}
+
+fn launch(csv_file: csv.CSV_file, start_time: f64, current_time: f64) f32 {
+    const time_diff: f32 = @floatCast((current_time - start_time) / 3); // slowed down a bit
+    const row: c_uint = searchForTime(csv_file, time_diff);
+    const altitude: f32 = @floatCast(csv_file.data[row][8] - csv_file.data[0][8]); // altitude column currently hardcoded
+    // std.debug.print("altitude: {d}\n", .{altitude});
+
+    return altitude;
 }
 
 pub export fn framebufferSizeCallback(window: ?*glfw.GLFWwindow, width: c_int, height: c_int) void {
@@ -294,6 +321,9 @@ var first_mouse: bool = true;
 pub export fn mouseCallback(window: ?*glfw.GLFWwindow, mouse_x: f64, mouse_y: f64) void {
     _ = &window;
 
+    if (glfw.glfwGetMouseButton(window, glfw.GLFW_MOUSE_BUTTON_RIGHT) != glfw.GLFW_PRESS) {
+        return;
+    }
     // Check whether the program just started
     // Handle the mouse such that there is no jerky motion when the mouse first enters the screen
     if (first_mouse) {
